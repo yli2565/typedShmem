@@ -1,0 +1,87 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Make Build Folder",
+      "type": "shell",
+      "command": "mkdir -p ${workspaceFolder}/build/intermediates",
+      "detail": "Make build folder if not exist",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "Copy Intermediates",
+      "type": "shell",
+      "command": "cp ${workspaceFolder}/build/CMakeFiles/main.dir/src/* ${workspaceFolder}/build/intermediates/",
+    },
+    {
+      "label": "Clean log files",
+      "type": "shell",
+      "command": "rm ${workspaceFolder}/test.log",
+    },
+    {
+      // CMake task: Generates a Makefile for the project using CMake
+      "label": "CMake",
+      "type": "shell",
+      "command": "cmake -S . -B build -G \"Unix Makefiles\" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=gcc-12 -DCMAKE_CXX_COMPILER=g++-12",
+      "options": {
+        // Sets the current working directory to the "build" folder
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      // Make task: Builds the project using the generated Makefile
+      "label": "Make - Main",
+      "type": "shell",
+      "command": "make main",
+      "dependsOn": [
+        "CMake",
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/build"
+      }
+    },
+    {
+      // Make task: Builds the project using the generated Makefile
+      "label": "Make - Test",
+      "type": "shell",
+      "command": "make test",
+      "dependsOn": [
+        "CMake",
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/build"
+      }
+    },
+    {
+      "label": "Build - Main",
+      "type": "shell",
+      "command": "echo 'Build - Main'",
+      "dependsOn": [
+        "Make Build Folder",
+        "Make - Main",
+        "Copy Intermediates",
+      ],
+      "dependsOrder": "sequence",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Build - Test",
+      "type": "shell",
+      "command": "echo 'Build - Test'",
+      "dependsOn": [
+        "Clean log files",
+        "Make Build Folder",
+        "Make - Test",
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      }
+    }
+  ]
+}

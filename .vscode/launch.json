@@ -1,0 +1,45 @@
+{
+  "version": "0.2.0", // Version of the configuration file format
+  "configurations": [
+    {
+      "name": "C++ Debug", // Name of the debug configuration
+      "type": "cppdbg", // Type of debugger, cppdbg for C/C++ debugger
+      "request": "launch", // Request type, "launch" to start the program for debugging
+      "program": "${workspaceFolder}/build/main", // Path to the executable to debug
+      "args": [], // Command-line arguments passed to the program
+      "stopAtEntry": false, // Whether to stop at the entry point of the program
+      "cwd": "${workspaceFolder}", // Current working directory for running the debugger
+      "environment": [], // Environment variables to set for the program
+      "externalConsole": false, // Whether to use an external console for debug I/O
+      "MIMode": "gdb", // Debugger mode, "gdb" for GNU Debugger
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb", // Description of the command
+          "text": "-enable-pretty-printing", // GDB command to enable pretty-printing
+          "ignoreFailures": true // Whether to ignore failures of the command
+        }
+      ],
+      "preLaunchTask": "Build - Main" // Task to execute before launching the debugger
+    },
+    {
+      "name": "C++ Test", // Name of the debug configuration
+      "type": "cppdbg", // Type of debugger, cppdbg for C/C++ debugger
+      "request": "launch", // Request type, "launch" to start the program for debugging
+      "program": "${workspaceFolder}/build/test", // Path to the executable to debug
+      "args": [], // Command-line arguments passed to the program
+      "stopAtEntry": false, // Whether to stop at the entry point of the program
+      "cwd": "${workspaceFolder}", // Current working directory for running the debugger
+      "environment": [], // Environment variables to set for the program
+      "externalConsole": false, // Whether to use an external console for debug I/O
+      "MIMode": "gdb", // Debugger mode, "gdb" for GNU Debugger
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb", // Description of the command
+          "text": "-enable-pretty-printing", // GDB command to enable pretty-printing
+          "ignoreFailures": true // Whether to ignore failures of the command
+        }
+      ],
+      "preLaunchTask": "Build - Test" // Task to execute before launching the debugger
+    }
+  ]
+}

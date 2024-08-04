@@ -1,0 +1,50 @@
+Ok, I wanna prototype a new sharedMemoryHelper class, which is and additional layer on shared memory. 
+
+It does this: It's a tpyed shared memory. 
+By typed, I mean, the shared memory starts with a type description which allows limited but still flexible compilicated type to be passed through the shared memory. 
+
+Each shared memory has a type prefix, which describes all kind of types that might present in this Shmem
+    At the very beginning, it will record the general type and / the size of the type descriptor
+
+    1. primitive. This include the most basic types mapping
+        type descriptor
+        For primitive, the description is directly "int" / "std::string" / "char" / "float"
+        I've already accomplish the read function for primitives
+
+        "int*" / "int**" would just be an alias of collection type and not treated as primitive
+        
+    2. A couple of collection types, such as vector<> / mapping<> / tuple<>
+        This is the most important part of implementation these collection could be nested
+        vector: 
+            starts with primitive / collection type and follows by a fixed size shape descriptor (a fixed size array)
+            shape value could be a non-zero positive value, or -1, -1 mean the length will be described as a Uint8 in the content part
+            e.g. binary: 5(UInt) float(Char*5) 2(Int) float is the content type of the vector 5 is the length of char, 2 is the length of the vector
+                content part: 1.3(Float), 2.2(Float)
+            e.g. binary: 3(UInt) int(Char*3) -1(Int) means an int array with size unknown
+                content part: 3(UInt), 1(Int),  3(Int),  9(Int),  
+                The first element will fill the whole of -1 and tell the length of the vector
+        tuple:
+            start with number of elements in the tuple, followed by a fixed size string vector that contains the type descriptions
+            e.g. binary: 
+        mapping:
+            starts with the length of pairs in the map
+        
+
+
+        
+
+Each shared memory is named and binded with also a named semaphore by default.
+    The named semaphore is automatically named as "<ShmemName>_sem"
+
+There are a couple of interface that should be inplemented:
+    getSem() get the current semaphore value
+    getSize() get the size of content of shm = size of shm - size of type description
+    getType() get the type
+    getPtr() get a low level pointer to the Shm
+
+    syncedFetch(timeout,interruptCallback function)
+        Use a while loop to wait for the semaphore to become > 1. Block the execution process
+            Throw timeout when time > timeout
+            Throw Interrputed when interruptCallback return true
+        After the semaphore > 1
+            Read the content and parse it to the type described by 

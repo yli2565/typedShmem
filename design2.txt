@@ -1,0 +1,10 @@
+I wanna implement a heap alike array in SharedMemory
+
+The language I select is C++ , for SharedMemory, use posix interface
+
+
+First, let's implement a easy heap on SharedMemory
+
+The heap use implicit free list, use pa bits and immediate coleasing
+
+Please include necessary thing, header with size + p bit + a bit , footer in free block 

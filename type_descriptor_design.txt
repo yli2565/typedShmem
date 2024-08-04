@@ -1,0 +1,13 @@
+Type descriptor is a combination of string and int
+
+The root level type is described first
+
+6(UInt) vector(char*6) 
+5(UInt) float(char*5) 
+
+    Then based on the root type, expect to read
+
+    For primitive, expect nothing (expect the type descriptor to end)
+    For vector, expect another type descriptor (can be nested), followed by a UInt describe the size
+    For tuple, expect a vector of string descriptor, followed by a vector content
+    For mapping, expect a vector if tuple of string descriptor, followed by a vector of tuple of string content
