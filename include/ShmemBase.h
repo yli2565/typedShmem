@@ -17,7 +17,7 @@ public:
 
     // Core Operations
     void create();
-    void resize(size_t newCapacity,bool keepContent=true);
+    void resize(size_t newCapacity, bool keepContent = true);
     void connect();
     void reconnect();
     void clear();
@@ -55,11 +55,11 @@ public:
     }
 
     // Utility Functions
-    std::shared_ptr<spdlog::logger> getLogger();
+    std::shared_ptr<spdlog::logger> &getLogger();
 
     // Setters
     void setCapacity(size_t capacity);
-    
+
     // Accessors
     const std::string &getName() const;
     size_t getCapacity() const;
@@ -88,13 +88,6 @@ protected:
     sem_t *createWriteLock();
     sem_t *connectWriteLock();
 
-    // Member Variables
-    std::string name;
-    size_t capacity;
-    bool connected;
-    bool ownShm;
-    size_t usedSize;
-    int version;
     // shared memory
     int shmFd;
     Byte *shmPtr;
@@ -102,12 +95,20 @@ protected:
     sem_t *counterSem;
     sem_t *versionSem;
     sem_t *writeLock;
-    // logger
-    std::shared_ptr<spdlog::logger> logger;
 
     // Constants
     const milliseconds waitTime = milliseconds(10);
 
+private:
+    // Member Variables
+    std::string name;
+    size_t capacity;
+    bool connected;
+    bool ownShm;
+    size_t usedSize;
+    int version;
+    // logger
+    std::shared_ptr<spdlog::logger> logger;
     // Debug
     std::vector<std::vector<size_t>> writeRecord;
 };

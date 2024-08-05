@@ -49,37 +49,25 @@ bool ShmemHeap::BlockHeader::A() const
 void ShmemHeap::BlockHeader::setB(bool b)
 {
     if (b)
-    {
         size_BPA |= 0b100;
-    }
     else
-    {
         size_BPA &= ~0b100;
-    }
 }
 
 void ShmemHeap::BlockHeader::setP(bool p)
 {
     if (p)
-    {
         size_BPA |= 0b010;
-    }
     else
-    {
         size_BPA &= ~0b010;
-    }
 }
 
 void ShmemHeap::BlockHeader::setA(bool a)
 {
     if (a)
-    {
         size_BPA |= 0b001;
-    }
     else
-    {
         size_BPA &= ~0b001;
-    }
 }
 
 ShmemHeap::BlockHeader *ShmemHeap::BlockHeader::getFooterPtr() const

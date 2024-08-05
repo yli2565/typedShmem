@@ -183,37 +183,18 @@ public:
         int wait(int timeout = -1) const;
     };
 
-    // capacity
-    size_t SCap = 0;
-    size_t HCap = 0;
-
-    // logger
-    std::shared_ptr<spdlog::logger> heapLogger;
-
     ShmemHeap(const std::string &name, size_t staticSpaceSize = DSCap, size_t heapSize = DHCap) : ShmemBase(name)
     {
         // init logger
-        this->heapLogger = spdlog::default_logger()->clone("ShmHeap:" + name);
+        this->logger = spdlog::default_logger()->clone("ShmHeap:" + name);
         std::string pattern = "[" + std::to_string(getpid()) + "] [%n] %v";
-        this->heapLogger->set_pattern(pattern);
+        this->logger->set_pattern(pattern);
 
-        size_t pageSize = sysconf(_SC_PAGESIZE);
+        this->setStaticCapacity(staticSpaceSize);
+        this->setHeapCapacity(heapSize);
+        this->logger->info("Initialized to: Static space capacity: {} heap capacity: {}", this->SCap, this->HCap);
 
-        if (pageSize % 8 != 0)
-            throw std::runtime_error("Page size must be a multiple of 8");
-
-        // pad static space capacity to a multiple of 8
-        size_t newStaticSpaceCapacity = (staticSpaceSize + unitSize) & ~unitSize;
-
-        // pad heap capacity to a multiple of page size
-        size_t newHeapCapacity = (heapSize + pageSize - 1) & ~(pageSize - 1);
-
-        this->heapLogger->info("Initialized to: Static space capacity: {} heap capacity: {}", newStaticSpaceCapacity, newHeapCapacity);
-
-        this->SCap = newStaticSpaceCapacity;
-        this->HCap = newHeapCapacity;
-
-        this->setCapacity(newStaticSpaceCapacity + newHeapCapacity);
+        this->setCapacity(this->SCap + this->HCap);
     }
     void create()
     {
@@ -232,13 +213,13 @@ public:
         // Prev allocated bit set to 1
         firstBlock->val() = this->HCap | 0b010;
         firstBlock->getFooterPtr()->val() = this->HCap;
-        this->freeBlockListHead() = reinterpret_cast<Byte *>(firstBlock) - this->heapHead();
+        this->freeBlockListOffset() = reinterpret_cast<Byte *>(firstBlock) - this->heapHead();
     }
 
     void resize(size_t newCapacity, bool keepContent = true)
     {
         if (!keepContent)
-            this->heapLogger->warn("Resizing without content is not allowed in ShmHeap, the keepContent parameter is ignored");
+            this->logger->warn("Resizing without content is not allowed in ShmHeap, the keepContent parameter is ignored");
         if (newCapacity < this->staticCapacity())
         {
             throw std::runtime_error("Capacity is too small to hold static space");
@@ -315,17 +296,14 @@ public:
 
     size_t &staticCapacity()
     {
-        checkConnection();
         return reinterpret_cast<size_t *>(this->shmPtr)[0];
     }
     size_t &heapCapacity()
     {
-        checkConnection();
         return reinterpret_cast<size_t *>(this->shmPtr)[1];
     }
-    size_t &freeBlockListHead()
+    size_t &freeBlockListOffset()
     {
-        checkConnection();
         return reinterpret_cast<size_t *>(this->shmPtr)[2];
     }
     Byte *heapHead()
@@ -338,30 +316,30 @@ public:
     }
     BlockHeader *freeBlockList()
     {
-        return reinterpret_cast<BlockHeader *>(this->heapHead() + this->freeBlockListHead());
+        return reinterpret_cast<BlockHeader *>(this->heapHead() + this->freeBlockListOffset());
     }
     void removeFreeBlock(BlockHeader *block)
     {
-        if (this->freeBlockListHead() == reinterpret_cast<Byte *>(block) - this->heapHead())
+        if (this->freeBlockListOffset() == reinterpret_cast<Byte *>(block) - this->heapHead())
         {
             if (block->getBckPtr() == block)
             {
                 // Block is the only element in the list
-                this->freeBlockListHead() = NPtr; // NPtr is an impossible byte offset of a block
+                this->freeBlockListOffset() = NPtr; // NPtr is an impossible byte offset of a block
             }
             else
             {
-                this->freeBlockListHead() = reinterpret_cast<Byte *>(block->getBckPtr()) - this->heapHead();
+                this->freeBlockListOffset() = reinterpret_cast<Byte *>(block->getBckPtr()) - this->heapHead();
             }
         }
         block->remove();
     }
     void insertFreeBlock(BlockHeader *block, BlockHeader *prevBlock = nullptr)
     {
-        if (this->freeBlockListHead() == NPtr)
+        if (this->freeBlockListOffset() == NPtr)
         {
             // Don't care the previous block when the list is empty, it must be an outdated block
-            this->freeBlockListHead() = reinterpret_cast<Byte *>(block) - this->heapHead();
+            this->freeBlockListOffset() = reinterpret_cast<Byte *>(block) - this->heapHead();
             block->insert(nullptr);
         }
         else
@@ -393,14 +371,15 @@ public:
         // Header + size + Padding
         size_t requiredSize = unitSize + size + padSize;
 
-        BlockHeader *current = reinterpret_cast<BlockHeader *>(this->heapHead());
+        BlockHeader *listHead = this->freeBlockList();
+        BlockHeader *current = listHead;
 
         BlockHeader *best = nullptr;
         size_t bestSize = std::numeric_limits<size_t>::max();
 
         // Best fit logic
         // TODO: this is just a simple logic, it should be improved to use free block linked list
-        while (reinterpret_cast<Byte *>(current) < this->heapTail())
+        do
         {
             size_t blockSize = current->size();
             if (!current->A() && blockSize >= requiredSize && blockSize < bestSize)
@@ -412,14 +391,14 @@ public:
                 if (blockSize == requiredSize)
                     break;
             }
-            current = current->getNextPtr();
-        }
+            current = current->getBckPtr();
+        } while (current != listHead);
 
         if (best != nullptr)
         {
             // Lock the best fit block (Busy bit <- 1)
             best->wait();
-            best->val() |= 0b100;
+            best->setB(true);
 
             // Check if the best size < required size + 4
             // In that case, we cannot split the block as a free block is minimum 4 bytes, we just increase the required size
@@ -428,20 +407,11 @@ public:
                 requiredSize = bestSize;
             }
 
-            // uintptr_t fwdOffset = best->fwdOffset();
-            // uintptr_t bckOffset = best->bckOffset();
-
             BlockHeader *fwdBlockHeader = best->getFwdPtr();
             // BlockHeader *bckBlockHeader = best->getBckPtr();
 
-            // // Set busy bit
-            // fwdBlockHeader->wait();
-            // fwdBlockHeader->val() |= 0b100;
-            // bckBlockHeader->wait();
-            // bckBlockHeader->val() |= 0b100;
-
             // Set allocated bit to 0
-            best->val() &= ~0b001;
+            best->setA(false);
             // Remove the best block from free list
             this->removeFreeBlock(best);
 
@@ -458,12 +428,8 @@ public:
                 this->insertFreeBlock(newBlockHeader, fwdBlockHeader);
 
                 // Reset busy bit
-                newBlockHeader->val() &= ~0b100;
+                newBlockHeader->setB(false);
             }
-
-            // Reset busy bit
-            // fwdBlockHeader->val() &= ~0b100;
-            // bckBlockHeader->val() &= ~0b100;
 
             // update the best fit block
             // Size: requiredSize; Busy: 0; Previous Allocated: not changed; Allocated: 1
@@ -472,7 +438,7 @@ public:
             // update next block's p bit
             if (reinterpret_cast<Byte *>(best->getNextPtr()) < this->heapTail())
             {
-                best->getNextPtr()->val() |= 0b010;
+                best->getNextPtr()->setP(true);
             }
 
             // Return the offset from the heap head (+1 make the offset is on start of payload)
@@ -483,18 +449,23 @@ public:
             return 0;
         }
     }
-    int shfree(uintptr_t offset){
+    int shfree(uintptr_t offset)
+    {
+        this->checkConnection();
         return this->shfree(this->heapHead() + offset);
     }
     int shfree(Byte *ptr)
     {
-        if (ptr == nullptr)
-            return -1;
-
-        if (reinterpret_cast<uintptr_t>(ptr) % unitSize != 0)
-            return -1;
+        this->checkConnection();
 
         if (ptr < this->heapHead() || ptr >= this->heapTail())
+            return -1;
+
+        // Since there must be a header, a payload ptr should be at least unitSize bytes
+        if (ptr - this->heapHead() < unitSize)
+            return -1;
+
+        if ((ptr - this->heapHead()) % unitSize != 0)
             return -1;
 
         BlockHeader *header = reinterpret_cast<BlockHeader *>(ptr) - 1;
@@ -534,6 +505,7 @@ public:
 
             // Wait Busy bit
             prevBlockHeader->wait();
+            prevBlockHeader->setB(true);
 
             size_t newSize = prevBlockHeader->size() + coalesceTarget->size();
 
@@ -543,7 +515,6 @@ public:
 
             // update free list ptr
             this->removeFreeBlock(coalesceTarget);
-            this->insertFreeBlock(prevBlockHeader);
 
             coalesceTarget = prevBlockHeader;
         }
@@ -570,7 +541,7 @@ public:
         }
 
         // Reset Busy bit
-        coalesceTarget->val() &= ~0b100;
+        coalesceTarget->setB(false);
 
         return 0;
     }
@@ -578,11 +549,11 @@ public:
     {
         size_t staticCapacity = this->staticCapacity();
         size_t heapCapacity = this->heapCapacity();
-        size_t firstFreeBlockOffset = this->freeBlockListHead();
+        size_t firstFreeBlockOffset = this->freeBlockListOffset();
         Byte *heapHead = this->heapHead();
         Byte *heapTail = this->heapTail();
         std::vector<BlockHeader *> freeBlockList = {};
-        if (this->freeBlockListHead() != NPtr)
+        if (this->freeBlockListOffset() != NPtr)
         {
             freeBlockList.push_back(this->freeBlockList());
             BlockHeader *current = this->freeBlockList()->getBckPtr();
@@ -592,13 +563,13 @@ public:
                 current = current->getBckPtr();
             }
         }
-        this->heapLogger->info("********************************* Static Space ****************************");
-        this->heapLogger->info("Static Space Capacity: {}", staticCapacity);
-        this->heapLogger->info("Heap Capacity: {}", heapCapacity);
-        this->heapLogger->info("Free block list offset: {}", firstFreeBlockOffset);
-        this->heapLogger->info("********************************** Block List *****************************");
-        // this->heapLogger->info("Offset\tStatus\tPrev\tBusy\tt_Begin\tt_End\tt_Size");
-        this->heapLogger->info("{:<8} {:<6} {:<6} {:<6} {:<14} {:<14} {:<6}", "Offset", "Status", "Prev", "Busy", "Begin", "End", "Size");
+        this->logger->info("********************************* Static Space ****************************");
+        this->logger->info("Static Space Capacity: {}", staticCapacity);
+        this->logger->info("Heap Capacity: {}", heapCapacity);
+        this->logger->info("Free block list offset: {}", firstFreeBlockOffset);
+        this->logger->info("********************************** Block List *****************************");
+        // this->logger->info("Offset\tStatus\tPrev\tBusy\tt_Begin\tt_End\tt_Size");
+        this->logger->info("{:<8} {:<6} {:<6} {:<6} {:<14} {:<14} {:<6}", "Offset", "Status", "Prev", "Busy", "Begin", "End", "Size");
 
         uintptr_t begin, end, size;
         BlockHeader *current = reinterpret_cast<BlockHeader *>(heapHead);
@@ -607,23 +578,55 @@ public:
             begin = reinterpret_cast<uintptr_t>(current);
             end = begin + current->size();
             size = end - begin;
-            this->heapLogger->info("{:#08x} {:<6d} {:<6d} {:<6d} {:#014x} {:#014x} {:<6d}",
-                                   reinterpret_cast<Byte *>(current) - heapHead,
-                                   current->A() ? 1 : 0,
-                                   current->P() ? 1 : 0,
-                                   current->B() ? 1 : 0,
-                                   begin,
-                                   end,
-                                   size);
+            this->logger->info("{:#08x} {:<6d} {:<6d} {:<6d} {:#014x} {:#014x} {:<6d}",
+                               reinterpret_cast<Byte *>(current) - heapHead,
+                               current->A() ? 1 : 0,
+                               current->P() ? 1 : 0,
+                               current->B() ? 1 : 0,
+                               begin,
+                               end,
+                               size);
             current = current->getNextPtr();
         }
-        this->heapLogger->info("********************************** Free List *****************************");
+        this->logger->info("********************************** Free List ******************************");
         for (BlockHeader *block : freeBlockList)
         {
-            this->heapLogger->info("Block: {:#08x} Size: {}", reinterpret_cast<Byte *>(block) - heapHead, block->size());
+            this->logger->info("Block: {:#08x} Size: {}", reinterpret_cast<Byte *>(block) - heapHead, block->size());
         }
-        this->heapLogger->info("---------------------------------------------------------------------------");
+        this->logger->info("---------------------------------------------------------------------------");
     }
+    // Setters
+    void setHeapCapacity(size_t size)
+    {
+        size_t pageSize = sysconf(_SC_PAGESIZE);
+
+        // pad heap capacity to a multiple of page size
+        size_t newHeapCapacity = (size + pageSize - 1) & ~(pageSize - 1);
+        this->HCap = newHeapCapacity;
+        this->logger->info("Request heap size: {}, new heap capacity: {}", size, newHeapCapacity);
+    }
+
+    void setStaticCapacity(size_t size)
+    { // pad static space capacity to a multiple of 8
+        size_t newStaticSpaceCapacity = (size + unitSize) & ~unitSize;
+
+        this->SCap = newStaticSpaceCapacity;
+        this->logger->info("Request static space size: {}, new static space capacity: {}", size, newStaticSpaceCapacity);
+    }
+
+    // Utility Functions
+    std::shared_ptr<spdlog::logger> &getLogger()
+    {
+        return this->logger;
+    }
+
+private:
+    // capacity
+    size_t SCap = 0;
+    size_t HCap = 0;
+
+    // logger
+    std::shared_ptr<spdlog::logger> logger;
 };
 
 #endif // SHMEM_HEAP_H

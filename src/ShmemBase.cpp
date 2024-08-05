@@ -312,7 +312,7 @@ bool ShmemBase::ownsSharedMemory() const
 }
 
 // Utility Functions
-std::shared_ptr<spdlog::logger> ShmemBase::getLogger()
+std::shared_ptr<spdlog::logger>& ShmemBase::getLogger()
 {
     return this->logger;
 }
