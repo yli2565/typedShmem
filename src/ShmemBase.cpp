@@ -35,11 +35,11 @@ ShmemBase::ShmemBase(const std::string &name, size_t capacity)
     this->writeLock = nullptr;
 
     // init logger
-    this->logger = spdlog::default_logger()->clone("ShmObj:" + name);
+    this->logger = spdlog::default_logger()->clone("ShmBase:" + name);
     std::string pattern = "[" + std::to_string(getpid()) + "] [%n] %v";
     this->logger->set_pattern(pattern);
 
-    this->logger->info("Initialized shared memory object {}", this->name);
+    this->logger->info("Initialized shared memory base object {}", this->name);
 
     // DEBUG
     this->writeRecord = {};
@@ -282,6 +282,7 @@ void ShmemBase::getBytes(size_t index, Byte *data, size_t len)
 void ShmemBase::setCapacity(size_t capacity)
 {
     this->capacity = capacity;
+    this->logger->info("Set capacity to {}", capacity);
 }
 
 // Accessors
