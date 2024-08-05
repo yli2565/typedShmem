@@ -17,7 +17,7 @@ public:
 
     // Core Operations
     void create();
-    void resize(size_t newCapacity);
+    void resize(size_t newCapacity,bool keepContent=true);
     void connect();
     void reconnect();
     void clear();
@@ -57,6 +57,9 @@ public:
     // Utility Functions
     std::shared_ptr<spdlog::logger> getLogger();
 
+    // Setters
+    void setCapacity(size_t capacity);
+    
     // Accessors
     const std::string &getName() const;
     size_t getCapacity() const;

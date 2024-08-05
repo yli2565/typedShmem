@@ -84,7 +84,7 @@ void ShmemBase::create()
     this->logger->info("Created shared memory object {}", this->name);
 }
 
-void ShmemBase::resize(size_t newCapacity)
+void ShmemBase::resize(size_t newCapacity, bool keepContent)
 {
     if (newCapacity < this->usedSize)
     {
@@ -94,11 +94,17 @@ void ShmemBase::resize(size_t newCapacity)
     // Acquire write lock to prevent concurrent writing/resizing
     assert(ShmemUtils::waitSem(this->writeLock) == 0);
 
-    // Record old data
-    size_t oldSize = this->usedSize;
+    size_t oldSize = 0;
+    Byte *tempShm = nullptr;
     size_t oldCapacity = this->capacity;
-    Byte *tempShm = new Byte[oldCapacity];
-    std::memcpy(tempShm, this->shmPtr, oldCapacity);
+
+    // Record old data
+    if (keepContent)
+    {
+        oldSize = this->usedSize;
+        tempShm = new Byte[oldCapacity];
+        std::memcpy(tempShm, this->shmPtr, oldCapacity);
+    }
 
     // Increase the version Semaphore to indicate this shm is resized
     ShmemUtils::postSem(this->versionSem);
@@ -108,13 +114,19 @@ void ShmemBase::resize(size_t newCapacity)
     this->shmFd = ShmemUtils::createShm(this->shmPtr, this->name, newCapacity); // This will automatically unlink the old shm
 
     // Restore old data
-    std::memcpy(this->shmPtr, tempShm, oldCapacity);
-    delete[] tempShm;
+    if (keepContent)
+    {
+        std::memcpy(this->shmPtr, tempShm, oldCapacity);
+        delete[] tempShm;
+    }
 
     // Release write lock
     ShmemUtils::postSem(this->writeLock);
 
-    this->usedSize = oldSize;
+    if (keepContent)
+    {
+        this->usedSize = oldSize;
+    }
     this->capacity = newCapacity;
 
     this->logger->info("Resized shared memory object {} from {} to {}", this->name, oldCapacity, newCapacity);
@@ -265,6 +277,11 @@ void ShmemBase::getBytes(size_t index, Byte *data, size_t len)
 
     this->usedSize = std::max(this->usedSize, index + len);
     this->logger->debug("Get bytes [{}:{}]", index, index + len);
+}
+// Setters
+void ShmemBase::setCapacity(size_t capacity)
+{
+    this->capacity = capacity;
 }
 
 // Accessors
