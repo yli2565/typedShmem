@@ -1,6 +1,6 @@
 #include "ShmemUtils.h"
 
-inline std::shared_ptr<spdlog::logger> ShmemUtils::getLogger()
+std::shared_ptr<spdlog::logger> ShmemUtils::getLogger()
 {
     static std::shared_ptr<spdlog::logger> sublogger = []()
     {

@@ -13,6 +13,9 @@
 #define DHCap 0x1000 // default heap capacity is one page
 #define DSCap 0x8    // default static capacity is 8 bytes
 #define NPtr 0x1     // an offset that is impossible to be a block offset
+
+static const size_t unitSize = sizeof(void *);
+
 class ShmemHeap : public ShmemBase
 {
 public:
@@ -24,143 +27,169 @@ public:
         size_t size_BPA;
 
         /**
-         * @brief Provide *(this) as a uintptr_t reference
+         * @brief Provide {size | B bit | P bit | A bit} as a uintptr_t reference
          * Similar to reinterpret cast BlockHeader ptr to a uintptr_t ptr
          *
-         * @return reference to the 8 bytes value at *(this)
+         * @return reference to the 8 bytes {size | B bit | P bit | A bit} at *(this)
          */
-        uintptr_t &val()
-        {
-            return *reinterpret_cast<uintptr_t *>(this);
-        }
-        uintptr_t &fwdOffset()
-        {
-            return *(reinterpret_cast<uintptr_t *>(this) + 1);
-        }
-        uintptr_t &bckOffset()
-        {
-            return *(reinterpret_cast<uintptr_t *>(this) + 2);
-        }
+        uintptr_t &val();
 
-        BlockHeader *getFooterPtr() const
-        {
-            return reinterpret_cast<BlockHeader *>(reinterpret_cast<uintptr_t>(this) + this->size() - sizeof(BlockHeader));
-        }
+        /**
+         * @brief For free block, return the offset to the previous free block in linked list
+         *
+         * @return pointer to the previous free block in free list
+         */
+        intptr_t &fwdOffset();
 
-        BlockHeader *getFwdPtr() const
-        {
-            return reinterpret_cast<BlockHeader *>(reinterpret_cast<uintptr_t>(this) - (this + 1)->size_BPA);
-        }
+        /**
+         * @brief For free block, return the offset to the next free block in linked list
+         *
+         * @return pointer to the next free block in free list
+         */
+        intptr_t &bckOffset();
 
-        BlockHeader *getBckPtr() const
-        {
-            return reinterpret_cast<BlockHeader *>(reinterpret_cast<uintptr_t>(this) + (this + 2)->size_BPA);
-        }
-        BlockHeader *getPrevPtr() const
-        {
-            if (this->P())
-                throw std::runtime_error("Previous block is allocated. We should not call this function");
-            else
-                return reinterpret_cast<BlockHeader *>(reinterpret_cast<uintptr_t>(this) + (this - 1)->size_BPA);
-        }
-        BlockHeader *getNextPtr() const
-        {
-            return reinterpret_cast<BlockHeader *>(reinterpret_cast<uintptr_t>(this) + this->size());
-        }
-        void remove()
-        {
-            if (this->A())
-                throw std::runtime_error("Cannot remove allocated block");
-            BlockHeader *bckBlockHeader = this->getBckPtr();
-            BlockHeader *fwdBlockHeader = this->getFwdPtr();
-            fwdBlockHeader->bckOffset() = reinterpret_cast<uintptr_t>(bckBlockHeader) - reinterpret_cast<uintptr_t>(fwdBlockHeader);
-            bckBlockHeader->fwdOffset() = fwdBlockHeader->bckOffset();
-        }
-        void insert(BlockHeader *prevBlock)
-        {
-            if (prevBlock == nullptr)
-            {
-                this->fwdOffset() = 0;
-                this->bckOffset() = 0;
-            }
-            else
-            {
-                BlockHeader *fwdBlockHeader = prevBlock;
-                BlockHeader *bckBlockHeader = fwdBlockHeader->getBckPtr();
+        /**
+         * @brief Size of the whole block (including header)
+         *
+         * @return size of the whole block
+         */
+        size_t size() const;
 
-                // Set busy bit
-                // fwdBlockHeader->wait();
-                // fwdBlockHeader->val() |= 0b100;
-                // bckBlockHeader->wait();
-                // bckBlockHeader->val() |= 0b100;
+        /**
+         * @brief Set the size bits in the header
+         *
+         * @param size size of the block (including header)
+         */
+        void setSize(size_t size);
 
-                uintptr_t fwdOffset = this->offset(fwdBlockHeader);
-                uintptr_t bckOffset = bckBlockHeader->offset(this);
+        /**
+         * @brief Is the block busy (writing/modifying by another process)
+         *
+         * @return true if the block is busy
+         */
+        bool B() const;
 
-                // Insert this block after the prevBlock
-                this->fwdOffset() = fwdOffset;
-                this->bckOffset() = bckOffset;
-                fwdBlockHeader->bckOffset() = fwdOffset;
-                bckBlockHeader->fwdOffset() = bckOffset;
+        /**
+         * @brief Is the previous adjacent block allocated
+         *
+         * @return true if the previous adjacent block is allocated
+         */
+        bool P() const;
 
-                // Reset busy bit
-                // fwdBlockHeader->val() &= ~0b100;
-                // bckBlockHeader->val() &= ~0b100;
-            }
-        }
+        /**
+         * @brief Is this block allocated
+         *
+         * @return true if this block is allocated
+         */
+        bool A() const;
 
-        uintptr_t offset(Byte *ptr) const
-        {
-            if (reinterpret_cast<uintptr_t>(this) < reinterpret_cast<uintptr_t>(ptr))
-            {
-                throw std::runtime_error("Negative offset");
-            }
-            return reinterpret_cast<uintptr_t>(this) - reinterpret_cast<uintptr_t>(ptr);
-        }
-        uintptr_t offset(BlockHeader *basePtr) const
-        {
-            if (reinterpret_cast<uintptr_t>(this) < reinterpret_cast<uintptr_t>(basePtr))
-            {
-                throw std::runtime_error("Negative offset");
-            }
-            return reinterpret_cast<uintptr_t>(this) - reinterpret_cast<uintptr_t>(basePtr);
-        }
+        /**
+         * @brief Set the busy bit (default true)
+         *
+         * @param b busy bit
+         */
+        void setB(bool b = true);
 
-        bool B() const
-        {
-            return size_BPA & 0b100;
-        }
-        bool P() const
-        {
-            return size_BPA & 0b010;
-        }
-        bool A() const
-        {
-            return size_BPA & 0b001;
-        }
-        size_t size() const
-        {
-            return size_BPA & ~0b111;
-        }
-        int wait(int timeout = -1) const
-        {
-            while (this->B())
-            {
-                if (timeout == 0)
-                    return ETIMEDOUT;
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                if (timeout > 0)
-                    timeout--;
-            }
-            return 0;
-        }
+        /**
+         * @brief Set the previous allocated bit (default true)
+         *
+         * @param p previous allocated bit
+         */
+        void setP(bool p = true);
+
+        /**
+         * @brief Set the allocated bit (default true)
+         *
+         * @param a allocated bit
+         */
+        void setA(bool a = true);
+
+        /**
+         * @brief Get a pointer to the footer / potential footer's position.
+         * Depends on size in header
+         *
+         * @return Pointer to this block's footer / potential footer
+         */
+        BlockHeader *getFooterPtr() const;
+
+        /**
+         * @brief Get the Ptr to the previous free block in the free list
+         * Only for free blocks, depends on FwdOffset in the payload
+         * @return ptr to the previous free block
+         */
+        BlockHeader *getFwdPtr() const;
+
+        /**
+         * @brief Get the Ptr to the next free block in the free list
+         * Only for free blocks, depends on BckOffset in the payload
+         * @return ptr to the next free block
+         */
+        BlockHeader *getBckPtr() const;
+
+        /**
+         * @brief Get the Ptr to the header of the previous adjacent block
+         * Only works if the previous block is a free block
+         * Depends on the previous block's footer in the previous block's payload
+         * @return ptr to the header of the previous adjacent block
+         */
+        BlockHeader *getPrevPtr() const;
+
+        /**
+         * @brief Get the Ptr to the header of the next adjacent block
+         * Depends on size in header
+         * @return ptr to the header of the next adjacent block
+         */
+        BlockHeader *getNextPtr() const;
+
+        /**
+         * @brief Remove this block from a double linked list (free list)
+         * Only for free blocks
+         * Depends on BckOffset and FwdOffset in payload
+         */
+        void remove();
+
+        /**
+         * @brief Insert this block into a double linked list just after prevBlock
+         * Only for free blocks
+         * PrevBlock must also be a free block
+         * Depends on BckOffset and FwdOffset in payload
+         * As well as BckOffset in prevBlock's payload
+         * @param prevBlock the block which this block should be inserted after
+         */
+        void insert(BlockHeader *prevBlock);
+
+        /**
+         * @brief Calculate the offset from the current block to the given pointer
+         *
+         * @param desPtr destination pointer
+         * @return positive / negative offset to the destination pointer
+         */
+        intptr_t offset(Byte *desPtr) const;
+
+        /**
+         * @brief Calculate the offset from the current block to the given pointer
+         *
+         * @param desPtr destination pointer
+         * @return positive / negative offset to the destination pointer
+         */
+        intptr_t offset(BlockHeader *desPtr) const;
+
+        /**
+         * @brief Wait until the busy bit is cleared
+         *
+         * @param timeout Maximum wait time in milliseconds (-1 means no timeout)
+         * @return 0 if the busy bit is cleared, ETIMEDOUT if the timeout is reached
+         */
+        int wait(int timeout = -1) const;
     };
-    const size_t unitSize = sizeof(void *);
+
     // capacity
     size_t SCap = 0;
     size_t HCap = 0;
+
     // logger
     std::shared_ptr<spdlog::logger> heapLogger;
+
     ShmemHeap(const std::string &name, size_t staticSpaceSize = DSCap, size_t heapSize = DHCap) : ShmemBase(name)
     {
         // init logger
@@ -202,6 +231,8 @@ public:
 
         // Prev allocated bit set to 1
         firstBlock->val() = this->HCap | 0b010;
+        firstBlock->getFooterPtr()->val() = this->HCap;
+        this->freeBlockListHead() = reinterpret_cast<Byte *>(firstBlock) - this->heapHead();
     }
 
     void resize(size_t newCapacity, bool keepContent = true)
@@ -354,7 +385,7 @@ public:
 
         // Calculate the padding size
         size_t padSize = 0;
-        padSize = size % 8 == 0 ? 0 : unitSize - (size % unitSize);
+        padSize = size % unitSize == 0 ? 0 : unitSize - (size % unitSize);
         // The payload should be at least 3 units
         if (size < 3 * unitSize)
             padSize = 3 * unitSize - size;
@@ -418,11 +449,11 @@ public:
             if (bestSize > requiredSize)
             {
                 BlockHeader *newBlockHeader = reinterpret_cast<BlockHeader *>(reinterpret_cast<uintptr_t>(best) + requiredSize);
-                BlockHeader *newBlockFooter = reinterpret_cast<BlockHeader *>(reinterpret_cast<uintptr_t>(best) + bestSize - sizeof(BlockHeader));
 
                 // update the new block
                 // Size: bestSize - requiredSize; Busy: 1; Previous Allocated: 1; Allocated: 0
                 newBlockHeader->val() = (bestSize - requiredSize) | 0b010;
+                newBlockHeader->getFooterPtr()->val() = bestSize - requiredSize;
 
                 this->insertFreeBlock(newBlockHeader, fwdBlockHeader);
 
@@ -445,12 +476,15 @@ public:
             }
 
             // Return the offset from the heap head (+1 make the offset is on start of payload)
-            return (best + 1)->offset(this->heapHead());
+            return reinterpret_cast<Byte *>(best + 1) - this->heapHead();
         }
         else
         {
             return 0;
         }
+    }
+    int shfree(uintptr_t offset){
+        return this->shfree(this->heapHead() + offset);
     }
     int shfree(Byte *ptr)
     {
@@ -467,23 +501,30 @@ public:
 
         // Set Busy bit
         header->wait();
-        header->val() |= 0b100;
+        header->setB(true);
 
         if (!header->A())
             return -1;
 
         // Set Allocated bit to 0
-        header->val() &= ~0b001;
+        header->setA(false);
 
         this->insertFreeBlock(header);
+
+        // Create Footer
+        BlockHeader *newFooter = header->getFooterPtr();
+        newFooter->val() = header->size();
+
+        // Remove next block's P bit
+        if (reinterpret_cast<Byte *>(header->getNextPtr()) < this->heapTail())
+        {
+            header->getNextPtr()->setP(false);
+        }
 
         // Immediate coalescing
         BlockHeader *coalesceTarget = header;
 
         // First coalesce with the previous block
-
-        // When coalescing with previous block, footer is unchanged
-        BlockHeader *newFooter = header->getFooterPtr();
 
         while (!coalesceTarget->P())
         { // Each iteration coalesce two adjacent blocks
@@ -494,10 +535,10 @@ public:
             // Wait Busy bit
             prevBlockHeader->wait();
 
-            size_t newSize = prevBlockHeader->size() + sizeof(BlockHeader) + coalesceTarget->size();
+            size_t newSize = prevBlockHeader->size() + coalesceTarget->size();
 
             // Size: newSize; Busy: 1; Previous Allocated: not changed; Allocated: 0
-            prevBlockHeader->size_BPA = newSize & 0b100 | (prevBlockHeader->size_BPA & 0b010) & ~0b001;
+            prevBlockHeader->size_BPA = newSize | 0b100 | (prevBlockHeader->size_BPA & 0b010) & ~0b001;
             newFooter->val() = newSize;
 
             // update free list ptr
@@ -516,7 +557,7 @@ public:
 
             newFooter = nextBlockHeader->getFooterPtr();
 
-            size_t newSize = coalesceTarget->size() + nextBlockHeader->size() + sizeof(BlockHeader);
+            size_t newSize = coalesceTarget->size() + nextBlockHeader->size();
 
             // Size: newSize; Busy: 1; Previous Allocated: not changed; Allocated: 0
             coalesceTarget->size_BPA = newSize | (coalesceTarget->size_BPA & 0b111);
@@ -527,6 +568,7 @@ public:
 
             // coalesceTarget unchanged;
         }
+
         // Reset Busy bit
         coalesceTarget->val() &= ~0b100;
 
@@ -539,13 +581,24 @@ public:
         size_t firstFreeBlockOffset = this->freeBlockListHead();
         Byte *heapHead = this->heapHead();
         Byte *heapTail = this->heapTail();
+        std::vector<BlockHeader *> freeBlockList = {};
+        if (this->freeBlockListHead() != NPtr)
+        {
+            freeBlockList.push_back(this->freeBlockList());
+            BlockHeader *current = this->freeBlockList()->getBckPtr();
+            while (current != this->freeBlockList())
+            {
+                freeBlockList.push_back(current);
+                current = current->getBckPtr();
+            }
+        }
         this->heapLogger->info("********************************* Static Space ****************************");
         this->heapLogger->info("Static Space Capacity: {}", staticCapacity);
         this->heapLogger->info("Heap Capacity: {}", heapCapacity);
         this->heapLogger->info("Free block list offset: {}", firstFreeBlockOffset);
         this->heapLogger->info("********************************** Block List *****************************");
         // this->heapLogger->info("Offset\tStatus\tPrev\tBusy\tt_Begin\tt_End\tt_Size");
-        this->heapLogger->info("{:<10} {:<6} {:<6} {:<6} {:<14} {:<14} {:<6}", "Offset", "Status", "Prev", "Busy", "Begin", "End", "Size");
+        this->heapLogger->info("{:<8} {:<6} {:<6} {:<6} {:<14} {:<14} {:<6}", "Offset", "Status", "Prev", "Busy", "Begin", "End", "Size");
 
         uintptr_t begin, end, size;
         BlockHeader *current = reinterpret_cast<BlockHeader *>(heapHead);
@@ -554,7 +607,7 @@ public:
             begin = reinterpret_cast<uintptr_t>(current);
             end = begin + current->size();
             size = end - begin;
-            this->heapLogger->info("{:#010x} {:<6d} {:<6d} {:<6d} {:#014x} {:#014x} {:<6d}",
+            this->heapLogger->info("{:#08x} {:<6d} {:<6d} {:<6d} {:#014x} {:#014x} {:<6d}",
                                    reinterpret_cast<Byte *>(current) - heapHead,
                                    current->A() ? 1 : 0,
                                    current->P() ? 1 : 0,
@@ -563,6 +616,11 @@ public:
                                    end,
                                    size);
             current = current->getNextPtr();
+        }
+        this->heapLogger->info("********************************** Free List *****************************");
+        for (BlockHeader *block : freeBlockList)
+        {
+            this->heapLogger->info("Block: {:#08x} Size: {}", reinterpret_cast<Byte *>(block) - heapHead, block->size());
         }
         this->heapLogger->info("---------------------------------------------------------------------------");
     }

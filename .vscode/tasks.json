@@ -18,7 +18,7 @@
     {
       "label": "Clean log files",
       "type": "shell",
-      "command": "rm ${workspaceFolder}/test.log",
+      "command": "rm -f ${workspaceFolder}/test.log",
     },
     {
       // CMake task: Generates a Makefile for the project using CMake

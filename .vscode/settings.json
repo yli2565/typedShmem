@@ -74,7 +74,9 @@
     "cfenv": "cpp",
     "variant": "cpp",
     "charconv": "cpp",
-    "future": "cpp"
+    "future": "cpp",
+    "source_location": "cpp",
+    "span": "cpp"
   },
   "testMate.cpp.test.advancedExecutables": [
     {

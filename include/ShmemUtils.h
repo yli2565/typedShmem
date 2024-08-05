@@ -26,7 +26,7 @@ namespace ShmemUtils
 {
     // Sublogger specific to ShmemUtils
     // Function to get or create the logger instance
-    inline std::shared_ptr<spdlog::logger> getLogger();
+    std::shared_ptr<spdlog::logger> getLogger();
     
     /**
      * @brief Checks if a semaphore with the given name exists.
