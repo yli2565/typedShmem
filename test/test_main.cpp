@@ -20,18 +20,23 @@ int main(int argc, char **argv)
     printf("Running main() from %s\n", __FILE__);
 
     auto SH = ShmemHeap("test", 0x1000, 0x1000);
+    auto SH1 = ShmemHeap("test", 0x1000, 0x1000);
     SH.ShmemBase::getLogger()->set_level(spdlog::level::off);
     ShmemUtils::getLogger()->set_level(spdlog::level::off);
     SH.create();
+    SH1.connect();
     uintptr_t ptr1 = SH.shmalloc(0x100);
-    SH.printShmHeap();
+    // SH.printShmHeap();
     uintptr_t ptr2 = SH.shmalloc(0x100);
     SH.printShmHeap();
-    uintptr_t ptr3 = SH.shmalloc(2);
+    uintptr_t ptr3 = SH.shmalloc(3560);
     SH.printShmHeap();
-    SH.shfree(ptr1);
+    SH1.resize(SIZE_MAX & 0x4000, SIZE_MAX & 0x2000);
     SH.printShmHeap();
-    SH.shfree(ptr2);
+
+    SH1.shfree(ptr1);
     SH.printShmHeap();
+    SH1.shfree(ptr2);
+    SH1.printShmHeap();
     return 0;
 }

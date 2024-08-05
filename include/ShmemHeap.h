@@ -27,7 +27,8 @@ public:
         size_t size_BPA;
 
         /**
-         * @brief Provide {size | B bit | P bit | A bit} as a uintptr_t reference
+         * @brief Provide {size | B bit | P bit | A bit} as a uintptr_t reference.
+         *
          * Similar to reinterpret cast BlockHeader ptr to a uintptr_t ptr
          *
          * @return reference to the 8 bytes {size | B bit | P bit | A bit} at *(this)
@@ -35,7 +36,7 @@ public:
         uintptr_t &val();
 
         /**
-         * @brief For free block, return the offset to the previous free block in linked list
+         * @brief For free block, return the offset to the previous free block in linked list.
          *
          * @return pointer to the previous free block in free list
          */
@@ -218,12 +219,9 @@ public:
 
     void resize(size_t newCapacity, bool keepContent = true)
     {
+        this->checkConnection();
         if (!keepContent)
             this->logger->warn("Resizing without content is not allowed in ShmHeap, the keepContent parameter is ignored");
-        if (newCapacity < this->staticCapacity())
-        {
-            throw std::runtime_error("Capacity is too small to hold static space");
-        }
         this->resize(this->staticCapacity(), newCapacity - this->staticCapacity());
     };
 
@@ -235,60 +233,80 @@ public:
      */
     void resize(size_t staticSpaceSize, size_t heapSize)
     {
+        this->checkConnection();
         if (staticSpaceSize == -1)
-        {
-            staticSpaceSize = this->staticCapacity();
+        { // Don't change static space capacity
+            this->setStaticCapacity(this->staticCapacity());
         }
         else
         {
-            if (staticSpaceSize < this->staticCapacity())
-                throw std::runtime_error("Shrinking static space is not supported");
-
-            if (staticSpaceSize < 3)
-            {
-                throw std::runtime_error("Static space size must be at least 3 to store important metrics");
-            }
+            this->setStaticCapacity(staticSpaceSize);
         }
         if (heapSize == -1)
-        {
-            heapSize = this->heapCapacity();
+        { // Don't change heap capacity
+            this->setHeapCapacity(this->heapCapacity());
         }
         else
         {
-            if (heapSize < this->heapCapacity())
-                throw std::runtime_error("Shrinking heap space is not supported");
+            this->setHeapCapacity(heapSize);
         }
 
-        size_t pageSize = sysconf(_SC_PAGESIZE);
+        size_t newStaticSpaceCapacity = this->SCap;
+        size_t newHeapCapacity = this->HCap;
 
-        if (pageSize % 8 != 0)
-            throw std::runtime_error("Page size must be a multiple of 8");
-
-        if (this->staticCapacity() > staticSpaceSize)
-            throw std::runtime_error("Shrinking static space is not supported");
-
-        // pad static space capacity to a multiple of 8
-        size_t newStaticSpaceCapacity = (staticSpaceSize + unitSize) & ~unitSize;
-
-        // pad heap capacity to a multiple of page size
-        size_t newHeapCapacity = (heapSize + pageSize - 1) & ~(pageSize - 1);
+        // find the last block
+        BlockHeader *lastBlock = this->freeBlockListOffset() != NPtr ? this->freeBlockList() : reinterpret_cast<BlockHeader *>(this->heapHead()); // Start from a free block in the middle (hopefully close to the end)
+        while (reinterpret_cast<Byte *>(lastBlock->getNextPtr()) != this->heapTail())
+        {
+            lastBlock = lastBlock->getNextPtr();
+        }
+        uintptr_t lastBlockOffset = reinterpret_cast<Byte *>(lastBlock) - this->heapHead();
+        bool lastBlockAllocated = lastBlock->A();
 
         // Save everything
         size_t oldStaticSpaceCapacity = this->staticCapacity();
         size_t oldHeapCapacity = this->heapCapacity();
         Byte *tempStaticSpace = new Byte[oldStaticSpaceCapacity];
-        std::memcpy(tempStaticSpace, this->shmPtr, this->staticCapacity());
+        std::memcpy(tempStaticSpace, this->shmPtr, oldStaticSpaceCapacity);
         Byte *tempHeap = new Byte[oldHeapCapacity];
-        std::memcpy(tempHeap, this->heapHead(), this->heapCapacity());
+        std::memcpy(tempHeap, this->heapHead(), oldHeapCapacity);
 
         // resize static space (without copy content)
-        ShmemBase::resize(newStaticSpaceCapacity + this->heapCapacity(), false);
+        ShmemBase::resize(newStaticSpaceCapacity + newHeapCapacity, false);
 
         // Restore everything
+        std::memcpy(this->shmPtr, tempStaticSpace, oldStaticSpaceCapacity);
+        // Overwrite the old capacity
         this->staticCapacity() = newStaticSpaceCapacity;
         this->heapCapacity() = newHeapCapacity;
-        std::memcpy(this->shmPtr, tempStaticSpace, oldStaticSpaceCapacity);
+
         std::memcpy(this->heapHead(), tempHeap, oldHeapCapacity);
+
+        // Get ptr to the new last block
+        lastBlock = reinterpret_cast<BlockHeader *>(this->heapHead() + lastBlockOffset);
+
+        // Check if there's enough space to create a new free block
+        if (newHeapCapacity + 4 * unitSize < oldHeapCapacity || !lastBlockAllocated)
+        {
+            // There's not enough space to create a new free block, or the last block is not allocated,
+            // just give all the space to last block
+            lastBlock->setSize(lastBlock->size() + newHeapCapacity - oldHeapCapacity);
+            if (!lastBlockAllocated)
+            {
+                lastBlock->getFooterPtr()->setSize(newHeapCapacity - oldHeapCapacity);
+            }
+        }
+        else
+        {
+            // Create a new free block
+            BlockHeader *newBlock = lastBlock->getNextPtr();
+            // Size: new heap capacity - old heap capacity, Busy 0, PrevAllocated 1, Allocated 0
+            newBlock->val() = (newHeapCapacity - oldHeapCapacity) | 0b010;
+            newBlock->getFooterPtr()->setSize(newHeapCapacity - oldHeapCapacity);
+
+            // Add the new block to the free block list
+            this->insertFreeBlock(newBlock);
+        }
 
         delete[] tempStaticSpace;
         delete[] tempHeap;
@@ -547,6 +565,7 @@ public:
     }
     void printShmHeap()
     {
+        checkConnection();
         size_t staticCapacity = this->staticCapacity();
         size_t heapCapacity = this->heapCapacity();
         size_t firstFreeBlockOffset = this->freeBlockListOffset();
@@ -602,6 +621,14 @@ public:
 
         // pad heap capacity to a multiple of page size
         size_t newHeapCapacity = (size + pageSize - 1) & ~(pageSize - 1);
+
+        if (this->isConnected())
+        {
+            size_t currentHeapCapacity = this->heapCapacity();
+            if (newHeapCapacity < currentHeapCapacity)
+                throw std::runtime_error("Heap capacity cannot be shrink");
+        }
+
         this->HCap = newHeapCapacity;
         this->logger->info("Request heap size: {}, new heap capacity: {}", size, newHeapCapacity);
     }
@@ -609,6 +636,16 @@ public:
     void setStaticCapacity(size_t size)
     { // pad static space capacity to a multiple of 8
         size_t newStaticSpaceCapacity = (size + unitSize) & ~unitSize;
+
+        if (size < 3 * unitSize)
+            newStaticSpaceCapacity = 3 * unitSize;
+
+        if (this->isConnected())
+        {
+            size_t currentStaticSpaceCapacity = this->staticCapacity();
+            if (newStaticSpaceCapacity < currentStaticSpaceCapacity)
+                throw std::runtime_error("Static space capacity cannot be shrink");
+        }
 
         this->SCap = newStaticSpaceCapacity;
         this->logger->info("Request static space size: {}, new static space capacity: {}", size, newStaticSpaceCapacity);
