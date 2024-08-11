@@ -162,40 +162,6 @@ ShmemHeap::BlockHeader *ShmemHeap::freeBlockList()
     return reinterpret_cast<BlockHeader *>(this->heapHead_unsafe() + this->freeBlockListOffset_unsafe());
 }
 
-void ShmemHeap::removeFreeBlock(BlockHeader *block)
-{
-    if (this->freeBlockListOffset_unsafe() == reinterpret_cast<Byte *>(block) - this->heapHead_unsafe())
-    {
-        if (block->getBckPtr() == block)
-        {
-            // Block is the only element in the list
-            this->freeBlockListOffset_unsafe() = NPtr; // NPtr is an impossible byte offset of a block
-        }
-        else
-        {
-            this->freeBlockListOffset_unsafe() = reinterpret_cast<Byte *>(block->getBckPtr()) - this->heapHead_unsafe();
-        }
-    }
-    block->remove();
-}
-
-void ShmemHeap::insertFreeBlock(BlockHeader *block, BlockHeader *prevBlock)
-{
-    if (this->freeBlockListOffset_unsafe() == NPtr)
-    {
-        // Don't care the previous block when the list is empty, it must be an outdated block
-        this->freeBlockListOffset_unsafe() = reinterpret_cast<Byte *>(block) - this->heapHead_unsafe();
-        block->insert(nullptr);
-    }
-    else
-    {
-        if (prevBlock == nullptr)
-            block->insert(this->freeBlockList_unsafe());
-        else
-            block->insert(prevBlock);
-    }
-}
-
 size_t ShmemHeap::shmalloc(size_t size)
 {
     this->checkConnection();
@@ -373,101 +339,10 @@ size_t ShmemHeap::shrealloc(size_t offset, size_t size)
 int ShmemHeap::shfree(size_t offset)
 {
     this->checkConnection();
-    return this->shfree(this->heapHead_unsafe() + offset);
+    return this->shfreeHelper(this->heapHead_unsafe() + offset);
 }
 
-int ShmemHeap::shfree(Byte *ptr)
-{
-    this->checkConnection();
-
-    if (ptr < this->heapHead_unsafe() || ptr >= this->heapTail_unsafe())
-        return -1;
-
-    // Since there must be a header, a payload ptr should be at least unitSize bytes
-    if (ptr - this->heapHead_unsafe() < unitSize)
-        return -1;
-
-    if ((ptr - this->heapHead_unsafe()) % unitSize != 0)
-        return -1;
-
-    BlockHeader *header = reinterpret_cast<BlockHeader *>(ptr) - 1;
-
-    // Set Busy bit
-    header->wait();
-    header->setB(true);
-
-    if (!header->A())
-        return -1;
-
-    // Set Allocated bit to 0
-    header->setA(false);
-
-    this->insertFreeBlock(header);
-
-    // Create Footer
-    BlockHeader *newFooter = header->getFooterPtr();
-    newFooter->val() = header->size();
-
-    // Remove next block's P bit
-    if (reinterpret_cast<Byte *>(header->getNextPtr()) < this->heapTail_unsafe())
-    {
-        header->getNextPtr()->setP(false);
-    }
-
-    // Immediate coalescing
-    BlockHeader *coalesceTarget = header;
-
-    // First coalesce with the previous block
-
-    while (!coalesceTarget->P())
-    { // Each iteration coalesce two adjacent blocks
-        BlockHeader *prevBlockHeader = coalesceTarget->getPrevPtr();
-        if (prevBlockHeader->A())
-            throw std::runtime_error("previous block is allocated, but following block's P bit is set");
-
-        // Wait Busy bit
-        prevBlockHeader->wait();
-        prevBlockHeader->setB(true);
-
-        size_t newSize = prevBlockHeader->size() + coalesceTarget->size();
-
-        // Size: newSize; Busy: 1; Previous Allocated: not changed; Allocated: 0
-        prevBlockHeader->size_BPA = newSize | 0b100 | (prevBlockHeader->size_BPA & 0b010) & ~0b001;
-        newFooter->val() = newSize;
-
-        // update free list ptr
-        this->removeFreeBlock(coalesceTarget);
-
-        coalesceTarget = prevBlockHeader;
-    }
-
-    while (reinterpret_cast<Byte *>(coalesceTarget->getNextPtr()) < this->heapTail_unsafe() && !coalesceTarget->getNextPtr()->A())
-    {
-        BlockHeader *nextBlockHeader = coalesceTarget->getNextPtr();
-
-        // Wait Busy bit
-        nextBlockHeader->wait();
-
-        newFooter = nextBlockHeader->getFooterPtr();
-
-        size_t newSize = coalesceTarget->size() + nextBlockHeader->size();
-
-        // Size: newSize; Busy: 1; Previous Allocated: not changed; Allocated: 0
-        coalesceTarget->size_BPA = newSize | (coalesceTarget->size_BPA & 0b111);
-        newFooter->val() = newSize;
-
-        // update free list ptr
-        this->removeFreeBlock(nextBlockHeader);
-
-        // coalesceTarget unchanged;
-    }
-
-    // Reset Busy bit
-    coalesceTarget->setB(false);
-
-    return 0;
-}
-
+// Debug
 void ShmemHeap::printShmHeap()
 {
     checkConnection();
@@ -552,6 +427,142 @@ std::string ShmemHeap::briefLayoutStr()
             layoutStr += ", ";
     }
     return layoutStr;
+}
+
+// Helper Methods
+int ShmemHeap::shfreeHelper(Byte *ptr)
+{
+    this->checkConnection();
+
+    if (!verifyPayloadPtr(ptr))
+        return -1;
+
+    BlockHeader *header = reinterpret_cast<BlockHeader *>(ptr) - 1;
+
+    // Set Busy bit
+    header->wait();
+    header->setB(true);
+
+    if (!header->A())
+        return -1;
+
+    // Set Allocated bit to 0
+    header->setA(false);
+
+    this->insertFreeBlock(header);
+
+    // Create Footer
+    BlockHeader *newFooter = header->getFooterPtr();
+    newFooter->val() = header->size();
+
+    // Remove next block's P bit
+    if (reinterpret_cast<Byte *>(header->getNextPtr()) < this->heapTail_unsafe())
+    {
+        header->getNextPtr()->setP(false);
+    }
+
+    // Immediate coalescing
+    BlockHeader *coalesceTarget = header;
+
+    // First coalesce with the previous block
+
+    while (!coalesceTarget->P())
+    { // Each iteration coalesce two adjacent blocks
+        BlockHeader *prevBlockHeader = coalesceTarget->getPrevPtr();
+        if (prevBlockHeader->A())
+            throw std::runtime_error("previous block is allocated, but following block's P bit is set");
+
+        // Wait Busy bit
+        prevBlockHeader->wait();
+        prevBlockHeader->setB(true);
+
+        size_t newSize = prevBlockHeader->size() + coalesceTarget->size();
+
+        // Size: newSize; Busy: 1; Previous Allocated: not changed; Allocated: 0
+        prevBlockHeader->size_BPA = newSize | 0b100 | (prevBlockHeader->size_BPA & 0b010) & ~0b001;
+        newFooter->val() = newSize;
+
+        // update free list ptr
+        this->removeFreeBlock(coalesceTarget);
+
+        coalesceTarget = prevBlockHeader;
+    }
+
+    while (reinterpret_cast<Byte *>(coalesceTarget->getNextPtr()) < this->heapTail_unsafe() && !coalesceTarget->getNextPtr()->A())
+    {
+        BlockHeader *nextBlockHeader = coalesceTarget->getNextPtr();
+
+        // Wait Busy bit
+        nextBlockHeader->wait();
+
+        newFooter = nextBlockHeader->getFooterPtr();
+
+        size_t newSize = coalesceTarget->size() + nextBlockHeader->size();
+
+        // Size: newSize; Busy: 1; Previous Allocated: not changed; Allocated: 0
+        coalesceTarget->size_BPA = newSize | (coalesceTarget->size_BPA & 0b111);
+        newFooter->val() = newSize;
+
+        // update free list ptr
+        this->removeFreeBlock(nextBlockHeader);
+
+        // coalesceTarget unchanged;
+    }
+
+    // Reset Busy bit
+    coalesceTarget->setB(false);
+
+    return 0;
+}
+// Utility functions
+bool ShmemHeap::verifyPayloadPtr(Byte *ptr)
+{
+    if (ptr - unitSize < this->heapHead_unsafe() || ptr + 3 * unitSize > this->heapTail_unsafe())
+    {
+        return false;
+    }
+    // Check if the pointer is aligned
+    if ((ptr - this->heapHead_unsafe()) % unitSize != 0)
+    {
+        return false;
+    }
+    // Further check
+    return true;
+}
+
+// Free list pointer manipulators
+void ShmemHeap::removeFreeBlock(BlockHeader *block)
+{
+    if (this->freeBlockListOffset_unsafe() == reinterpret_cast<Byte *>(block) - this->heapHead_unsafe())
+    {
+        if (block->getBckPtr() == block)
+        {
+            // Block is the only element in the list
+            this->freeBlockListOffset_unsafe() = NPtr; // NPtr is an impossible byte offset of a block
+        }
+        else
+        {
+            this->freeBlockListOffset_unsafe() = reinterpret_cast<Byte *>(block->getBckPtr()) - this->heapHead_unsafe();
+        }
+    }
+    block->remove();
+}
+
+void ShmemHeap::insertFreeBlock(BlockHeader *block, BlockHeader *prevBlock)
+{
+    if (this->freeBlockListOffset_unsafe() == NPtr)
+    {
+        // Don't care the previous block when the list is empty, it must be an outdated block
+        this->freeBlockListOffset_unsafe() = reinterpret_cast<Byte *>(block) - this->heapHead_unsafe();
+        block->insert(nullptr);
+    }
+    else
+    {
+        if (prevBlock == nullptr)
+            block->insert(this->freeBlockList_unsafe());
+        else
+            block->insert(prevBlock);
+    }
 }
 
 // Protected/Private Methods

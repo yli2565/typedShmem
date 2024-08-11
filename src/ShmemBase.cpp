@@ -362,6 +362,7 @@ void ShmemBase::checkConnection()
     }
 }
 
+
 // Naming Helpers
 std::string ShmemBase::counterSemName() const
 {

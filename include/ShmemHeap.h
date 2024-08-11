@@ -198,38 +198,60 @@ public:
     // Constructor
     ShmemHeap(const std::string &name, size_t staticSpaceSize = DSCap, size_t heapSize = DHCap);
 
+    /**
+     * @brief Create a basic shared memory and setup the heap on it
+     * @note The static space and heap capacity could be set with setSCap() and setHCap()
+     * before calling create(). After that, setting HCap and SCap will have no effect.
+     */
     void create();
 
     /**
      * @brief Resize the heap space
      *
-     * @param heapSize New size for the heap
+     * @param heapSize New size for the heap, padded to page size. -1 means not changed
      */
     void resize(size_t heapSize);
 
     /**
      * @brief Resize both static and heap space
      *
-     * @param staticSpaceSize required size of static space, might be padded. -1 means not changed
-     * @param heapSize required size of heap space, might be padded. -1 means not changed
+     * @param staticSpaceSize required size of static space, padded to unitSize. -1 means not changed
+     * @param heapSize required size of heap space, padded to page size. -1 means not changed
      */
     void resize(size_t staticSpaceSize, size_t heapSize);
 
     /**
-     * @brief Aligned the start of the heap to the nearest 8 bytes
-     *
-     * @return offset of the payload
+     * @brief Allocate a block in the heap
+     * @param size size of the payload, will be padded to a multiple of unitSize
+     * @return offset of the allocated block from the heap head
      */
     size_t shmalloc(size_t size);
 
+    /**
+     * @brief Reallocate a block in the heap
+     * @param offset offset of original block from the heap head
+     * @param size new size of the payload, will be padded to a multiple of unitSize
+     * @return offset of the reallocated block from the heap head
+     */
     size_t shrealloc(size_t offset, size_t size);
 
+    /**
+     * @brief Free a block in the heap
+     * @param offset offset of the payload from the heap head
+     * @return 0 on success, -1 on failure
+     */
     int shfree(size_t offset);
-    int shfree(Byte *ptr);
 
-    void printShmHeap();
-    std::vector<size_t> briefLayout();
-    std::string briefLayoutStr();
+    /**
+     * @brief Free a block in the heap
+     * @param ptr any kind of pointer to a payload
+     * @return 0 on success, -1 on failure
+     */
+    template <typename T>
+    int shfree(T *ptr)
+    {
+        return this->shfreeHelper(reinterpret_cast<Byte *>(ptr));
+    }
 
     // Getters
 
@@ -247,6 +269,7 @@ public:
      */
     size_t getSCap();
 
+    // Safe Getters (check shm connection)
     size_t &staticCapacity();
     size_t &heapCapacity();
     size_t &freeBlockListOffset();
@@ -273,12 +296,37 @@ public:
     // Utility Functions
     std::shared_ptr<spdlog::logger> &getLogger();
 
+    // Debug
+    /**
+     * @brief Print the layout of the heap in detail
+     */
+    void printShmHeap();
+    /**
+     * @brief Get size_BPA of all blocks in the heap
+     *
+     * @return vector of size_BPA of all blocks
+     */
+    std::vector<size_t> briefLayout();
+    /**
+     * @brief String representation of payload size and alloc bit of all blocks in the heap
+     *
+     * @return std::string
+     * @note e.g. "256A, 128E, 64A, 32E, 16A, 8E, 4A, 2E, 1A" E-empty, A-allocated
+     */
+    std::string briefLayoutStr();
+
 protected:
+    // Helpers
+    int shfreeHelper(Byte *ptr);
+
+    // Utility functions
+    bool verifyPayloadPtr(Byte *ptr);
+
     // Free list pointer manipulators
     void insertFreeBlock(BlockHeader *block, BlockHeader *prevBlock = nullptr);
     void removeFreeBlock(BlockHeader *block);
 
-    // Fast arithmetic
+    // Fast arithmetic, without connection check
     inline size_t &staticCapacity_unsafe();
     inline size_t &heapCapacity_unsafe();
     inline size_t &freeBlockListOffset_unsafe();

@@ -157,19 +157,20 @@ TEST_F(ShmemHeapTest, FullMallocAndFree)
     {
         if (i % 4 == 0)
         {
-            shmHeap->shfree(i * 32 + 8);
+            EXPECT_EQ(shmHeap->shfree(i * 32 + 8), 0);
         }
         if (i % 4 == 1)
         {
-            shm1.shfree(i * 32 + 8);
+            // EXPECT_EQ(shm1.shfree(i * 32 + 8), 0);
+            EXPECT_EQ(shm1.shfree(reinterpret_cast<ShmemHeap::BlockHeader *>(shm1.heapHead() + i * 32 + 8)), 0);
         }
         if (i % 4 == 2)
         {
-            shm2.shfree(i * 32 + 8);
+            EXPECT_EQ(shm2.shfree(reinterpret_cast<float *>(shm2.heapHead() + i * 32 + 8)), 0);
         }
         if (i % 4 == 3)
         {
-            shm3.shfree(i * 32 + 8);
+            EXPECT_EQ(shm3.shfree(reinterpret_cast<Byte **>(shm3.heapHead() + i * 32 + 8)), 0);
         }
     }
 
