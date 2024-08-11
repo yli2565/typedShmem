@@ -16,14 +16,14 @@ inline std::atomic<size_t> &ShmemHeap::BlockHeader::atomicVal() const
     return *const_cast<std::atomic<size_t> *>(reinterpret_cast<const std::atomic<size_t> *>(&this->size_BPA));
 }
 
-intptr_t &ShmemHeap::BlockHeader::fwdOffset()
+intptr_t &ShmemHeap::BlockHeader::fwdOffset() const
 {
-    return reinterpret_cast<intptr_t *>(this)[1];
+    return reinterpret_cast<intptr_t *>(const_cast<ShmemHeap::BlockHeader *>(this))[1];
 }
 
-intptr_t &ShmemHeap::BlockHeader::bckOffset()
+intptr_t &ShmemHeap::BlockHeader::bckOffset() const
 {
-    return reinterpret_cast<intptr_t *>(this)[2];
+    return reinterpret_cast<intptr_t *>(const_cast<ShmemHeap::BlockHeader *>(this))[2];
 }
 
 size_t ShmemHeap::BlockHeader::size() const
