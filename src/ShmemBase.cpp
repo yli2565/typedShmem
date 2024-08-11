@@ -64,6 +64,12 @@ ShmemBase::~ShmemBase()
 // Core Operations
 void ShmemBase::create()
 {
+    if (this->connected)
+    {
+        this->logger->error("Attempt to create an already connected shared memory. please close the previous connection first or use resize()");
+        throw std::runtime_error("ShmemBase already connected, please close the previous connection first or use resize()");
+    }
+
     // create shared memory
     this->shmFd = ShmemUtils::createShm(this->shmPtr, this->name, this->capacity);
     this->ownShm = true;
@@ -81,11 +87,17 @@ void ShmemBase::create()
     // create write lock
     this->writeLock = this->createWriteLock();
 
-    this->logger->info("Created shared memory object {}", this->name);
+    this->logger->info("Created shared memory {}", this->name);
 }
 
 void ShmemBase::resize(size_t newCapacity, bool keepContent)
 {
+    if (!this->connected)
+    {
+        this->logger->error("Try to resize an unconnected shared memory. please connect or create the ShmemBase first");
+        throw std::runtime_error("ShmemBase not connected, please connect or create the ShmemBase first");
+    }
+
     if (newCapacity < this->usedSize)
     {
         this->logger->error("New capacity {} is less than current used size {}", newCapacity, this->usedSize);
@@ -134,6 +146,12 @@ void ShmemBase::resize(size_t newCapacity, bool keepContent)
 
 void ShmemBase::connect()
 {
+    if (this->connected)
+    {
+        this->logger->error("Attempt to connect an already connected shared memory. please close the previous connection first or use reconnect()");
+        throw std::runtime_error("ShmemBase already connected, please close the previous connection first or use reconnect()");
+    }
+
     this->shmFd = ShmemUtils::connectShm(this->shmPtr, this->name, this->waitTime);
     this->ownShm = false;
     this->connected = true;
@@ -154,6 +172,12 @@ void ShmemBase::connect()
 
 void ShmemBase::reconnect()
 {
+    if (!this->connected)
+    {
+        this->logger->error("Try to reconnect an unconnected shared memory. please connect or create the ShmemBase first", this->name);
+        throw std::runtime_error("ShmemBase not connected, please connect or create the ShmemBase first");
+    }
+
     this->shmFd = ShmemUtils::connectShm(this->shmPtr, this->name, this->waitTime);
     // Reconnect won't change the ownership of the shm
     // As ownership is just the responsibility to clean up the shm
@@ -312,9 +336,13 @@ bool ShmemBase::ownsSharedMemory() const
 }
 
 // Utility Functions
-std::shared_ptr<spdlog::logger>& ShmemBase::getLogger()
+std::shared_ptr<spdlog::logger> &ShmemBase::getLogger()
 {
     return this->logger;
+}
+size_t ShmemBase::pad(size_t size, size_t align)
+{
+    return (size + align - 1) & ~(align - 1);
 }
 
 void ShmemBase::checkConnection()

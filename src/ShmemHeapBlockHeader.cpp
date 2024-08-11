@@ -6,9 +6,14 @@
 
 using Byte = unsigned char;
 
-uintptr_t &ShmemHeap::BlockHeader::val()
+size_t &ShmemHeap::BlockHeader::val()
 {
-    return *reinterpret_cast<uintptr_t *>(this);
+    return *reinterpret_cast<size_t *>(this);
+}
+
+inline std::atomic<size_t> &ShmemHeap::BlockHeader::atomicVal() const
+{
+    return *const_cast<std::atomic<size_t> *>(reinterpret_cast<const std::atomic<size_t> *>(&this->size_BPA));
 }
 
 intptr_t &ShmemHeap::BlockHeader::fwdOffset()
@@ -23,51 +28,57 @@ intptr_t &ShmemHeap::BlockHeader::bckOffset()
 
 size_t ShmemHeap::BlockHeader::size() const
 {
-    return size_BPA & ~0b111;
+    return this->atomicVal().load(std::memory_order_relaxed) & ~0b111;
 }
 
 void ShmemHeap::BlockHeader::setSize(size_t size)
 {
-    this->size_BPA = size | (this->size_BPA & 0b111);
+    size_t current = this->atomicVal().load(std::memory_order_relaxed);
+    size_t newSize;
+    // Ensure correct update is done
+    do
+    {
+        newSize = size | (current & 0b111);
+    } while (!this->atomicVal().compare_exchange_weak(current, newSize, std::memory_order_acquire, std::memory_order_relaxed));
 }
 
 bool ShmemHeap::BlockHeader::B() const
 {
-    return size_BPA & 0b100;
+    return this->atomicVal().load(std::memory_order_relaxed) & 0b100;
 }
 
 bool ShmemHeap::BlockHeader::P() const
 {
-    return size_BPA & 0b010;
+    return this->atomicVal().load(std::memory_order_relaxed) & 0b010;
 }
 
 bool ShmemHeap::BlockHeader::A() const
 {
-    return size_BPA & 0b001;
+    return this->atomicVal().load(std::memory_order_relaxed) & 0b001;
 }
 
 void ShmemHeap::BlockHeader::setB(bool b)
 {
     if (b)
-        size_BPA |= 0b100;
+        this->atomicVal().fetch_or(0b100, std::memory_order_relaxed);
     else
-        size_BPA &= ~0b100;
+        this->atomicVal().fetch_and(~0b100, std::memory_order_relaxed);
 }
 
 void ShmemHeap::BlockHeader::setP(bool p)
 {
     if (p)
-        size_BPA |= 0b010;
+        this->atomicVal().fetch_or(0b010, std::memory_order_relaxed);
     else
-        size_BPA &= ~0b010;
+        this->atomicVal().fetch_and(~0b010, std::memory_order_relaxed);
 }
 
 void ShmemHeap::BlockHeader::setA(bool a)
 {
     if (a)
-        size_BPA |= 0b001;
+        this->atomicVal().fetch_or(0b001, std::memory_order_relaxed);
     else
-        size_BPA &= ~0b001;
+        this->atomicVal().fetch_and(~0b001, std::memory_order_relaxed);
 }
 
 ShmemHeap::BlockHeader *ShmemHeap::BlockHeader::getFooterPtr() const

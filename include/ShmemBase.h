@@ -74,6 +74,7 @@ public:
 protected:
     // Utility Functions
     void checkConnection();
+    size_t pad(size_t size, size_t align);
 
     // Naming Helpers
     std::string counterSemName() const;

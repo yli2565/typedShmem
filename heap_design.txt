@@ -1,0 +1,24 @@
+The provided object is a 
+ptr + access 
+
+[] operator on the shm object just provide 
+
+an accessor with index/key recorded 
+[] on accessor just give another accessor 
+
+dereference only happen when read (convert to other type) / write (assign a value/another accessor) 
+
+if it is a map (rb node)
+    hash the input 
+    find the corresponding node 
+    the node just store a ptr to the real data 
+    fetch the read data
+if it is a primitive 
+    check size 
+    return the value
+if it is a list 
+    check size 
+    recursively dereference the ptr in the list
+
+The result will always be a primitive block accessor 
+

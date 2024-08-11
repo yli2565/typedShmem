@@ -1,0 +1,35 @@
+Hi, professor, I totally agree we can do much more behavior cloning in the fall semester.
+
+It has been a couple of week from our last meeting, and here's what I'm doing since then
+
+I'm packing up my code into modules that can couple with future BHuman code. 
+Currently I've done: 
+    A new communication module (not finished yet)
+    Robot side FSM logic finished
+    GameController FSM logic finished
+
+    Rewrite the code that are written in a hurry
+
+    Make LogReader use multi-processing in a better way (But python is still kind of slow for byte operation)
+
+Another things is that , the speed of SimRObot env drop drastically when the number of robot increase, >=
+4 robots will make the speed inpracticall to be used for training. Unfortunate, this problem have no easy fix.  our code is using pettingzoo's parellel env, which requires all agents to do synchorized step, while
+SimRobot's agents update in an aync way. Changing to  Agent Environment Cycle  (AEC) env would help, but would make the implementation quite hard
+
+And these days I've tried to train agents will ability to select skills among BHuman's skills but doesn't succeed
+I didn't know if in France Will change the implementation, but from the code he gives me, we have a small action space. 
+After reading some papers and talking with Abhinav, I think we should either train subtask + task planner (Or not task planner in Abhinav's case) or use action masking (probably with a trained mask)
+I think when you mention "a network that predict probability of goal" would it be used to do somekind of action masking? Or just simply used a observation input?
+
+
+For my personal plan, I decide to delay my application and find a direction of interest before applying to
+graduate school. So, I might have another year to do some research in UW_Madison with my OPT.
+
+I don't have a deep understanding on exploration, but I think, our robot can work at a relatively high frequency and the "shaking behavior" will make the learning difficult. 
+
+What I witness, is that since our robot works at a relatively high frequency, during training, the action it takes cannot represent it's action in the real world.
+For example, shaking left and right will result in going forward, but when we sample transitions, it will get a single go-left or go-right action and thinks that contribute to the 
+resulting reward. I think, even in exploration, in similar state space, the action should not be too random. 
+
+So, your paper shows we can define subtask the is learned
+
