@@ -5,6 +5,9 @@
 ShmemHeap::ShmemHeap(const std::string &name, size_t staticSpaceSize, size_t heapSize)
     : ShmemBase(name)
 {
+    // Disable the ShmemBase logger
+    this->ShmemBase::getLogger()->set_level(spdlog::level::err);
+
     // init logger
     this->logger = spdlog::default_logger()->clone("ShmHeap:" + name);
     std::string pattern = "[" + std::to_string(getpid()) + "] [%n] %v";
@@ -21,6 +24,10 @@ void ShmemHeap::create()
 {
     if (this->SCap < this->minStaticSize || this->HCap == 0)
     {
+        if (this->SCap < this->minStaticSize)
+            this->logger->error("SCap is too small. SCap: {} < minStaticSize: {}", this->SCap, this->minStaticSize);
+        if (this->HCap == 0)
+            this->logger->error("HCap is too small. HCap: {}", this->HCap);
         throw std::runtime_error("Capacity is too small to hold static space or heap space");
     }
     ShmemBase::create();
@@ -35,6 +42,8 @@ void ShmemHeap::create()
     firstBlock->val() = this->HCap | 0b010;
     firstBlock->getFooterPtr()->val() = this->HCap;
     this->freeBlockListOffset_unsafe() = reinterpret_cast<Byte *>(firstBlock) - this->heapHead_unsafe();
+
+    this->logger->info("Shared memory heap created. Static space capacity: {} heap capacity: {}", this->SCap, this->HCap);
 }
 
 void ShmemHeap::resize(size_t heapSize)
@@ -109,6 +118,7 @@ void ShmemHeap::resize(size_t staticSpaceSize, size_t heapSize)
         {
             lastBlock->getFooterPtr()->setSize(newHeapCapacity - oldHeapCapacity);
         }
+        this->logger->info("Resized to: Static space capacity: {}->{} heap capacity: {}->{}. Additional heap space({} Byte) is merged into last block", oldStaticSpaceCapacity, newStaticSpaceCapacity, oldHeapCapacity, newHeapCapacity, newHeapCapacity - oldHeapCapacity);
     }
     else
     {
@@ -120,6 +130,8 @@ void ShmemHeap::resize(size_t staticSpaceSize, size_t heapSize)
 
         // Add the new block to the free block list
         this->insertFreeBlock(newBlock);
+
+        this->logger->info("Resized to: Static space capacity: {}->{} heap capacity: {}->{}. Additional heap space({} Byte) is convert to a new free block", oldStaticSpaceCapacity, newStaticSpaceCapacity, oldHeapCapacity, newHeapCapacity, newHeapCapacity - oldHeapCapacity);
     }
 
     delete[] tempStaticSpace;
@@ -235,6 +247,8 @@ size_t ShmemHeap::shmalloc(size_t size)
 
             // Reset busy bit
             newBlockHeader->setB(false);
+
+            this->logger->debug("shmalloc(size={}) split the best fit block at offset {}: {}E->{}A+{}E", size, reinterpret_cast<Byte *>(best) - this->heapHead_unsafe(), bestSize, requiredSize, bestSize - requiredSize);
         }
 
         // update the best fit block
@@ -248,10 +262,15 @@ size_t ShmemHeap::shmalloc(size_t size)
         }
 
         // Return the offset from the heap head (+1 make the offset is on start of payload)
-        return reinterpret_cast<Byte *>(best + 1) - this->heapHead_unsafe();
+        size_t resultOffset = reinterpret_cast<Byte *>(best + 1) - this->heapHead_unsafe();
+
+        this->logger->info("shmalloc(size={}) succeeded. Payload Offset: {}, Block Size: {}", size, resultOffset, requiredSize);
+
+        return resultOffset;
     }
     else
     {
+        this->logger->info("shmalloc(size={}) failed", size);
         return 0;
     }
 }
@@ -283,6 +302,7 @@ size_t ShmemHeap::shrealloc(size_t offset, size_t size)
 
     if (oldSize == requiredSize)
     {
+        this->logger->debug("shrealloc(offset={}, size={}) succeeded. Current block size: {} already satisfied the requirement", offset, size, oldSize);
         return offset;
     }
     else if (oldSize > requiredSize)
@@ -291,8 +311,7 @@ size_t ShmemHeap::shrealloc(size_t offset, size_t size)
         {
             // a free block is at least 4 bytes, we cannot split the block
             // TODO: the following block is a free block, we can merge the bytes into it
-
-            this->logger->warn("A reallocation request is ignored as a free block is at least 4 bytes. Request size: {}, old size: {}", requiredSize, oldSize);
+            this->logger->warn("A reallocation request is ignored as a free block is at least 4 bytes (Not enough space to split a free block). Request size: {}, old size: {}", requiredSize, oldSize);
         }
         else
         {
@@ -311,6 +330,8 @@ size_t ShmemHeap::shrealloc(size_t offset, size_t size)
             // update the header block
             // Size: requiredSize; Busy: 0; Previous Allocated: not changed; Allocated: 1
             header->val() = requiredSize & ~0b100 | (header->size_BPA & 0b010) | 0b001;
+
+            this->logger->debug("shrealloc(offset={}, size={}) shrink current block from: {}A->{}A+{}E", offset, size, oldSize, requiredSize, oldSize - requiredSize);
         }
         return offset;
     }
@@ -331,6 +352,8 @@ size_t ShmemHeap::shrealloc(size_t offset, size_t size)
         std::memcpy(this->heapHead_unsafe() + newPayloadOffset, tempPayload, oldPayloadSize);
 
         delete[] tempPayload;
+
+        this->logger->debug("shrealloc(offset={}, size={}) move payload offset: {}->{}, block size: {}->{}", offset, size, offset, newPayloadOffset, oldSize, requiredSize);
 
         return newPayloadOffset;
     }
@@ -433,9 +456,13 @@ std::string ShmemHeap::briefLayoutStr()
 int ShmemHeap::shfreeHelper(Byte *ptr)
 {
     this->checkConnection();
+    Byte *headPtr = this->heapHead_unsafe();
 
     if (!verifyPayloadPtr(ptr))
+    {
+        this->logger->warn("shfree(payloadOffset={}) find the offset invalid, which should never be passed to shfree", ptr - headPtr);
         return -1;
+    }
 
     BlockHeader *header = reinterpret_cast<BlockHeader *>(ptr) - 1;
 
@@ -476,7 +503,8 @@ int ShmemHeap::shfreeHelper(Byte *ptr)
         prevBlockHeader->wait();
         prevBlockHeader->setB(true);
 
-        size_t newSize = prevBlockHeader->size() + coalesceTarget->size();
+        size_t prevBlockSize = prevBlockHeader->size();
+        size_t newSize = prevBlockSize + coalesceTarget->size();
 
         // Size: newSize; Busy: 1; Previous Allocated: not changed; Allocated: 0
         prevBlockHeader->size_BPA = newSize | 0b100 | (prevBlockHeader->size_BPA & 0b010) & ~0b001;
@@ -484,6 +512,9 @@ int ShmemHeap::shfreeHelper(Byte *ptr)
 
         // update free list ptr
         this->removeFreeBlock(coalesceTarget);
+
+        // Write log
+        this->logger->debug("shfree(payloadOffset={}) coalesced with prev: [{}, {}] <- [{}, {}]", ptr - headPtr, reinterpret_cast<Byte *>(prevBlockHeader) - headPtr, reinterpret_cast<Byte *>(coalesceTarget) - headPtr, reinterpret_cast<Byte *>(coalesceTarget) - headPtr, reinterpret_cast<Byte *>(newFooter) - headPtr);
 
         coalesceTarget = prevBlockHeader;
     }
@@ -506,12 +537,15 @@ int ShmemHeap::shfreeHelper(Byte *ptr)
         // update free list ptr
         this->removeFreeBlock(nextBlockHeader);
 
+        // Write log
+        this->logger->debug("shfree(payloadOffset={}) coalesced with next: [{}, {}] <- [{}, {}]", ptr - headPtr, reinterpret_cast<Byte *>(coalesceTarget) - headPtr, reinterpret_cast<Byte *>(nextBlockHeader) - headPtr, reinterpret_cast<Byte *>(nextBlockHeader) - headPtr, reinterpret_cast<Byte *>(newFooter) - headPtr);
         // coalesceTarget unchanged;
     }
 
     // Reset Busy bit
     coalesceTarget->setB(false);
 
+    this->logger->info("shfree(payloadOffset={}) succeeded", ptr - headPtr);
     return 0;
 }
 // Utility functions

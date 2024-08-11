@@ -693,7 +693,6 @@ public:
     template <typename T>
     operator T() const
     {
-
         if (!isPrimitive<T>())
         {
             throw std::runtime_error("Currently can only convert to primitive or vector of primitive");
@@ -759,11 +758,5 @@ public:
         {
             throw std::runtime_error("Cannot convert to this type (C++ doesn't support dynamic type)");
         }
-    }
-
-    template <typename T>
-    operator std::vector<T>() const
-    {
-        throw std::runtime_error("Cannot convert to this type (C++ doesn't support dynamic type)");
     }
 };

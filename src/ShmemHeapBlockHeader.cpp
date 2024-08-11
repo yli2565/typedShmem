@@ -4,8 +4,6 @@
 #include <thread>
 #include <chrono>
 
-using Byte = unsigned char;
-
 size_t &ShmemHeap::BlockHeader::val()
 {
     return *reinterpret_cast<size_t *>(this);

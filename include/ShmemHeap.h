@@ -22,7 +22,7 @@ class ShmemHeap : public ShmemBase
 {
 public:
     // Minimum static size
-    const static int minStaticSize = 4;
+    const int minStaticSize = 4;
 
     // Inner BlockHeader structure
     struct BlockHeader
