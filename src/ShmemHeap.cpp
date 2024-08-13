@@ -455,6 +455,10 @@ std::string ShmemHeap::briefLayoutStr()
 // Helper Methods
 int ShmemHeap::shfreeHelper(Byte *ptr)
 {
+    // Safely handle special cases
+    if (ptr == nullptr)
+        return 0;
+
     this->checkConnection();
     Byte *headPtr = this->heapHead_unsafe();
 

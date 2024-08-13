@@ -270,11 +270,48 @@ public:
     size_t getSCap();
 
     // Safe Getters (check shm connection)
+
+    /**
+     * @brief Get the size of the static space recorded in the first size_t(8 bytes) of the heap
+     * 
+     * @return size_t reference to the first 8 bytes of the heap
+     */
     size_t &staticCapacity();
+
+    /**
+     * @brief Get the size of the heap recorded in the second size_t(8 bytes) of the heap
+     * 
+     * @return size_t reference to the second 8 bytes of the heap
+     */
     size_t &heapCapacity();
+
+    /**
+     * @brief Get the offset(from the heap head) of the free block list, recorded in the third size_t(8 bytes) of the heap
+     * 
+     * @return size_t reference to the offset of the free block list
+     * @note the offset can be calculated into a reference to a free block in the heap, thus can be used as the head of the free block list (double linked list)
+     */
     size_t &freeBlockListOffset();
+
+    /**
+     * @brief Get the head ptr of the heap. Check connection before using
+     * 
+     * @return this->shmPtr + staticCapacity (skip the static space)
+     */
     Byte *heapHead();
+
+    /**
+     * @brief Get the tail ptr of the heap. Check connection before using
+     * 
+     * @return this->shmPtr + staticCapacity + +staticCapacity + heapCapacity
+     */
     Byte *heapTail();
+
+    /**
+     * @brief Get the head ptr of the free block list. Check connection before using
+     * 
+     * @return this->heapHead + freeBlockListOffset
+     */
     BlockHeader *freeBlockList();
 
     // Setters
@@ -330,10 +367,26 @@ protected:
     inline size_t &staticCapacity_unsafe();
     inline size_t &heapCapacity_unsafe();
     inline size_t &freeBlockListOffset_unsafe();
-    inline Byte *heapHead_unsafe();
-    inline Byte *heapTail_unsafe();
-    inline BlockHeader *freeBlockList_unsafe();
+    /**
+     * @brief Get the head ptr of the heap
+     * 
+     * @return this->shmPtr + staticCapacity (skip the static space)
+     */
+    Byte *heapHead_unsafe();
 
+    /**
+     * @brief Get the tail ptr of the heap
+     * 
+     * @return this->shmPtr + staticCapacity + +staticCapacity + heapCapacity
+     */
+    Byte *heapTail_unsafe();
+
+    /**
+     * @brief Get the head ptr of the free block list
+     * 
+     * @return this->heapHead + freeBlockListOffset
+     */
+    BlockHeader *freeBlockList_unsafe();
 private:
     // preset capacity
 
