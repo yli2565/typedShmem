@@ -3,7 +3,7 @@
 #include <gtest/gtest.h>
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/basic_file_sink.h"
-#include "ShmemHeap.h"
+#include "ShmemObj.h"
 int main(int argc, char **argv)
 {
     spdlog::set_default_logger(spdlog::basic_logger_mt("test", "test.log"));
