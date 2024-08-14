@@ -58,10 +58,9 @@ private:
                     using vecDataType = typename unwrapVectorType<T>::type;
                     size_t listOffset = ShmemList::construct(value.size(), heapPtr);
                     ShmemList *list = reinterpret_cast<ShmemList *>(ShmemObj::resolveOffset(listOffset, heapPtr));
-                    for (int i = 0; i < value.size(); i++)
+                    for (int i = 0; i < static_cast<int>(value.size()); i++)
                     {
-                        ShmemObj *child = ShmemObj::construct<vecDataType>(value[i], heapPtr);
-                        list->add(child);
+                        list->add(value[i], heapPtr);
                     }
                     return listOffset;
                 }
@@ -69,12 +68,18 @@ private:
                 {
                     using mapDataType = typename unwrapMapType<T>::type;
                     using mapKeyType = typename unwrapMapType<T>::keyType;
+
+                    // Check if mapKeyType is int, string or variant<int, string>
+                    if (!(std::is_same<mapKeyType, int>::value || std::is_same<mapKeyType, std::string>::value || std::is_same<mapKeyType, KeyType>::value))
+                    {
+                        throw std::runtime_error("Map key type must be int, string or variant<int, string>");
+                    }
+
                     size_t dictOffset = ShmemDict::construct(heapPtr);
                     ShmemDict *dict = reinterpret_cast<ShmemDict *>(ShmemObj::resolveOffset(dictOffset, heapPtr));
                     for (auto &[key, val] : value)
                     {
-                        ShmemObj *child = ShmemObj::construct<mapDataType>(val, heapPtr);
-                        dict->insert(key, child, heapPtr);
+                        dict->insert(key, val, heapPtr);
                     }
                     return dictOffset;
                 }
@@ -123,7 +128,9 @@ private:
         result += " " + std::to_string(reinterpret_cast<type *>(ptr)[i]); \
     }                                                                     \
     break;
-            std::string result = "[P:" + typeNames.at(obj->type) + ":" + std::to_string(obj->size) + "]";
+            std::string result;
+            result.reserve(40);
+            result.append("[P:").append(typeNames.at(obj->type)).append(":").append(std::to_string(obj->size)).append("]");
 
             Byte *ptr = obj->getBytePtr();
             switch (obj->type)
@@ -321,7 +328,9 @@ private:
 
         std::string toString(int maxElements = 4) const
         {
-            std::string result = "[P:" + typeNames.at(this->type) + ":" + std::to_string(this->size) + "]";
+            std::string result;
+            result.reserve(40);
+            result.append("[P:").append(typeNames.at(this->type)).append(":").append(std::to_string(this->size)).append("]");
             const T *ptr = this->getPtr();
             for (int i = 0; i < std::max(this->size, maxElements); i++)
             {
@@ -369,6 +378,7 @@ private:
 
     struct ShmemDict : public ShmemObj
     {
+    protected:
         ptrdiff_t rootOffset;
         ptrdiff_t NILOffset;
 
@@ -380,39 +390,71 @@ private:
         void leftRotate(ShmemDictNode *nodeX);
         void rightRotate(ShmemDictNode *nodeX);
         void fixInsert(ShmemDictNode *nodeK);
-        std::string inorderHelper(ShmemDictNode *node, int indent = 0);
 
+        // Core
+        void insert(KeyType key, ShmemObj *data, ShmemHeap *heapPtr);
+
+        // Traversal helpers
+        std::string inorder(int indent = 0);
+        std::string toStringHelper(ShmemDictNode *node, int indent = 0);
         static void deconstructHelper(ShmemDictNode *node, ShmemHeap *heapPtr);
         ShmemDictNode *searchHelper(ShmemDictNode *node, int key);
+
+        ShmemDictNode *search(KeyType key);
 
     public:
         static size_t construct(ShmemHeap *heapPtr);
         static void deconstruct(size_t offset, ShmemHeap *heapPtr);
 
-        void insert(KeyType key, ShmemObj *data, ShmemHeap *heapPtr);
+        template <typename T>
+        void insert(KeyType key, T val, ShmemHeap *heapPtr)
+        {
+            insert(key, heapPtr->heapHead() + ShmemObj::construct<T>(val, heapPtr), heapPtr);
+        }
 
         ShmemObj *get(KeyType key);
-
-        std::string inorder(int indent = 0);
-
-        ShmemDictNode *search(KeyType key);
 
         static std::string toString(ShmemDict *dict, int indent = 0);
     };
 
     struct ShmemList : public ShmemObj
     {
+    protected:
+        ptrdiff_t *relativeOffsetPtr();
+        const ptrdiff_t *relativeOffsetPtr() const;
+
+        ShmemObj *getObj(int index) const;
+        void setObj(int index, ShmemObj *obj);
+
+        int resolveIndex(int index) const;
+
+        void add(ShmemObj *newObj, ShmemHeap *heapPtr);
+        void assign(int index, ShmemObj *newObj, ShmemHeap *heapPtr);
+
+    public:
+        uint listSize;
+        ptrdiff_t listSpaceOffset;
+
         size_t listCapacity() const;
+        size_t potentialCapacity() const;
+
         static size_t construct(size_t capacity, ShmemHeap *heapPtr);
         static void deconstruct(size_t offset, ShmemHeap *heapPtr);
 
-        ptrdiff_t *relativeOffsetPtr();
-        int resolveIndex(int index);
-
         ShmemObj *at(int index);
-        void add(ShmemObj *newObj);
-        ShmemObj *replace(int index, ShmemObj *newObj);
-        ShmemObj *pop(int index);
+
+        template <typename T>
+        void add(T val, ShmemHeap *heapPtr)
+        {
+            this->add(ShmemObj::construct<T>(val, heapPtr), heapPtr);
+        }
+
+        template <typename T>
+        void assign(int index, T val, ShmemHeap *heapPtr)
+        {
+            this->assign(index, ShmemObj::construct<T>(val, heapPtr), heapPtr);
+        }
+        ShmemObj *pop();
 
         static std::string toString(ShmemList *list, int indent = 0, int maxElements = 4);
     };
@@ -433,6 +475,15 @@ protected:
      */
     size_t entranceOffset() const;
 
+    /**
+     * @brief Get the entrance ptr of the data structure. Check connection before using
+     * @return this->shmPtr + staticCapacity + entranceOffset
+     */
+    ShmemObj *entrance() const;
+
+    void setEntrance(ShmemObj *obj);
+    void setEntrance(size_t offset);
+
     // Utility functions
     void resolvePath(ShmemObj *&prevObj, ShmemObj *&obj, int &resolvedDepth) const;
 
@@ -442,14 +493,6 @@ public:
 
     ShmemAccessor(ShmemHeap *heapPtr);
     ShmemAccessor(ShmemHeap *heapPtr, std::vector<KeyType> path);
-
-    /**
-     * @brief Get the entrance ptr of the data structure. Check connection before using
-     * @return this->shmPtr + staticCapacity + entranceOffset
-     */
-    ShmemObj *entrance() const;
-
-    void setEntrance(ShmemObj *obj);
 
     template <typename... KeyTypes>
     ShmemAccessor operator[](KeyTypes... accessPath) const
@@ -542,19 +585,21 @@ public:
         // Deal with unresolved path
         if (partiallyResolved)
         {
-            // Only one path element is not resolved
+            // Only one path element is unresolved
             if (resolvedDepth == path.size() - 1)
             {
                 // Two cases:
                 // 1. The object is a primitive, and the last path is an index on the primitive array
+                //    Replace case
                 // 2. The object is not a dict, the last path element is a new key
+                //    Create case
+                // Potential: index on a List that is < capacity > size, this is not implemented yet
                 if (isPrimitive(obj->type))
                 {
                     if (std::holds_alternative<int>(path[resolvedDepth]))
                     {
                         primitiveIndex = std::get<int>(path[resolvedDepth]);
                         usePrimitiveIndex = true;
-                        return;
                     }
                     else
                     {
@@ -578,61 +623,59 @@ public:
 
         // Assign the value
         if (partiallyResolved)
-        {
+        { // The obj ptr is the work target
             if (usePrimitiveIndex)
                 static_cast<ShmemPrimitive<T> *>(obj)->set(primitiveIndex, val);
             else if (insertNewKey)
             {
-                ShmemObj *newObj = ShmemObj::construct<T>(val, this->heapPtr);
-                static_cast<ShmemDict *>(obj)->insert(path[resolvedDepth], newObj, this->heapPtr);
+                static_cast<ShmemDict *>(obj)->insert(path[resolvedDepth], val, this->heapPtr);
             }
             else
                 throw std::runtime_error("Code should not reach here");
         }
         else
-        {
-            if (obj == nullptr)
+        { // The prev ptr is the work target, as the obj ptr is the one get replaced
+            if (prev == nullptr)
             {
-                if (path.size() == 0 && prev == nullptr)
-                { // It means the whole heap is not initialized
-                    ShmemObj *newObj = ShmemObj::construct<T>(val, this->heapPtr);
-                    this->setEntrance(newObj);
-                }
-                else if (prev->type == List)
-                {
-                    ShmemObj *newObj = ShmemObj::construct<T>(val, this->heapPtr);
-                    ShmemObj *originalObj = static_cast<ShmemList *>(prev)->replace(std::get<int>(this->path.back()), newObj);
-                    if (originalObj != nullptr)
-                    {
-                        throw std::runtime_error("This should never be the case");
-                    }
-                }
-                else
-                {
-                    throw std::runtime_error("This case should not happen");
-                }
+                // The obj is the root object in the heap, update the entrance point
+                setEntrance(ShmemObj::construct(val, this->heapPtr));
             }
             else
             {
-                // Replace the old element
-                ShmemObj::deconstruct(reinterpret_cast<Byte *>(obj) - this->heapPtr->heapHead(), this->heapPtr);
-                ShmemObj *newObj = ShmemObj::construct<T>(val, this->heapPtr);
                 int prevType = prev->type;
                 if (isPrimitive(prevType))
                 {
+                    // It is not possible for a primitive to have a child obj
+                    throw std::runtime_error("Code should not reach here");
                 }
                 else if (prevType == List)
                 {
-                    static_cast<ShmemList *>(prev)->set(0, newObj);
+                    static_cast<ShmemList *>(prev)->assign(std::get<int>(path.back()), val, this->heapPtr);
                 }
                 else if (prevType == Dict)
                 {
-                    static_cast<ShmemDict *>(prev)->insert(path[resolvedDepth], newObj, this->heapPtr);
+                    static_cast<ShmemDict *>(prev)->insert(path[resolvedDepth], val, this->heapPtr);
+                }
+                else
+                {
+                    throw std::runtime_error("Does not support this type yet");
                 }
             }
         }
 
         return *this;
+    }
+
+    std::string toString(int maxElements = 4) const
+    {
+        ShmemObj *obj, *prev;
+        int resolvedDepth;
+        resolvePath(prev, obj, resolvedDepth);
+        if (resolvedDepth != path.size())
+        {
+            throw std::runtime_error("Cannot index <remaining index> on object" + ShmemObj::toString(obj));
+        }
+        return ShmemObj::toString(obj);
     }
 };
 

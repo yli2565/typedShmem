@@ -78,6 +78,10 @@ inline ShmemAccessor::ShmemObj *ShmemAccessor::ShmemObj::resolveOffset(size_t of
 
 std::string ShmemAccessor::ShmemObj::toString(ShmemAccessor::ShmemObj *obj, int indent)
 {
+    if (obj == nullptr)
+    {
+        return "nullptr";
+    }
     int type = obj->type;
     if (isPrimitive(type))
     {

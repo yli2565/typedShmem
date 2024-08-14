@@ -89,7 +89,9 @@ struct isMap<std::map<Key, T>> : std::true_type
 };
 
 template <typename T>
-struct unwrapVectorType;
+struct unwrapVectorType
+{
+};
 
 template <typename T, typename Alloc>
 struct unwrapVectorType<std::vector<T, Alloc>>
@@ -98,7 +100,9 @@ struct unwrapVectorType<std::vector<T, Alloc>>
 };
 
 template <typename T>
-struct unwrapMapType;
+struct unwrapMapType
+{
+};
 
 template <typename Key, typename T>
 struct unwrapMapType<std::map<Key, T>>

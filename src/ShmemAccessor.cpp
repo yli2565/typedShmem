@@ -22,12 +22,11 @@ inline void ShmemAccessor::setEntrance(ShmemObj *obj)
     else
         entranceOffset() = reinterpret_cast<Byte *>(obj) - heapPtr->heapHead();
 }
-// ShmemAccessor ShmemAccessor::operator[](KeyType index) const
-// {
-//     std::vector<KeyType> newPath(this->path);
-//     newPath.push_back(index);
-//     return ShmemAccessor(this->heapPtr, newPath);
-// }
+
+inline void ShmemAccessor::setEntrance(size_t offset)
+{
+    entranceOffset() = offset;
+}
 
 // protected methods
 inline size_t &ShmemAccessor::entranceOffset()

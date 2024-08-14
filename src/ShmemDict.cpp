@@ -116,18 +116,20 @@ void ShmemAccessor::ShmemDict::fixInsert(ShmemDictNode *nodeK)
     root()->colorBlack();
 }
 
-std::string ShmemAccessor::ShmemDict::inorderHelper(ShmemDictNode *node, int indent)
+std::string ShmemAccessor::ShmemDict::toStringHelper(ShmemDictNode *node, int indent)
 {
     if (node != this->NIL())
     {
-        std::string left = inorderHelper(node->left());
+        std::string left = toStringHelper(node->left());
         if (left != "")
             left += "\n";
-        std::string current = std::string(indent, ' ') + node->keyToString() + ": " + std::to_string(node->data()->type) + "";
-        std::string right = inorderHelper(node->right());
+        std::string current;
+        current.append(std::string(indent, ' ')).append(node->keyToString()).append(": ").append(std::to_string(node->data()->type));
+        std::string right = toStringHelper(node->right());
         if (right != "")
             right = "\n" + right;
-        return left + current + right;
+        left.append(current).append(right);
+        return left;
     }
     return "";
 }
@@ -242,10 +244,13 @@ ShmemAccessor::ShmemObj *ShmemAccessor::ShmemDict::get(KeyType key)
     return result->data();
 }
 
-std::string ShmemAccessor::ShmemDict::inorder(int indent)
-{
-    return "{\n" + inorderHelper(root(), indent + 1) + "\n" + std::string(indent, ' ') + "}";
-}
+// std::string ShmemAccessor::ShmemDict::inorder(int indent)
+// {
+//     std::string result;
+//     result.reserve(50);
+//     result.append("\n").append(inorderHelper(root(), indent)).append("\n").append(std::string(indent, ' ')).append("}");
+//     return result;
+// }
 
 ShmemAccessor::ShmemDictNode *ShmemAccessor::ShmemDict::search(KeyType key)
 {
@@ -259,5 +264,13 @@ ShmemAccessor::ShmemDictNode *ShmemAccessor::ShmemDict::search(KeyType key)
 
 std::string ShmemAccessor::ShmemDict::toString(ShmemAccessor::ShmemDict *dict, int indent)
 {
-    return dict->inorder(indent);
+    std::string result = dict->toStringHelper(dict->root(), indent);
+    if (result.size() < 40)
+    {
+        return "{\n" + result + "\n" + std::string(indent, ' ') + "}";
+    }
+    else
+    {
+        return "{" + result + "}";
+    }
 }
