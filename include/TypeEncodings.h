@@ -1,3 +1,6 @@
+#ifndef TYPEENCODINGS_H
+#define TYPEENCODINGS_H
+
 #include <iostream>
 #include <vector>
 #include <map>
@@ -5,6 +8,8 @@
 #include <sstream>
 #include <type_traits>
 #include <unordered_map>
+
+// Constants
 static const int Bool = 1;
 static const int Char = 2;
 static const int UChar = 3;
@@ -27,24 +32,16 @@ static const int List = 102;
 static const int DictNode = 103;
 static const int Dict = 104;
 
-static const std::unordered_map<int, std::string> typeNames = {
-    {Bool, "bool"},
-    {Char, "char"},
-    {UChar, "unsigned char"},
-    {Short, "short"},
-    {UShort, "unsigned short"},
-    {Int, "int"},
-    {UInt, "unsigned int"},
-    {Long, "long"},
-    {ULong, "unsigned long"},
-    {LongLong, "long long"},
-    {ULongLong, "unsigned long long"},
-    {Float, "float"},
-    {Double, "double"},
-    {String, "string"},
-    {List, "list"},
-    {DictNode, "dict node"},
-    {Dict, "dict"},
+extern const std::unordered_map<int, std::string> typeNames;
+
+template <typename T>
+struct TypeEncoding
+{
+    static constexpr int value = -1;
+    operator int() const
+    {
+        return value;
+    }
 };
 
 #define DEFINE_TYPE_ENCODING(TYPE, NUMBER)              \
@@ -53,21 +50,10 @@ static const std::unordered_map<int, std::string> typeNames = {
     {                                                   \
         static constexpr int value = NUMBER;            \
         static constexpr std::string_view name = #TYPE; \
+        static constexpr int size = sizeof(TYPE);       \
     };
 
-template <typename T>
-struct TypeEncoding
-{
-    /**
-     * @brief Unique int for each type
-     */
-    static constexpr int value = -1;
-    operator int() const
-    {
-        return value;
-    }
-};
-// Specializations for specific types.
+// Declare specializations for specific types
 DEFINE_TYPE_ENCODING(bool, Bool)
 DEFINE_TYPE_ENCODING(char, Char)
 DEFINE_TYPE_ENCODING(unsigned char, UChar)
@@ -79,7 +65,6 @@ DEFINE_TYPE_ENCODING(long, Long)
 DEFINE_TYPE_ENCODING(unsigned long, ULong)
 DEFINE_TYPE_ENCODING(long long, LongLong)
 DEFINE_TYPE_ENCODING(unsigned long long, ULongLong)
-
 DEFINE_TYPE_ENCODING(float, Float)
 DEFINE_TYPE_ENCODING(double, Double)
 
@@ -103,18 +88,15 @@ struct isMap<std::map<Key, T>> : std::true_type
 {
 };
 
-// Primary template for type unwrapping (undefined for general types)
 template <typename T>
 struct unwrapVectorType;
 
-// Specialization for std::vector<T>
 template <typename T, typename Alloc>
 struct unwrapVectorType<std::vector<T, Alloc>>
 {
     using type = T;
 };
 
-// unwrap map
 template <typename T>
 struct unwrapMapType;
 
@@ -137,10 +119,7 @@ constexpr bool isString()
     return TypeEncoding<T>::value == String;
 }
 
-bool isPrimitive(int type)
-{
-    return type < PrimitiveThreshold;
-}
+bool isPrimitive(int type);
 
 template <typename T>
 struct TypeEncoding<std::vector<T>>
@@ -148,7 +127,7 @@ struct TypeEncoding<std::vector<T>>
     static constexpr int value = isPrimitive<T>() ? TypeEncoding<T>::value : List;
 };
 
-template <> 
+template <>
 struct TypeEncoding<std::string>
 {
     static constexpr int value = String;
@@ -159,3 +138,5 @@ struct TypeEncoding<std::map<Key, T>>
 {
     static constexpr int value = Dict;
 };
+
+#endif // TYPEENCODINGS_H

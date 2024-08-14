@@ -156,6 +156,12 @@ size_t &ShmemHeap::freeBlockListOffset()
     return reinterpret_cast<size_t *>(this->shmPtr)[2];
 }
 
+Byte *ShmemHeap::staticSpaceHead()
+{
+    checkConnection();
+    return this->shmPtr;
+}
+
 Byte *ShmemHeap::heapHead()
 {
     checkConnection();
@@ -618,6 +624,11 @@ inline size_t &ShmemHeap::heapCapacity_unsafe()
 inline size_t &ShmemHeap::freeBlockListOffset_unsafe()
 {
     return reinterpret_cast<size_t *>(this->shmPtr)[2];
+}
+
+inline Byte *ShmemHeap::staticSpaceHead_unsafe()
+{
+    return this->shmPtr;
 }
 
 inline Byte *ShmemHeap::heapHead_unsafe()

@@ -1,34 +1,25 @@
+#ifndef SHMEM_OBJ_H
+#define SHMEM_OBJ_H
+
 #include "ShmemHeap.h"
-#include "typeEncodings.h"
+#include "TypeEncodings.h"
 #include <variant>
 #include <vector>
 #include <string>
+#include <stdexcept>
+#include <functional>
 
 using KeyType = std::variant<int, std::string>;
 
 class IndexError : public std::runtime_error
 {
 public:
-    // Constructor that takes a message
-    explicit IndexError(const std::string &message)
-        : std::runtime_error(message) {}
+    explicit IndexError(const std::string &message);
 };
 
-int hashIntOrString(KeyType key)
-{
-    int hashCode = 0;
-    if (std::holds_alternative<std::string>(key))
-    {
-        hashCode = std::hash<std::string>{}(std::get<std::string>(key));
-    }
-    else
-    {
-        hashCode = std::hash<int>{}(std::get<int>(key));
-    }
-    return hashCode;
-}
+int hashIntOrString(KeyType key);
 
-const static KeyType NILKey = "NILKey:js82nfd-"; // Something random
+const static KeyType NILKey = "NILKey:js82nfd-";
 const static int hashedNILKey = hashIntOrString(NILKey);
 
 class ShmemAccessor
@@ -41,38 +32,139 @@ private:
 
         ShmemObj() = delete;
 
-        /**
-         * @return payload size
-         */
-        size_t capacity() const
+        template <typename T>
+        static size_t construct(const T &value, ShmemHeap *heapPtr)
         {
-            return this->getHeader()->size() - sizeof(ShmemHeap::BlockHeader);
+            if (isPrimitive<T>())
+            { // Base case
+                if (isVector<T>::value)
+                { // Vector as an array of primitive
+                    using vecDataType = typename unwrapVectorType<T>::type;
+                    return ShmemPrimitive<vecDataType>::construct(value, heapPtr);
+                }
+                else if (isString<T>())
+                { // String as an array of char
+                    return ShmemPrimitive<char>::construct(value, heapPtr);
+                }
+                else
+                { // Single value
+                    return ShmemPrimitive<T>::construct(value, heapPtr);
+                }
+            }
+            else
+            {
+                if (isVector<T>::value)
+                {
+                    using vecDataType = typename unwrapVectorType<T>::type;
+                    size_t listOffset = ShmemList::construct(value.size(), heapPtr);
+                    ShmemList *list = reinterpret_cast<ShmemList *>(ShmemObj::resolveOffset(listOffset, heapPtr));
+                    for (int i = 0; i < value.size(); i++)
+                    {
+                        ShmemObj *child = ShmemObj::construct<vecDataType>(value[i], heapPtr);
+                        list->add(child);
+                    }
+                    return listOffset;
+                }
+                else if (isMap<T>::value)
+                {
+                    using mapDataType = typename unwrapMapType<T>::type;
+                    using mapKeyType = typename unwrapMapType<T>::keyType;
+                    size_t dictOffset = ShmemDict::construct(heapPtr);
+                    ShmemDict *dict = reinterpret_cast<ShmemDict *>(ShmemObj::resolveOffset(dictOffset, heapPtr));
+                    for (auto &[key, val] : value)
+                    {
+                        ShmemObj *child = ShmemObj::construct<mapDataType>(val, heapPtr);
+                        dict->insert(key, child, heapPtr);
+                    }
+                    return dictOffset;
+                }
+                else
+                {
+                    throw std::runtime_error("Cannot construct object of type " + std::string(typeid(T).name()));
+                }
+            }
         }
-        bool isBusy() const
+        static void deconstruct(size_t offset, ShmemHeap *heapPtr);
+
+        size_t capacity() const;
+        bool isBusy() const;
+        void setBusy(bool b = true);
+        int wait(int timeout = -1) const;
+
+        ShmemHeap::BlockHeader *getHeader() const;
+        static ShmemObj *resolveOffset(size_t offset, ShmemHeap *heapPtr);
+
+        static std::string toString(ShmemObj *obj, int indent = 0);
+    };
+
+    // For those functions that does not rely on Template <T>
+    struct ShmemPrimitive_ : public ShmemObj
+    {
+        static inline void deconstruct(size_t offset, ShmemHeap *heapPtr)
         {
-            return this->getHeader()->B();
-        }
-        void setBusy(bool b = true)
-        {
-            this->getHeader()->setB(b);
-        }
-        int wait(int timeout = -1) const
-        {
-            return this->getHeader()->wait(timeout);
+            heapPtr->shfree(reinterpret_cast<Byte *>(resolveOffset(offset, heapPtr)));
         }
 
-        inline ShmemHeap::BlockHeader *getHeader() const
+        inline const Byte *getBytePtr() const
         {
-            return reinterpret_cast<ShmemHeap::BlockHeader *>(reinterpret_cast<uintptr_t>(this) - sizeof(ShmemHeap::BlockHeader));
+            return reinterpret_cast<const Byte *>(reinterpret_cast<const Byte *>(this) + sizeof(ShmemObj));
         }
-        static ShmemObj *resolveOffset(size_t offset, ShmemHeap *heapPtr)
+
+        inline Byte *getBytePtr()
         {
-            return reinterpret_cast<ShmemObj *>(heapPtr->heapHead() + offset);
+            return reinterpret_cast<Byte *>(reinterpret_cast<Byte *>(this) + sizeof(ShmemObj));
+        }
+
+        static std::string toString(ShmemPrimitive_ *obj, int indent = 0, int maxElements = 4)
+        {
+#define PRINT_OBJ(type)                                                   \
+    for (int i = 0; i < std::max(obj->size, maxElements); i++)            \
+    {                                                                     \
+        result += " " + std::to_string(reinterpret_cast<type *>(ptr)[i]); \
+    }                                                                     \
+    break;
+            std::string result = "[P:" + typeNames.at(obj->type) + ":" + std::to_string(obj->size) + "]";
+
+            Byte *ptr = obj->getBytePtr();
+            switch (obj->type)
+            {
+            case Bool:
+                PRINT_OBJ(bool);
+            case Char:
+                PRINT_OBJ(char);
+            case UChar:
+                PRINT_OBJ(unsigned char);
+            case Short:
+                PRINT_OBJ(short);
+            case UShort:
+                PRINT_OBJ(unsigned short);
+            case Int:
+                PRINT_OBJ(int);
+            case UInt:
+                PRINT_OBJ(unsigned int);
+            case Long:
+                PRINT_OBJ(long);
+            case ULong:
+                PRINT_OBJ(unsigned long);
+            case LongLong:
+                PRINT_OBJ(long long);
+            case ULongLong:
+                PRINT_OBJ(unsigned long long);
+            case Float:
+                PRINT_OBJ(float);
+            case Double:
+                PRINT_OBJ(double);
+            default:
+                throw std::runtime_error("Unknown type");
+                break;
+            }
+#undef PRINT_OBJ
+            return result;
         }
     };
 
     template <typename T>
-    struct ShmemPrimitive : public ShmemObj
+    struct ShmemPrimitive : public ShmemPrimitive_
     {
         static size_t construct(size_t size, ShmemHeap *heapPtr)
         {
@@ -103,11 +195,6 @@ private:
             ShmemPrimitive<T> *ptr = static_cast<ShmemPrimitive<T> *>(resolveOffset(offset, heapPtr));
             memcpy(ptr->getPtr(), str.data(), size * sizeof(T));
             return offset;
-        }
-
-        static void deconstruct(size_t offset, ShmemHeap *heapPtr)
-        {
-            heapPtr->shfree(reinterpret_cast<Byte *>(resolveOffset(offset, heapPtr)));
         }
 
         size_t resize(size_t newSize, ShmemHeap *heapPtr)
@@ -224,21 +311,21 @@ private:
         const T *getPtr() const
         {
             checkType();
-            return reinterpret_cast<const T *>(reinterpret_cast<const Byte *>(this) + sizeof(ShmemObj));
+            return reinterpret_cast<const T *>(getBytePtr());
         }
         T *getPtr()
         {
             checkType();
-            return reinterpret_cast<T *>(reinterpret_cast<Byte *>(this) + sizeof(ShmemObj));
+            return reinterpret_cast<T *>(getBytePtr());
         }
 
-        std::string toString() const
+        std::string toString(int maxElements = 4) const
         {
             std::string result = "[P:" + typeNames.at(this->type) + ":" + std::to_string(this->size) + "]";
-
-            for (int i = 0; i < std::max(this->size, 3); i++)
+            const T *ptr = this->getPtr();
+            for (int i = 0; i < std::max(this->size, maxElements); i++)
             {
-                result += " " + std::to_string(this->getPtr()[i]);
+                result += " " + std::to_string(ptr[i]);
             }
             if (this->size > 3)
             {
@@ -255,159 +342,29 @@ private:
         ptrdiff_t dataOffset;
         int color;
 
-        static size_t construct(KeyType key, ShmemHeap *heapPtr)
-        {
-            int hashKey = hashIntOrString(key);
-            size_t offset = heapPtr->shmalloc(sizeof(ShmemDictNode));
-            ShmemDictNode *ptr = static_cast<ShmemDictNode *>(resolveOffset(offset, heapPtr));
-            ptr->type = DictNode;
-            ptr->size = -1; // DictNode don't need to record size
-            ptr->colorRed();
-            ptr->setLeft(nullptr);
-            ptr->setRight(nullptr);
-            ptr->setParent(nullptr);
-            ptr->setData(nullptr);
-            if (std::holds_alternative<std::string>(key))
-                ptr->keyOffset = ShmemPrimitive<char>::construct(std::get<std::string>(key), heapPtr) - offset;
-            else
-                ptr->keyOffset = ShmemPrimitive<int>::construct(std::get<int>(key), heapPtr) - offset;
-            return offset;
-        }
+        static size_t construct(KeyType key, ShmemHeap *heapPtr);
+        // static void deconstruct(ShmemDictNode *node, ShmemHeap *heapPtr);
+        static void deconstruct(size_t offset, ShmemHeap *heapPtr);
 
-        static void deconstruct(ShmemDictNode *node, ShmemHeap *heapPtr)
-        {
-            heapPtr->shfree(const_cast<Byte *>(reinterpret_cast<const Byte *>(node->key())));
-            heapPtr->shfree(reinterpret_cast<Byte *>(node->data()));
-            heapPtr->shfree(reinterpret_cast<Byte *>(node));
-        }
+        bool isRed() const;
+        bool isBlack() const;
+        void colorRed();
+        void colorBlack();
 
-        static void deconstruct(size_t offset, ShmemHeap *heapPtr)
-        {
-            ShmemDictNode *ptr = static_cast<ShmemDictNode *>(resolveOffset(offset, heapPtr));
-            heapPtr->shfree(reinterpret_cast<Byte *>(ptr->data()));
-            heapPtr->shfree(reinterpret_cast<Byte *>(ptr));
-        }
-        // To save memory, I encode the red bit in the left pointer
-        bool isRed() const
-        {
-            return color == 0;
-        }
+        ShmemDictNode *left() const;
+        void setLeft(ShmemDictNode *node);
+        ShmemDictNode *right() const;
+        void setRight(ShmemDictNode *node);
+        ShmemDictNode *parent() const;
+        void setParent(ShmemDictNode *node);
 
-        bool isBlack() const
-        {
-            return color == 1;
-        }
+        const ShmemObj *key() const;
+        KeyType keyVal() const;
+        ShmemObj *data() const;
+        void setData(ShmemObj *obj);
 
-        void colorRed()
-        {
-            this->color = 0;
-        }
-        void colorBlack()
-        {
-            this->color = 1;
-        }
-
-        ShmemDictNode *left() const
-        {
-            if (leftOffset == NPtr)
-                return nullptr;
-            else
-                return reinterpret_cast<ShmemDictNode *>(reinterpret_cast<uintptr_t>(this) + leftOffset);
-        }
-
-        void setLeft(ShmemDictNode *node)
-        {
-            if (node == nullptr)
-                leftOffset = NPtr; // Set offset to an impossible value to indicate nullptr
-            else
-                leftOffset = reinterpret_cast<uintptr_t>(node) - reinterpret_cast<uintptr_t>(this);
-        }
-        ShmemDictNode *right() const
-        {
-            if (rightOffset == NPtr)
-                return nullptr;
-            else
-                return reinterpret_cast<ShmemDictNode *>(reinterpret_cast<uintptr_t>(this) + rightOffset);
-        }
-
-        void setRight(ShmemDictNode *node)
-        {
-            if (node == nullptr)
-                rightOffset = NPtr; // Set offset to an impossible value to indicate nullptr
-            else
-                rightOffset = reinterpret_cast<uintptr_t>(node) - reinterpret_cast<uintptr_t>(this);
-        }
-
-        ShmemDictNode *parent() const
-        {
-            if (parentOffset == NPtr)
-                return nullptr;
-            else
-                return reinterpret_cast<ShmemDictNode *>(reinterpret_cast<uintptr_t>(this) + parentOffset);
-        }
-
-        void setParent(ShmemDictNode *node)
-        {
-            if (node == nullptr)
-                parentOffset = NPtr; // Set offset to an impossible value to indicate nullptr
-            else
-                parentOffset = reinterpret_cast<uintptr_t>(node) - reinterpret_cast<uintptr_t>(this);
-        }
-
-        const ShmemObj *key() const
-        {
-            return reinterpret_cast<ShmemObj *>(reinterpret_cast<uintptr_t>(this) + keyOffset);
-        }
-
-        inline KeyType keyVal() const
-        {
-            int keyType = key()->type;
-            if (keyType == String)
-                return reinterpret_cast<const ShmemPrimitive<char> *>(key())->operator std::string();
-            else if (keyType == Int)
-                return reinterpret_cast<const ShmemPrimitive<int> *>(key())->operator int();
-            else
-                throw std::runtime_error("Unknown key type");
-        }
-
-        ShmemObj *data() const
-        {
-            if (dataOffset == NPtr)
-                return nullptr;
-            else
-                return reinterpret_cast<ShmemObj *>(reinterpret_cast<uintptr_t>(this) + dataOffset);
-        }
-
-        void setData(ShmemObj *obj)
-        {
-            if (obj == nullptr)
-                dataOffset = NPtr; // Set offset to an impossible value to indicate nullptr
-            else
-                dataOffset = reinterpret_cast<uintptr_t>(obj) - reinterpret_cast<uintptr_t>(this);
-        }
-
-        int hashedKey() const
-        {
-            int keyType = key()->type;
-            if (keyType == String)
-                return std::hash<std::string>{}(reinterpret_cast<const ShmemPrimitive<char> *>(key())->operator std::string());
-            else if (keyType == Int)
-                return std::hash<int>{}(reinterpret_cast<const ShmemPrimitive<int> *>(key())->operator int());
-            else
-                throw std::runtime_error("Unknown key type");
-        }
-
-        std::string keyToString() const
-        {
-            // (color == 0 ? "R" : "B")
-            int keyType = key()->type;
-            if (keyType == String)
-                return reinterpret_cast<const ShmemPrimitive<char> *>(key())->operator std::string();
-            else if (keyType == Int)
-                return std::to_string(reinterpret_cast<const ShmemPrimitive<int> *>(key())->operator int());
-            else
-                throw std::runtime_error("Unknown key type");
-        }
+        int hashedKey() const;
+        std::string keyToString() const;
     };
 
     struct ShmemDict : public ShmemObj
@@ -415,578 +372,102 @@ private:
         ptrdiff_t rootOffset;
         ptrdiff_t NILOffset;
 
-        ShmemDictNode *root() const
-        {
-            return reinterpret_cast<ShmemDictNode *>(reinterpret_cast<uintptr_t>(this) + rootOffset);
-        }
+        ShmemDictNode *root() const;
+        void setRoot(ShmemDictNode *node);
+        ShmemDictNode *NIL() const;
+        void setNIL(ShmemDictNode *node);
 
-        void setRoot(ShmemDictNode *node)
-        {
-            rootOffset = reinterpret_cast<uintptr_t>(node) - reinterpret_cast<uintptr_t>(this);
-        }
+        void leftRotate(ShmemDictNode *nodeX);
+        void rightRotate(ShmemDictNode *nodeX);
+        void fixInsert(ShmemDictNode *nodeK);
+        std::string inorderHelper(ShmemDictNode *node, int indent = 0);
 
-        ShmemDictNode *NIL() const
-        {
-            return reinterpret_cast<ShmemDictNode *>(reinterpret_cast<uintptr_t>(this) + NILOffset);
-        }
-
-        void setNIL(ShmemDictNode *node)
-        {
-            NILOffset = reinterpret_cast<uintptr_t>(node) - reinterpret_cast<uintptr_t>(this);
-        }
-
-        void leftRotate(ShmemDictNode *nodeX)
-        {
-            ShmemDictNode *nodeY = nodeX->right();
-            if (nodeY->left() != this->NIL())
-            {
-                nodeY->left()->setParent(nodeX);
-            }
-            nodeY->setParent(nodeX->parent());
-            if (nodeX->parent() == nullptr)
-            {
-                this->setRoot(nodeY);
-            }
-            else if (nodeX == nodeX->parent()->left())
-            {
-                nodeX->parent()->setLeft(nodeY);
-            }
-            else
-            {
-                nodeX->parent()->setRight(nodeY);
-            }
-            nodeX->setLeft(nodeX);
-            nodeX->setParent(nodeY);
-        }
-
-        void rightRotate(ShmemDictNode *nodeX)
-        {
-            ShmemDictNode *nodeY = nodeX->left();
-            nodeX->setLeft(nodeY->right());
-            if (nodeY->right() != this->NIL())
-            {
-                nodeY->right()->setParent(nodeX);
-            }
-            nodeY->setParent(nodeX->parent());
-            if (nodeX->parent() == nullptr)
-            {
-                this->setRoot(nodeY);
-            }
-            else if (nodeX == nodeX->parent()->right())
-            {
-            }
-        }
-
-        void fixInsert(ShmemDictNode *nodeK)
-        {
-            while (nodeK != root() && nodeK->parent()->isRed())
-            {
-                if (nodeK->parent() == nodeK->parent()->parent()->left())
-                {
-                    ShmemDictNode *nodeU = nodeK->parent()->parent()->right(); // uncle
-
-                    if (nodeU->isRed())
-                    {
-                        nodeK->parent()->colorBlack();
-                        nodeU->colorBlack();
-                        nodeK->parent()->parent()->colorRed();
-                        nodeK = nodeK->parent()->parent();
-                    }
-                    else
-                    {
-                        if (nodeK == nodeK->parent()->right())
-                        {
-                            nodeK = nodeK->parent();
-                            leftRotate(nodeK);
-                        }
-                        nodeK->parent()->colorBlack();
-                        nodeK->parent()->parent()->colorRed();
-                        rightRotate(nodeK->parent()->parent());
-                    }
-                }
-                else
-                {
-                    ShmemDictNode *nodeU = nodeK->parent()->parent()->left(); // uncle
-                    if (nodeU->isRed())
-                    {
-                        nodeK->parent()->colorBlack();
-                        nodeU->colorBlack();
-                        nodeK->parent()->parent()->colorRed();
-                        nodeK = nodeK->parent()->parent();
-                    }
-                    else
-                    {
-                        if (nodeK == nodeK->parent()->left())
-                        {
-                            nodeK = nodeK->parent();
-                            rightRotate(nodeK);
-                        }
-                        nodeK->parent()->colorBlack();
-                        nodeK->parent()->parent()->colorRed();
-                        leftRotate(nodeK->parent()->parent());
-                    }
-                }
-            }
-            root()->colorBlack();
-        }
-
-        std::string inorderHelper(ShmemDictNode *node, int indent = 0)
-        {
-            if (node != this->NIL())
-            {
-                std::string left = inorderHelper(node->left());
-                if (left != "")
-                    left += "\n";
-                std::string current = std::string(indent, ' ') + node->keyToString() + ": " + std::to_string(node->data()->type) + "";
-                std::string right = inorderHelper(node->right());
-                if (right != "")
-                    right = "\n" + right;
-                return left + current + right;
-            }
-            return "";
-        }
-
-        // void inorderHelper(ShmemDictNode *node, int indent = 0)
-        // {
-        //     if (node != this->NIL())
-        //     {
-        //         inorderHelper(node->left());
-        //         std::cout << node->keyToString() << ":" << toString(data()) << " ";
-        //         inorderHelper(node->right());
-        //     }
-        // }
-
-        static void deconstructHelper(ShmemDictNode *node, ShmemHeap *heapPtr)
-        {
-            if (node->hashedKey() != hashedNILKey)
-            {
-                deconstructHelper(node->left(), heapPtr);  // Destroy the left subtree
-                deconstructHelper(node->right(), heapPtr); // Destroy the right subtree
-                ShmemDictNode::deconstruct(node, heapPtr);
-            }
-        }
-
-        ShmemDictNode *searchHelper(ShmemDictNode *node, int key)
-        {
-            if (node == this->NIL() || node->hashedKey() == key)
-                return node;
-            if (key, node->hashedKey())
-                return searchHelper(node->left(), key);
-            else
-                return searchHelper(node->right(), key);
-        }
+        static void deconstructHelper(ShmemDictNode *node, ShmemHeap *heapPtr);
+        ShmemDictNode *searchHelper(ShmemDictNode *node, int key);
 
     public:
-        static size_t construct(ShmemHeap *heapPtr)
-        {
-            size_t NILOffset = ShmemDictNode::construct(NILKey, heapPtr);
-            ShmemDictNode *NILPtr = reinterpret_cast<ShmemDictNode *>(resolveOffset(NILOffset, heapPtr));
+        static size_t construct(ShmemHeap *heapPtr);
+        static void deconstruct(size_t offset, ShmemHeap *heapPtr);
 
-            size_t dictOffset = heapPtr->shmalloc(sizeof(ShmemDict));
-            ShmemDict *dictPtr = reinterpret_cast<ShmemDict *>(resolveOffset(dictOffset, heapPtr));
+        void insert(KeyType key, ShmemObj *data, ShmemHeap *heapPtr);
 
-            NILPtr->colorBlack();
-            NILPtr->setLeft(NILPtr);
-            NILPtr->setRight(NILPtr);
+        ShmemObj *get(KeyType key);
 
-            dictPtr->size = 0;
-            dictPtr->type = Dict;
+        std::string inorder(int indent = 0);
 
-            dictPtr->setRoot(NILPtr);
-            dictPtr->setNIL(NILPtr);
+        ShmemDictNode *search(KeyType key);
 
-            return dictOffset;
-        }
-
-        static void deconstruct(size_t offset, ShmemHeap *heapPtr)
-        {
-            // Do post-order traversal and remove all nodes
-            // TODO: lock the object by setting busy bit
-            ShmemDict *ptr = reinterpret_cast<ShmemDict *>(resolveOffset(offset, heapPtr));
-            deconstructHelper(ptr->root(), heapPtr);
-            heapPtr->shfree(reinterpret_cast<Byte *>(ptr->NIL()));
-            heapPtr->shfree(reinterpret_cast<Byte *>(ptr));
-        }
-
-        void insert(KeyType key, ShmemObj *data, ShmemHeap *heapPtr)
-        { // TODO: lock the object by setting busy bit
-            int hashKey = hashIntOrString(key);
-
-            ShmemDictNode *parent = nullptr;
-            ShmemDictNode *current = root();
-
-            while (current != NIL())
-            {
-                parent = current;
-                if (hashKey < current->hashedKey())
-                    current = current->left();
-                else if (hashKey > current->hashedKey())
-                    current = current->right();
-                else
-                { // repeated ke, replace the old data
-                    current->setData(data);
-                    return;
-                }
-            }
-
-            // We find a place for the new key, create a new node
-            size_t newNodeOffset = ShmemDictNode::construct(hashKey, heapPtr);
-            ShmemDictNode *newNode = static_cast<ShmemDictNode *>(resolveOffset(newNodeOffset, heapPtr));
-            newNode->setData(data);
-            newNode->setLeft(NIL());
-            newNode->setRight(NIL());
-            newNode->setParent(parent);
-
-            if (parent == nullptr)
-                setRoot(newNode);
-            else if (hashKey < parent->hashedKey())
-                parent->setLeft(newNode);
-            else if (hashKey > parent->hashedKey())
-                parent->setRight(newNode);
-            else
-            {
-                throw std::runtime_error("hashKey == parent->key, and code should not reach here");
-            }
-
-            if (newNode->parent() == nullptr)
-            {
-                newNode->colorBlack();
-                return;
-            }
-            if (newNode->parent()->parent() == nullptr)
-                return;
-
-            fixInsert(newNode);
-        }
-
-        ShmemObj *get(KeyType key)
-        {
-            ShmemDictNode *result = search(key);
-            if (result == nullptr)
-                throw new IndexError("Key not found");
-            return result->data();
-        }
-
-        // Inorder traversal
-        std::string inorder(int indent = 0)
-        {
-            return "{\n" + inorderHelper(root(), indent + 1) + "\n" + std::string(indent, ' ') + "}";
-        }
-
-        // Search for a node
-        ShmemDictNode *search(KeyType key)
-        {
-            ShmemDictNode *result = searchHelper(root(), hashIntOrString(key));
-            if (result == NIL())
-            {
-                return nullptr;
-            }
-            return result;
-        }
+        static std::string toString(ShmemDict *dict, int indent = 0);
     };
+
     struct ShmemList : public ShmemObj
     {
-        inline size_t listCapacity() const
-        {
-            return this->capacity() / sizeof(ptrdiff_t);
-        }
-        static size_t construct(size_t capacity, ShmemHeap *heapPtr)
-        {
-            size_t offset = heapPtr->shmalloc(sizeof(ShmemList) + capacity * sizeof(ptrdiff_t));
-            ShmemList *ptr = static_cast<ShmemList *>(resolveOffset(offset, heapPtr));
-            ptr->type = List;
-            ptr->size = 0;
-            return offset;
-        }
-        static void deconstruct(size_t offset, ShmemHeap *heapPtr)
-        {
-            // TODO: lock the object by setting busy bit
-            ShmemList *ptr = reinterpret_cast<ShmemList *>(resolveOffset(offset, heapPtr));
-            for (int i = 0; i < ptr->size; i++)
-            {
-                ShmemObj *obj = ptr->at(i);
-                // TODO: call the ShmemObj destructor
-                if (isPrimitive(obj->type))
-                {
-                    ShmemPrimitive<char>::deconstruct(reinterpret_cast<Byte *>(obj) - reinterpret_cast<Byte *>(ptr), heapPtr);
-                }
-                if (obj->type == List)
-                {
-                    ShmemList::deconstruct(reinterpret_cast<Byte *>(obj) - reinterpret_cast<Byte *>(ptr), heapPtr);
-                }
-                else if (obj->type == Dict)
-                {
-                    ShmemDict::deconstruct(reinterpret_cast<Byte *>(obj) - reinterpret_cast<Byte *>(ptr), heapPtr);
-                }
-                else
-                {
-                    throw std::runtime_error("Unknown ShmemObj type");
-                }
-            }
-            heapPtr->shfree(ptr);
-        }
-        ptrdiff_t *relativeOffsetPtr()
-        {
-            return reinterpret_cast<ptrdiff_t *>(reinterpret_cast<Byte *>(this) + sizeof(ShmemObj));
-        }
+        size_t listCapacity() const;
+        static size_t construct(size_t capacity, ShmemHeap *heapPtr);
+        static void deconstruct(size_t offset, ShmemHeap *heapPtr);
 
-        inline int resolveIndex(int index)
-        {
-            if (index < 0)
-            { // negative index is relative to the end
-                index += this->size;
-            }
-            if (index >= this->size || index < 0)
-            {
-                throw IndexError("List index out of bounds");
-            }
-        }
+        ptrdiff_t *relativeOffsetPtr();
+        int resolveIndex(int index);
 
-        ShmemObj *at(int index)
-        {
-            if (this->type != List)
-            {
-                throw std::runtime_error("Cannot at on non-list ShmemObj");
-            }
-            return reinterpret_cast<ShmemObj *>(reinterpret_cast<Byte *>(this) + relativeOffsetPtr()[resolveIndex(index)]);
-        }
+        ShmemObj *at(int index);
+        void add(ShmemObj *newObj);
+        ShmemObj *replace(int index, ShmemObj *newObj);
+        ShmemObj *pop(int index);
 
-        void add(ShmemObj *newObj)
-        {
-            if (this->type != List)
-            {
-                throw std::runtime_error("Cannot at on non-list ShmemObj");
-            }
-            relativeOffsetPtr()[this->size] = reinterpret_cast<Byte *>(newObj) - reinterpret_cast<Byte *>(this);
-            this->size++;
-        }
-
-        void set(int index, ShmemObj *newObj)
-        {
-            if (this->type != List)
-            {
-                throw std::runtime_error("Cannot at on non-list ShmemObj");
-            }
-            relativeOffsetPtr()[resolveIndex(index)] = reinterpret_cast<Byte *>(newObj) - reinterpret_cast<Byte *>(this);
-        }
+        static std::string toString(ShmemList *list, int indent = 0, int maxElements = 4);
     };
 
-    std::string toString(ShmemObj *obj, int indent = 0) const
-    {
-        std::string result;
-        std::string indentStr = std::string(indent, ' ');
+    // std::string toString(ShmemObj *obj, int indent = 0) const;
+protected:
+    /**
+     * @brief Get offset of the entrance point to the data structure on the heap
+     *
+     * @return size_t reference to the fourth 8 bytes of the heap
+     */
+    size_t &entranceOffset();
 
-        ShmemList *list = static_cast<ShmemList *>(obj);
-        ShmemDictNode *node = static_cast<ShmemDictNode *>(obj);
-        ShmemDict *dict = static_cast<ShmemDict *>(obj);
+    /**
+     * @brief Get offset of the entrance point to the data structure on the heap
+     *
+     * @return size_t value of the fourth 8 bytes of the heap
+     */
+    size_t entranceOffset() const;
 
-        switch (obj->type)
-        {
-        case Bool:
-            result = static_cast<ShmemPrimitive<bool> *>(obj)->toString();
-            break;
-        case Char:
-            result = static_cast<ShmemPrimitive<char> *>(obj)->toString();
-            break;
-        case UChar:
-            result = static_cast<ShmemPrimitive<unsigned char> *>(obj)->toString();
-            break;
-        case Short:
-            result = static_cast<ShmemPrimitive<short> *>(obj)->toString();
-            break;
-        case UShort:
-            result = static_cast<ShmemPrimitive<unsigned short> *>(obj)->toString();
-            break;
-        case Int:
-            result = static_cast<ShmemPrimitive<int> *>(obj)->toString();
-            break;
-        case UInt:
-            result = static_cast<ShmemPrimitive<unsigned int> *>(obj)->toString();
-            break;
-        case Long:
-            result = static_cast<ShmemPrimitive<long> *>(obj)->toString();
-            break;
-        case ULong:
-            result = static_cast<ShmemPrimitive<unsigned long> *>(obj)->toString();
-            break;
-        case LongLong:
-            result = static_cast<ShmemPrimitive<long long> *>(obj)->toString();
-            break;
-        case ULongLong:
-            result = static_cast<ShmemPrimitive<unsigned long long> *>(obj)->toString();
-            break;
-        case Float:
-            result = static_cast<ShmemPrimitive<float> *>(obj)->toString();
-            break;
-        case Double:
-            result = static_cast<ShmemPrimitive<double> *>(obj)->toString();
-            break;
-        case String:
-            result = static_cast<ShmemPrimitive<char> *>(obj)->toString();
-            break;
-        case List:
-            result += "[\n";
-            for (int i = 0; i < list->size; i++)
-            {
-                result += toString(list->at(i), indent + 2) + "\n";
-            }
-            result += indentStr + "]";
-            break;
-        case DictNode:
-            result = node->keyToString() + ": " + toString(node->data());
-            break;
-        case Dict:
-            result = dict->inorder(indent);
-            break;
-        default:
-            throw std::runtime_error("Cannot convert ShmemObj to string");
-            break;
-        }
-
-        return result;
-    }
+    // Utility functions
+    void resolvePath(ShmemObj *&prevObj, ShmemObj *&obj, int &resolvedDepth) const;
 
 public:
-    /**
-     * @brief A public proxy to access a ShmemObj. It force immediate conversion to the target type
-     * and prevent saving the ShmemObj ptr. As ShmemObj is a temporary ptr into the memory
-     */
     ShmemHeap *heapPtr;
     std::vector<KeyType> path;
 
-    ShmemAccessor(ShmemHeap *heapPtr) : heapPtr(heapPtr), path({}) {}
-    ShmemAccessor(ShmemHeap *heapPtr, std::vector<KeyType> path) : heapPtr(heapPtr), path(path) {}
+    ShmemAccessor(ShmemHeap *heapPtr);
+    ShmemAccessor(ShmemHeap *heapPtr, std::vector<KeyType> path);
+
+    /**
+     * @brief Get the entrance ptr of the data structure. Check connection before using
+     * @return this->shmPtr + staticCapacity + entranceOffset
+     */
+    ShmemObj *entrance() const;
+
+    void setEntrance(ShmemObj *obj);
 
     template <typename... KeyTypes>
-    ShmemAccessor operator()(KeyTypes... accessPath) const
+    ShmemAccessor operator[](KeyTypes... accessPath) const
     {
         static_assert((std::is_same<KeyType, KeyTypes>::value && ...), "All arguments must be of type KeyType");
-        // TODO: change to reference a head in static space
         std::vector<KeyType> newPath(this->path);
         newPath.insert(newPath.end(), {accessPath...});
         return ShmemAccessor(this->heapPtr, newPath);
     }
 
-    ShmemAccessor operator[](KeyType index) const
-    {
-        std::vector<KeyType> newPath(this->path);
-        newPath.push_back(index);
-        return ShmemAccessor(this->heapPtr, newPath);
-    }
-
-    template <typename T>
-    size_t construct(const T &value)
-    {
-        if (isPrimitive<T>())
-        { // This case is either a single primitive or a vector of primitive
-            return ShmemPrimitive<T>::construct(value, this->heapPtr);
-        }
-        else if (isString<T>())
-        {
-            return ShmemPrimitive<char>::construct(value, this->heapPtr);
-        }
-        else if (isVector<T>::value)
-        { // A vector of non-primitive
-            ShmemList *newList = ShmemList::construct(value.size(), this->heapPtr);
-            for (int i = 0; i < static_cast<int>(value.size()); i++)
-            {
-                ShmemObj *newObj = this->construct<unwrapVectorType<T>::type>(value[i]);
-                newList->relativeOffsetPtr()[i] = reinterpret_cast<Byte *>(newObj) - reinterpret_cast<Byte *>(newList);
-            }
-            return reinterpret_cast<Byte *>(newList) - this->heapPtr->heapHead();
-        }
-        else if (isMap<T>::value)
-        { // Any map
-            if (std::is_same<T, int>::value || std::is_same<T, std::string>::value)
-            { // Only accept int and string as keys
-                ShmemDict *newDict = ShmemDict::construct(this->heapPtr);
-                for (auto &[key, value] : value)
-                {
-                    ShmemObj *newObj = this->construct<unwrapMapType<T>::type>(value);
-                    newDict->insert(key, newObj, this->heapPtr);
-                }
-                return reinterpret_cast<Byte *>(newDict) - this->heapPtr->heapHead();
-            }
-            else
-            {
-                throw std::runtime_error("Only accept int and string as keys");
-            }
-        }
-        else
-        {
-            throw std::runtime_error("This type cannot be stored into Shmem, try to parse it to dict or vector first");
-        }
-    }
-
-    void deconstruct(size_t offset)
-    {
-        ShmemObj *obj = ShmemObj::resolveOffset(offset, this->heapPtr);
-        int type = obj->type;
-        if (isPrimitive(type))
-        { // This case is either a single primitive or a vector of primitive
-            ShmemPrimitive<char>::construct(offset, this->heapPtr);
-        }
-        else if (type == Dict)
-        {
-            ShmemDict::deconstruct(offset, this->heapPtr);
-        }
-        else if (type == List)
-        {
-            ShmemList::deconstruct(offset, this->heapPtr);
-        }
-        else
-        {
-            throw std::runtime_error("This type cannot be stored into Shmem, try to parse it to dict or vector first");
-        }
-    }
-
-    void resolvePath(ShmemObj *&obj, int &resolvedDepth) const
-    {
-        ShmemObj *current = reinterpret_cast<ShmemObj *>(this->heapPtr->heapHead());
-        int resolveDepth = 0;
-        for (resolveDepth = 0; resolveDepth < path.size(); resolveDepth++)
-        {
-            KeyType pathElement = path[resolveDepth];
-            try
-            {
-                if (isPrimitive(current->type))
-                { // This mean there's an additional index on a primitive
-                    break;
-                }
-                else if (current->type == Dict)
-                {
-                    ShmemDict *currentDict = static_cast<ShmemDict *>(current);
-
-                    current = currentDict->get(pathElement);
-                }
-                else if (current->type == List)
-                {
-                    ShmemList *currentList = static_cast<ShmemList *>(current);
-                    if (std::holds_alternative<std::string>(pathElement))
-                    {
-                        throw std::runtime_error("Cannot index <string> on List");
-                    }
-
-                    current = currentList->at(std::get<int>(pathElement));
-                }
-            }
-            catch (IndexError &e)
-            {
-                break;
-            }
-        }
-
-        obj = current;
-        resolvedDepth = resolveDepth;
-        return;
-    }
+    // ShmemAccessor operator[](KeyType index) const;
 
     template <typename T>
     operator T() const
     {
-        ShmemObj *obj;
+        ShmemObj *obj, *prev;
         int resolvedDepth;
-        resolvePath(obj, resolvedDepth);
+        resolvePath(prev, obj, resolvedDepth);
 
         int primitiveIndex;
         bool usePrimitiveIndex = false;
@@ -1048,18 +529,15 @@ public:
     template <typename T>
     ShmemAccessor &operator=(T val)
     {
-        ShmemObj *obj;
+        ShmemObj *obj, *prev;
         int resolvedDepth;
-        resolvePath(obj, resolvedDepth);
+        resolvePath(prev, obj, resolvedDepth);
 
         bool partiallyResolved = resolvedDepth != path.size();
 
         int primitiveIndex;
         bool usePrimitiveIndex = false;
         bool insertNewKey = false;
-
-        if (obj->type != TypeEncoding<T>::value)
-            throw std::runtime_error("Type mismatch");
 
         // Deal with unresolved path
         if (partiallyResolved)
@@ -1076,6 +554,7 @@ public:
                     {
                         primitiveIndex = std::get<int>(path[resolvedDepth]);
                         usePrimitiveIndex = true;
+                        return;
                     }
                     else
                     {
@@ -1097,42 +576,64 @@ public:
             }
         }
 
-        // ShmemObj *newObj = this->construct<T>(val);
-
         // Assign the value
         if (partiallyResolved)
         {
             if (usePrimitiveIndex)
                 static_cast<ShmemPrimitive<T> *>(obj)->set(primitiveIndex, val);
             else if (insertNewKey)
-                static_cast<ShmemDict *>(obj)->insert(path[resolvedDepth], this->construct<T>(val), this->heapPtr);
+            {
+                ShmemObj *newObj = ShmemObj::construct<T>(val, this->heapPtr);
+                static_cast<ShmemDict *>(obj)->insert(path[resolvedDepth], newObj, this->heapPtr);
+            }
             else
                 throw std::runtime_error("Code should not reach here");
         }
         else
         {
-            if (isPrimitive<T>())
+            if (obj == nullptr)
             {
-                // Based on the required return type, phrase the primitive object
-                if (isVector<T>::value)
+                if (path.size() == 0 && prev == nullptr)
+                { // It means the whole heap is not initialized
+                    ShmemObj *newObj = ShmemObj::construct<T>(val, this->heapPtr);
+                    this->setEntrance(newObj);
+                }
+                else if (prev->type == List)
                 {
-                    using vecType = typename unwrapVectorType<T>::type;
-                    return static_cast<ShmemPrimitive<vecType> *>(obj)->operator T();
+                    ShmemObj *newObj = ShmemObj::construct<T>(val, this->heapPtr);
+                    ShmemObj *originalObj = static_cast<ShmemList *>(prev)->replace(std::get<int>(this->path.back()), newObj);
+                    if (originalObj != nullptr)
+                    {
+                        throw std::runtime_error("This should never be the case");
+                    }
                 }
                 else
                 {
-                    if (usePrimitiveIndex)
-                        return static_cast<ShmemPrimitive<T> *>(obj)->operator[](primitiveIndex);
-                    else
-                        return static_cast<ShmemPrimitive<T> *>(obj)->operator T();
+                    throw std::runtime_error("This case should not happen");
                 }
             }
             else
             {
-                throw std::runtime_error("Cannot convert to this type (C++ doesn't support dynamic type)");
+                // Replace the old element
+                ShmemObj::deconstruct(reinterpret_cast<Byte *>(obj) - this->heapPtr->heapHead(), this->heapPtr);
+                ShmemObj *newObj = ShmemObj::construct<T>(val, this->heapPtr);
+                int prevType = prev->type;
+                if (isPrimitive(prevType))
+                {
+                }
+                else if (prevType == List)
+                {
+                    static_cast<ShmemList *>(prev)->set(0, newObj);
+                }
+                else if (prevType == Dict)
+                {
+                    static_cast<ShmemDict *>(prev)->insert(path[resolvedDepth], newObj, this->heapPtr);
+                }
             }
         }
 
         return *this;
     }
 };
+
+#endif
