@@ -1,23 +1,8 @@
-#include "ShmemObj.h"
+#include "ShmemList.h"
 
 // Protected methods
-ShmemAccessor::ShmemObj *ShmemAccessor::ShmemList::getObj(int index) const
-{
-    ptrdiff_t offset = relativeOffsetPtr()[resolveIndex(index)];
-    if (offset == NPtr)
-        return nullptr;
-    return const_cast<ShmemObj *>(reinterpret_cast<const ShmemObj *>(reinterpret_cast<const Byte *>(this) + offset));
-}
 
-void ShmemAccessor::ShmemList::setObj(int index, ShmemObj *obj)
-{
-    if (obj == nullptr)
-        relativeOffsetPtr()[resolveIndex(index)] = NPtr;
-    else
-        relativeOffsetPtr()[resolveIndex(index)] = reinterpret_cast<Byte *>(obj) - reinterpret_cast<Byte *>(this);
-}
-
-size_t ShmemAccessor::ShmemList::makeSpace(size_t listCapacity, ShmemHeap *heapPtr)
+size_t ShmemList::makeSpace(size_t listCapacity, ShmemHeap *heapPtr)
 {
     size_t offset = heapPtr->shmalloc(sizeof(ShmemList));
     size_t listSpaceOffset = heapPtr->shmalloc(listCapacity * sizeof(ptrdiff_t));
@@ -35,18 +20,14 @@ size_t ShmemAccessor::ShmemList::makeSpace(size_t listCapacity, ShmemHeap *heapP
     return offset;
 }
 
-// ShmemList methods
-inline size_t ShmemAccessor::ShmemList::listCapacity() const
+// Public methods
+
+size_t ShmemList::construct(size_t capacity, ShmemHeap *heapPtr)
 {
-    return this->ShmemObj::size;
+    return ShmemList::makeSpace(capacity, heapPtr);
 }
 
-inline size_t ShmemAccessor::ShmemList::potentialCapacity() const
-{
-    return (reinterpret_cast<const ShmemHeap::BlockHeader *>(reinterpret_cast<const Byte *>(this->relativeOffsetPtr()) - sizeof(ShmemHeap::BlockHeader))->size() - sizeof(ShmemHeap::BlockHeader)) / sizeof(ptrdiff_t);
-}
-
-void ShmemAccessor::ShmemList::deconstruct(size_t offset, ShmemHeap *heapPtr)
+void ShmemList::deconstruct(size_t offset, ShmemHeap *heapPtr)
 {
     ShmemList *ptr = reinterpret_cast<ShmemList *>(resolveOffset(offset, heapPtr));
     Byte *heapHead = heapPtr->heapHead();
@@ -58,35 +39,12 @@ void ShmemAccessor::ShmemList::deconstruct(size_t offset, ShmemHeap *heapPtr)
     heapPtr->shfree(ptr);
 }
 
-inline ptrdiff_t *ShmemAccessor::ShmemList::relativeOffsetPtr()
-{
-    return reinterpret_cast<ptrdiff_t *>(reinterpret_cast<Byte *>(this) + this->listSpaceOffset);
-}
-
-inline const ptrdiff_t *ShmemAccessor::ShmemList::relativeOffsetPtr() const
-{
-    return reinterpret_cast<const ptrdiff_t *>(reinterpret_cast<const Byte *>(this) + this->listSpaceOffset);
-}
-
-inline int ShmemAccessor::ShmemList::resolveIndex(int index) const
-{
-    if (index < 0)
-    { // negative index is relative to the end
-        index += this->listSize;
-    }
-    if (index >= this->listSize || index < 0)
-    {
-        throw IndexError("List index out of bounds");
-    }
-    return index;
-}
-
-ShmemAccessor::ShmemObj *ShmemAccessor::ShmemList::at(int index)
+ShmemObj *ShmemList::at(int index)
 {
     return getObj(index);
 }
 
-void ShmemAccessor::ShmemList::add(ShmemObj *newObj, ShmemHeap *heapPtr)
+void ShmemList::add(ShmemObj *newObj, ShmemHeap *heapPtr)
 {
     if (this->listSize >= this->listCapacity())
     {
@@ -97,7 +55,7 @@ void ShmemAccessor::ShmemList::add(ShmemObj *newObj, ShmemHeap *heapPtr)
     this->listSize++;
 }
 
-void ShmemAccessor::ShmemList::assign(int index, ShmemObj *newObj, ShmemHeap *heapPtr)
+void ShmemList::assign(int index, ShmemObj *newObj, ShmemHeap *heapPtr)
 {
     ptrdiff_t *basePtr = relativeOffsetPtr();
     int resolvedIndex = resolveIndex(index);
@@ -109,14 +67,14 @@ void ShmemAccessor::ShmemList::assign(int index, ShmemObj *newObj, ShmemHeap *he
     setObj(resolvedIndex, newObj);
 }
 
-ShmemAccessor::ShmemObj *ShmemAccessor::ShmemList::pop()
+ShmemObj *ShmemList::pop()
 {
     ShmemObj *originalObj = this->getObj(this->listSize);
     setObj(this->listSize, nullptr);
     return originalObj;
 }
 
-std::string ShmemAccessor::ShmemList::toString(ShmemAccessor::ShmemList *list, int indent, int maxElements)
+std::string ShmemList::toString(ShmemList *list, int indent, int maxElements)
 {
     std::string result;
     std::string indentStr = std::string(indent, ' ');

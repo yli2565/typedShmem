@@ -1,11 +1,11 @@
-#include "ShmemObj.h"
+#include "ShmemAccessor.h"
 
 // ShmemAccessor constructors
 ShmemAccessor::ShmemAccessor(ShmemHeap *heapPtr) : heapPtr(heapPtr), path({}) {}
 
 ShmemAccessor::ShmemAccessor(ShmemHeap *heapPtr, std::vector<KeyType> path) : heapPtr(heapPtr), path(path) {}
 
-inline ShmemAccessor::ShmemObj *ShmemAccessor::entrance() const
+inline ShmemObj *ShmemAccessor::entrance() const
 {
     return reinterpret_cast<ShmemObj *>(this->heapPtr->entrance());
 }

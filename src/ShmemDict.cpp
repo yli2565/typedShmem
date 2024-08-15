@@ -1,26 +1,40 @@
-#include "ShmemObj.h"
+#include "ShmemDict.h"
 
-ShmemAccessor::ShmemDictNode *ShmemAccessor::ShmemDict::root() const
+int hashIntOrString(KeyType key)
+{
+    int hashCode = 0;
+    if (std::holds_alternative<std::string>(key))
+    {
+        hashCode = std::hash<std::string>{}(std::get<std::string>(key));
+    }
+    else
+    {
+        hashCode = std::hash<int>{}(std::get<int>(key));
+    }
+    return hashCode;
+}
+
+ShmemDictNode *ShmemDict::root() const
 {
     return reinterpret_cast<ShmemDictNode *>(reinterpret_cast<uintptr_t>(this) + rootOffset);
 }
 
-void ShmemAccessor::ShmemDict::setRoot(ShmemDictNode *node)
+void ShmemDict::setRoot(ShmemDictNode *node)
 {
     rootOffset = reinterpret_cast<uintptr_t>(node) - reinterpret_cast<uintptr_t>(this);
 }
 
-ShmemAccessor::ShmemDictNode *ShmemAccessor::ShmemDict::NIL() const
+ShmemDictNode *ShmemDict::NIL() const
 {
     return reinterpret_cast<ShmemDictNode *>(reinterpret_cast<uintptr_t>(this) + NILOffset);
 }
 
-void ShmemAccessor::ShmemDict::setNIL(ShmemDictNode *node)
+void ShmemDict::setNIL(ShmemDictNode *node)
 {
     NILOffset = reinterpret_cast<uintptr_t>(node) - reinterpret_cast<uintptr_t>(this);
 }
 
-void ShmemAccessor::ShmemDict::leftRotate(ShmemDictNode *nodeX)
+void ShmemDict::leftRotate(ShmemDictNode *nodeX)
 {
     ShmemDictNode *nodeY = nodeX->right();
     if (nodeY->left() != this->NIL())
@@ -44,7 +58,7 @@ void ShmemAccessor::ShmemDict::leftRotate(ShmemDictNode *nodeX)
     nodeX->setParent(nodeY);
 }
 
-void ShmemAccessor::ShmemDict::rightRotate(ShmemDictNode *nodeX)
+void ShmemDict::rightRotate(ShmemDictNode *nodeX)
 {
     ShmemDictNode *nodeY = nodeX->left();
     nodeX->setLeft(nodeY->right());
@@ -63,7 +77,7 @@ void ShmemAccessor::ShmemDict::rightRotate(ShmemDictNode *nodeX)
     }
 }
 
-void ShmemAccessor::ShmemDict::fixInsert(ShmemDictNode *nodeK)
+void ShmemDict::fixInsert(ShmemDictNode *nodeK)
 {
     while (nodeK != root() && nodeK->parent()->isRed())
     {
@@ -116,45 +130,7 @@ void ShmemAccessor::ShmemDict::fixInsert(ShmemDictNode *nodeK)
     root()->colorBlack();
 }
 
-std::string ShmemAccessor::ShmemDict::toStringHelper(ShmemDictNode *node, int indent)
-{
-    if (node != this->NIL())
-    {
-        std::string left = toStringHelper(node->left());
-        if (left != "")
-            left += "\n";
-        std::string current;
-        current.append(std::string(indent, ' ')).append(node->keyToString()).append(": ").append(std::to_string(node->data()->type));
-        std::string right = toStringHelper(node->right());
-        if (right != "")
-            right = "\n" + right;
-        left.append(current).append(right);
-        return left;
-    }
-    return "";
-}
-
-void ShmemAccessor::ShmemDict::deconstructHelper(ShmemDictNode *node, ShmemHeap *heapPtr)
-{
-    if (node->hashedKey() != hashedNILKey)
-    {
-        deconstructHelper(node->left(), heapPtr);  // Destroy the left subtree
-        deconstructHelper(node->right(), heapPtr); // Destroy the right subtree
-        ShmemDictNode::deconstruct(reinterpret_cast<const Byte *>(node) - heapPtr->heapHead(), heapPtr);
-    }
-}
-
-ShmemAccessor::ShmemDictNode *ShmemAccessor::ShmemDict::searchHelper(ShmemDictNode *node, int key)
-{
-    if (node == this->NIL() || node->hashedKey() == key)
-        return node;
-    if (key < node->hashedKey())
-        return searchHelper(node->left(), key);
-    else
-        return searchHelper(node->right(), key);
-}
-
-size_t ShmemAccessor::ShmemDict::construct(ShmemHeap *heapPtr)
+size_t ShmemDict::construct(ShmemHeap *heapPtr)
 {
     size_t NILOffset = ShmemDictNode::construct(NILKey, heapPtr);
     ShmemDictNode *NILPtr = reinterpret_cast<ShmemDictNode *>(resolveOffset(NILOffset, heapPtr));
@@ -175,16 +151,16 @@ size_t ShmemAccessor::ShmemDict::construct(ShmemHeap *heapPtr)
     return dictOffset;
 }
 
-void ShmemAccessor::ShmemDict::deconstruct(size_t offset, ShmemHeap *heapPtr)
+void ShmemDict::deconstruct(size_t offset, ShmemHeap *heapPtr)
 {
     // Do post-order traversal and remove all nodes
     ShmemDict *ptr = reinterpret_cast<ShmemDict *>(resolveOffset(offset, heapPtr));
     deconstructHelper(ptr->root(), heapPtr);
-    ShmemAccessor::ShmemDictNode::deconstruct(reinterpret_cast<Byte *>(ptr->NIL()) - heapPtr->heapHead(), heapPtr);
+    ShmemDictNode::deconstruct(reinterpret_cast<Byte *>(ptr->NIL()) - heapPtr->heapHead(), heapPtr);
     heapPtr->shfree(reinterpret_cast<Byte *>(ptr));
 }
 
-void ShmemAccessor::ShmemDict::insert(KeyType key, ShmemObj *data, ShmemHeap *heapPtr)
+void ShmemDict::insert(KeyType key, ShmemObj *data, ShmemHeap *heapPtr)
 {
     int hashKey = hashIntOrString(key);
 
@@ -236,7 +212,7 @@ void ShmemAccessor::ShmemDict::insert(KeyType key, ShmemObj *data, ShmemHeap *he
     fixInsert(newNode);
 }
 
-ShmemAccessor::ShmemObj *ShmemAccessor::ShmemDict::get(KeyType key)
+ShmemObj *ShmemDict::get(KeyType key)
 {
     ShmemDictNode *result = search(key);
     if (result == nullptr)
@@ -244,15 +220,7 @@ ShmemAccessor::ShmemObj *ShmemAccessor::ShmemDict::get(KeyType key)
     return result->data();
 }
 
-// std::string ShmemAccessor::ShmemDict::inorder(int indent)
-// {
-//     std::string result;
-//     result.reserve(50);
-//     result.append("\n").append(inorderHelper(root(), indent)).append("\n").append(std::string(indent, ' ')).append("}");
-//     return result;
-// }
-
-ShmemAccessor::ShmemDictNode *ShmemAccessor::ShmemDict::search(KeyType key)
+ShmemDictNode *ShmemDict::search(KeyType key)
 {
     ShmemDictNode *result = searchHelper(root(), hashIntOrString(key));
     if (result == NIL())
@@ -262,7 +230,7 @@ ShmemAccessor::ShmemDictNode *ShmemAccessor::ShmemDict::search(KeyType key)
     return result;
 }
 
-std::string ShmemAccessor::ShmemDict::toString(ShmemAccessor::ShmemDict *dict, int indent)
+std::string ShmemDict::toString(ShmemDict *dict, int indent)
 {
     std::string result = dict->toStringHelper(dict->root(), indent);
     if (result.size() < 40)
@@ -273,4 +241,43 @@ std::string ShmemAccessor::ShmemDict::toString(ShmemAccessor::ShmemDict *dict, i
     {
         return "{" + result + "}";
     }
+}
+
+// Traversal helpers
+std::string ShmemDict::toStringHelper(ShmemDictNode *node, int indent)
+{
+    if (node != this->NIL())
+    {
+        std::string left = toStringHelper(node->left());
+        if (left != "")
+            left += "\n";
+        std::string current;
+        current.append(std::string(indent, ' ')).append(node->keyToString()).append(": ").append(std::to_string(node->data()->type));
+        std::string right = toStringHelper(node->right());
+        if (right != "")
+            right = "\n" + right;
+        left.append(current).append(right);
+        return left;
+    }
+    return "";
+}
+
+void ShmemDict::deconstructHelper(ShmemDictNode *node, ShmemHeap *heapPtr)
+{
+    if (node->hashedKey() != hashedNILKey)
+    {
+        deconstructHelper(node->left(), heapPtr);  // Destroy the left subtree
+        deconstructHelper(node->right(), heapPtr); // Destroy the right subtree
+        ShmemDictNode::deconstruct(reinterpret_cast<const Byte *>(node) - heapPtr->heapHead(), heapPtr);
+    }
+}
+
+ShmemDictNode *ShmemDict::searchHelper(ShmemDictNode *node, int key)
+{
+    if (node == this->NIL() || node->hashedKey() == key)
+        return node;
+    if (key < node->hashedKey())
+        return searchHelper(node->left(), key);
+    else
+        return searchHelper(node->right(), key);
 }

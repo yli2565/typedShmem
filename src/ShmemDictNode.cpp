@@ -1,7 +1,7 @@
-#include "ShmemObj.h"
+#include "ShmemDict.h"
 
 // ShmemDictNode methods
-size_t ShmemAccessor::ShmemDictNode::construct(KeyType key, ShmemHeap *heapPtr)
+size_t ShmemDictNode::construct(KeyType key, ShmemHeap *heapPtr)
 {
     int hashKey = hashIntOrString(key);
     size_t offset = heapPtr->shmalloc(sizeof(ShmemDictNode));
@@ -20,15 +20,7 @@ size_t ShmemAccessor::ShmemDictNode::construct(KeyType key, ShmemHeap *heapPtr)
     return offset;
 }
 
-// void ShmemAccessor::ShmemDictNode::deconstruct(ShmemDictNode *node, ShmemHeap *heapPtr)
-// {
-//     Byte *heapHead = heapPtr->heapHead();
-//     ShmemObj::deconstruct(reinterpret_cast<const Byte *>(node->key()) - heapHead, heapPtr);
-//     ShmemObj::deconstruct(reinterpret_cast<const Byte *>(node->data()) - heapHead, heapPtr);
-//     heapPtr->shfree(reinterpret_cast<Byte *>(node));
-// }
-
-void ShmemAccessor::ShmemDictNode::deconstruct(size_t offset, ShmemHeap *heapPtr)
+void ShmemDictNode::deconstruct(size_t offset, ShmemHeap *heapPtr)
 {
     ShmemDictNode *ptr = static_cast<ShmemDictNode *>(resolveOffset(offset, heapPtr));
     Byte *heapHead = heapPtr->heapHead();
@@ -38,27 +30,27 @@ void ShmemAccessor::ShmemDictNode::deconstruct(size_t offset, ShmemHeap *heapPtr
     heapPtr->shfree(reinterpret_cast<Byte *>(ptr));
 }
 
-bool ShmemAccessor::ShmemDictNode::isRed() const
+bool ShmemDictNode::isRed() const
 {
     return color == 0;
 }
 
-bool ShmemAccessor::ShmemDictNode::isBlack() const
+bool ShmemDictNode::isBlack() const
 {
     return color == 1;
 }
 
-void ShmemAccessor::ShmemDictNode::colorRed()
+void ShmemDictNode::colorRed()
 {
     this->color = 0;
 }
 
-void ShmemAccessor::ShmemDictNode::colorBlack()
+void ShmemDictNode::colorBlack()
 {
     this->color = 1;
 }
 
-ShmemAccessor::ShmemDictNode *ShmemAccessor::ShmemDictNode::left() const
+ShmemDictNode *ShmemDictNode::left() const
 {
     if (leftOffset == NPtr)
         return nullptr;
@@ -66,7 +58,7 @@ ShmemAccessor::ShmemDictNode *ShmemAccessor::ShmemDictNode::left() const
         return reinterpret_cast<ShmemDictNode *>(reinterpret_cast<uintptr_t>(this) + leftOffset);
 }
 
-void ShmemAccessor::ShmemDictNode::setLeft(ShmemDictNode *node)
+void ShmemDictNode::setLeft(ShmemDictNode *node)
 {
     if (node == nullptr)
         leftOffset = NPtr; // Set offset to an impossible value to indicate nullptr
@@ -74,7 +66,7 @@ void ShmemAccessor::ShmemDictNode::setLeft(ShmemDictNode *node)
         leftOffset = reinterpret_cast<uintptr_t>(node) - reinterpret_cast<uintptr_t>(this);
 }
 
-ShmemAccessor::ShmemDictNode *ShmemAccessor::ShmemDictNode::right() const
+ShmemDictNode *ShmemDictNode::right() const
 {
     if (rightOffset == NPtr)
         return nullptr;
@@ -82,7 +74,7 @@ ShmemAccessor::ShmemDictNode *ShmemAccessor::ShmemDictNode::right() const
         return reinterpret_cast<ShmemDictNode *>(reinterpret_cast<uintptr_t>(this) + rightOffset);
 }
 
-void ShmemAccessor::ShmemDictNode::setRight(ShmemDictNode *node)
+void ShmemDictNode::setRight(ShmemDictNode *node)
 {
     if (node == nullptr)
         rightOffset = NPtr; // Set offset to an impossible value to indicate nullptr
@@ -90,7 +82,7 @@ void ShmemAccessor::ShmemDictNode::setRight(ShmemDictNode *node)
         rightOffset = reinterpret_cast<uintptr_t>(node) - reinterpret_cast<uintptr_t>(this);
 }
 
-ShmemAccessor::ShmemDictNode *ShmemAccessor::ShmemDictNode::parent() const
+ShmemDictNode *ShmemDictNode::parent() const
 {
     if (parentOffset == NPtr)
         return nullptr;
@@ -98,7 +90,7 @@ ShmemAccessor::ShmemDictNode *ShmemAccessor::ShmemDictNode::parent() const
         return reinterpret_cast<ShmemDictNode *>(reinterpret_cast<uintptr_t>(this) + parentOffset);
 }
 
-void ShmemAccessor::ShmemDictNode::setParent(ShmemDictNode *node)
+void ShmemDictNode::setParent(ShmemDictNode *node)
 {
     if (node == nullptr)
         parentOffset = NPtr; // Set offset to an impossible value to indicate nullptr
@@ -106,12 +98,12 @@ void ShmemAccessor::ShmemDictNode::setParent(ShmemDictNode *node)
         parentOffset = reinterpret_cast<uintptr_t>(node) - reinterpret_cast<uintptr_t>(this);
 }
 
-const ShmemAccessor::ShmemObj *ShmemAccessor::ShmemDictNode::key() const
+const ShmemObj *ShmemDictNode::key() const
 {
     return reinterpret_cast<ShmemObj *>(reinterpret_cast<uintptr_t>(this) + keyOffset);
 }
 
-KeyType ShmemAccessor::ShmemDictNode::keyVal() const
+KeyType ShmemDictNode::keyVal() const
 {
     int keyType = key()->type;
     if (keyType == String)
@@ -122,7 +114,7 @@ KeyType ShmemAccessor::ShmemDictNode::keyVal() const
         throw std::runtime_error("Unknown key type");
 }
 
-ShmemAccessor::ShmemObj *ShmemAccessor::ShmemDictNode::data() const
+ShmemObj *ShmemDictNode::data() const
 {
     if (dataOffset == NPtr)
         return nullptr;
@@ -130,7 +122,7 @@ ShmemAccessor::ShmemObj *ShmemAccessor::ShmemDictNode::data() const
         return reinterpret_cast<ShmemObj *>(reinterpret_cast<uintptr_t>(this) + dataOffset);
 }
 
-void ShmemAccessor::ShmemDictNode::setData(ShmemObj *obj)
+void ShmemDictNode::setData(ShmemObj *obj)
 {
     if (obj == nullptr)
         dataOffset = NPtr; // Set offset to an impossible value to indicate nullptr
@@ -138,7 +130,7 @@ void ShmemAccessor::ShmemDictNode::setData(ShmemObj *obj)
         dataOffset = reinterpret_cast<uintptr_t>(obj) - reinterpret_cast<uintptr_t>(this);
 }
 
-int ShmemAccessor::ShmemDictNode::hashedKey() const
+int ShmemDictNode::hashedKey() const
 {
     int keyType = key()->type;
     if (keyType == String)
@@ -149,7 +141,7 @@ int ShmemAccessor::ShmemDictNode::hashedKey() const
         throw std::runtime_error("Unknown key type");
 }
 
-std::string ShmemAccessor::ShmemDictNode::keyToString() const
+std::string ShmemDictNode::keyToString() const
 {
     int keyType = key()->type;
     if (keyType == String)
