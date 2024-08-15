@@ -23,5 +23,5 @@ const std::unordered_map<int, std::string> typeNames = {
 
 bool isPrimitive(int type)
 {
-    return type < PrimitiveThreshold;
+    return type < PrimitiveThreshold && type >= 0;
 }

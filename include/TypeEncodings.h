@@ -68,6 +68,13 @@ DEFINE_TYPE_ENCODING(unsigned long long, ULongLong)
 DEFINE_TYPE_ENCODING(float, Float)
 DEFINE_TYPE_ENCODING(double, Double)
 
+// String
+DEFINE_TYPE_ENCODING(char*, String)
+DEFINE_TYPE_ENCODING(const char*, String)
+DEFINE_TYPE_ENCODING(std::string, String)
+DEFINE_TYPE_ENCODING(const std::string, String)
+
+
 template <typename T>
 struct isVector : std::false_type
 {
@@ -114,7 +121,7 @@ struct unwrapMapType<std::map<Key, T>>
 template <typename T>
 constexpr bool isPrimitive()
 {
-    return TypeEncoding<T>::value < PrimitiveThreshold;
+    return TypeEncoding<T>::value < PrimitiveThreshold && TypeEncoding<T>::value >= 0;
 }
 
 template <typename T>
@@ -131,11 +138,6 @@ struct TypeEncoding<std::vector<T>>
     static constexpr int value = isPrimitive<T>() ? TypeEncoding<T>::value : List;
 };
 
-template <>
-struct TypeEncoding<std::string>
-{
-    static constexpr int value = String;
-};
 
 template <typename Key, typename T>
 struct TypeEncoding<std::map<Key, T>>

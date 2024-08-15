@@ -36,6 +36,9 @@ void ShmemHeap::create()
     this->staticCapacity_unsafe() = this->SCap;
     this->heapCapacity_unsafe() = this->HCap;
 
+    // Init the heap
+    this->entranceOffset_unsafe() = NPtr;
+
     BlockHeader *firstBlock = reinterpret_cast<BlockHeader *>(this->heapHead_unsafe());
 
     // Prev allocated bit set to 1
@@ -156,10 +159,21 @@ size_t &ShmemHeap::freeBlockListOffset()
     return reinterpret_cast<size_t *>(this->shmPtr)[2];
 }
 
+size_t &ShmemHeap::entranceOffset(){
+    checkConnection();
+    return entranceOffset_unsafe();
+}
+
 Byte *ShmemHeap::staticSpaceHead()
 {
     checkConnection();
     return this->shmPtr;
+}
+
+Byte *ShmemHeap::entrance()
+{
+    checkConnection();
+    return this->entrance_unsafe();
 }
 
 Byte *ShmemHeap::heapHead()
@@ -378,6 +392,7 @@ void ShmemHeap::printShmHeap()
     size_t staticCapacity = this->staticCapacity_unsafe();
     size_t heapCapacity = this->heapCapacity_unsafe();
     size_t firstFreeBlockOffset = this->freeBlockListOffset_unsafe();
+    size_t entranceOffset = this->entranceOffset_unsafe();
     Byte *heapHead = this->heapHead_unsafe();
     Byte *heapTail = this->heapTail_unsafe();
     std::vector<BlockHeader *> freeBlockList = {};
@@ -395,6 +410,7 @@ void ShmemHeap::printShmHeap()
     this->logger->info("Static Space Capacity: {}", staticCapacity);
     this->logger->info("Heap Capacity: {}", heapCapacity);
     this->logger->info("Free block list offset: {}", firstFreeBlockOffset);
+    this->logger->info("Entrance offset: {}", entranceOffset == NPtr ? "null" : std::to_string(entranceOffset));
     this->logger->info("********************************** Block List *****************************");
     // this->logger->info("Offset\tStatus\tPrev\tBusy\tt_Begin\tt_End\tt_Size");
     this->logger->info("{:<8} {:<6} {:<6} {:<6} {:<14} {:<14} {:<6}", "Offset", "Status", "Prev", "Busy", "Begin", "End", "Size");
@@ -626,9 +642,23 @@ inline size_t &ShmemHeap::freeBlockListOffset_unsafe()
     return reinterpret_cast<size_t *>(this->shmPtr)[2];
 }
 
+inline size_t &ShmemHeap::entranceOffset_unsafe()
+{
+    return reinterpret_cast<size_t *>(this->staticSpaceHead_unsafe())[3];
+}
+
 inline Byte *ShmemHeap::staticSpaceHead_unsafe()
 {
     return this->shmPtr;
+}
+
+inline Byte *ShmemHeap::entrance_unsafe()
+{
+    size_t offset = this->entranceOffset_unsafe();
+    if (offset == NPtr)
+        return nullptr;
+    else
+        return this->heapHead_unsafe() + this->entranceOffset_unsafe();
 }
 
 inline Byte *ShmemHeap::heapHead_unsafe()

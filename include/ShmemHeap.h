@@ -294,11 +294,26 @@ public:
     size_t &freeBlockListOffset();
 
     /**
+     * @brief Get the offset(from the heap head) of the entrance, recorded in the fourth size_t(8 bytes) of the heap
+     *
+     * @return size_t reference to the offset of the entrance point obj
+     * @note the offset can be calculated into a reference to a free block in the heap
+     */
+    size_t &entranceOffset();
+
+    /**
      * @brief Get the head ptr of the static space. Check connection before using
      *
      * @return this->shmPtr
      */
     Byte *staticSpaceHead();
+
+    /**
+     * @brief Entrance point of the underlying data structure
+     *
+     * @return this->shmPtr + staticCapacity + entranceOffset
+     */
+    Byte *entrance();
 
     /**
      * @brief Get the head ptr of the heap. Check connection before using
@@ -374,6 +389,7 @@ protected:
     size_t &staticCapacity_unsafe();
     size_t &heapCapacity_unsafe();
     size_t &freeBlockListOffset_unsafe();
+    size_t &entranceOffset_unsafe();
 
     /**
      * @brief Get the head ptr of the static space
@@ -381,6 +397,13 @@ protected:
      * @return this->shmPtr
      */
     Byte *staticSpaceHead_unsafe();
+
+    /**
+     * @brief Get the entrance ptr of the heap
+     *
+     * @return this->shmPtr + staticCapacity + entranceOffset
+     */
+    Byte *entrance_unsafe();
 
     /**
      * @brief Get the head ptr of the heap

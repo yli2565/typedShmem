@@ -7,8 +7,11 @@ int main(int argc, char **argv)
     printf("Running main() from %s\n", __FILE__);
 
     auto SH = ShmemHeap("test", 0x1000, 0x1000);
+    SH.create();
     auto ACC = ShmemAccessor(&SH, {});
-    ACC = "123123123";
+    ACC = 12;
+
+    SH.printShmHeap();
 
     std::cout << ACC.toString() << std::endl;
     return 0;

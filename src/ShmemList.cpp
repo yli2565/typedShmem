@@ -17,18 +17,7 @@ void ShmemAccessor::ShmemList::setObj(int index, ShmemObj *obj)
         relativeOffsetPtr()[resolveIndex(index)] = reinterpret_cast<Byte *>(obj) - reinterpret_cast<Byte *>(this);
 }
 
-// ShmemList methods
-inline size_t ShmemAccessor::ShmemList::listCapacity() const
-{
-    return this->ShmemObj::size;
-}
-
-inline size_t ShmemAccessor::ShmemList::potentialCapacity() const
-{
-    return (reinterpret_cast<const ShmemHeap::BlockHeader *>(reinterpret_cast<const Byte *>(this->relativeOffsetPtr()) - sizeof(ShmemHeap::BlockHeader))->size() - sizeof(ShmemHeap::BlockHeader)) / sizeof(ptrdiff_t);
-}
-
-size_t ShmemAccessor::ShmemList::construct(size_t listCapacity, ShmemHeap *heapPtr)
+size_t ShmemAccessor::ShmemList::makeSpace(size_t listCapacity, ShmemHeap *heapPtr)
 {
     size_t offset = heapPtr->shmalloc(sizeof(ShmemList));
     size_t listSpaceOffset = heapPtr->shmalloc(listCapacity * sizeof(ptrdiff_t));
@@ -44,6 +33,17 @@ size_t ShmemAccessor::ShmemList::construct(size_t listCapacity, ShmemHeap *heapP
     ptrdiff_t *basePtr = ptr->relativeOffsetPtr();
     std::fill(basePtr, basePtr + listCapacity, NPtr);
     return offset;
+}
+
+// ShmemList methods
+inline size_t ShmemAccessor::ShmemList::listCapacity() const
+{
+    return this->ShmemObj::size;
+}
+
+inline size_t ShmemAccessor::ShmemList::potentialCapacity() const
+{
+    return (reinterpret_cast<const ShmemHeap::BlockHeader *>(reinterpret_cast<const Byte *>(this->relativeOffsetPtr()) - sizeof(ShmemHeap::BlockHeader))->size() - sizeof(ShmemHeap::BlockHeader)) / sizeof(ptrdiff_t);
 }
 
 void ShmemAccessor::ShmemList::deconstruct(size_t offset, ShmemHeap *heapPtr)
@@ -122,7 +122,7 @@ std::string ShmemAccessor::ShmemList::toString(ShmemAccessor::ShmemList *list, i
     std::string indentStr = std::string(indent, ' ');
 
     result += "[\n";
-    for (int i = 0; i < std::max(static_cast<int>(list->listSize), maxElements); i++)
+    for (int i = 0; i < std::min(static_cast<int>(list->listSize), maxElements); i++)
     {
         result += ShmemObj::toString(list->getObj(i), indent + 1) + "\n";
     }

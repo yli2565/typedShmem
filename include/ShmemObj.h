@@ -35,58 +35,55 @@ private:
         template <typename T>
         static size_t construct(const T &value, ShmemHeap *heapPtr)
         {
-            if (isPrimitive<T>())
+            if constexpr (isPrimitive<T>())
             { // Base case
-                if (isVector<T>::value)
+                if constexpr (isVector<T>::value)
                 { // Vector as an array of primitive
                     using vecDataType = typename unwrapVectorType<T>::type;
                     return ShmemPrimitive<vecDataType>::construct(value, heapPtr);
-                }
-                else if (isString<T>())
-                { // String as an array of char
-                    return ShmemPrimitive<char>::construct(value, heapPtr);
                 }
                 else
                 { // Single value
                     return ShmemPrimitive<T>::construct(value, heapPtr);
                 }
             }
+            else if constexpr (isString<T>())
+            { // String as an array of char
+                return ShmemPrimitive<char>::construct(value, heapPtr);
+            }
+            else if constexpr (isVector<T>::value)
+            {
+                using vecDataType = typename unwrapVectorType<T>::type;
+                size_t listOffset = ShmemList::construct(value.size(), heapPtr);
+                ShmemList *list = reinterpret_cast<ShmemList *>(ShmemObj::resolveOffset(listOffset, heapPtr));
+                for (int i = 0; i < static_cast<int>(value.size()); i++)
+                {
+                    list->add(value[i], heapPtr);
+                }
+                return listOffset;
+            }
+            else if constexpr (isMap<T>::value)
+            {
+                using mapDataType = typename unwrapMapType<T>::type;
+                using mapKeyType = typename unwrapMapType<T>::keyType;
+
+                // Check if mapKeyType is int, string or variant<int, string>
+                if (!(std::is_same<mapKeyType, int>::value || std::is_same<mapKeyType, std::string>::value || std::is_same<mapKeyType, KeyType>::value))
+                {
+                    throw std::runtime_error("Map key type must be int, string or variant<int, string>");
+                }
+
+                size_t dictOffset = ShmemDict::construct(heapPtr);
+                ShmemDict *dict = reinterpret_cast<ShmemDict *>(ShmemObj::resolveOffset(dictOffset, heapPtr));
+                for (auto &[key, val] : value)
+                {
+                    dict->insert(key, val, heapPtr);
+                }
+                return dictOffset;
+            }
             else
             {
-                if (isVector<T>::value)
-                {
-                    using vecDataType = typename unwrapVectorType<T>::type;
-                    size_t listOffset = ShmemList::construct(value.size(), heapPtr);
-                    ShmemList *list = reinterpret_cast<ShmemList *>(ShmemObj::resolveOffset(listOffset, heapPtr));
-                    for (int i = 0; i < static_cast<int>(value.size()); i++)
-                    {
-                        list->add(value[i], heapPtr);
-                    }
-                    return listOffset;
-                }
-                else if (isMap<T>::value)
-                {
-                    using mapDataType = typename unwrapMapType<T>::type;
-                    using mapKeyType = typename unwrapMapType<T>::keyType;
-
-                    // Check if mapKeyType is int, string or variant<int, string>
-                    if (!(std::is_same<mapKeyType, int>::value || std::is_same<mapKeyType, std::string>::value || std::is_same<mapKeyType, KeyType>::value))
-                    {
-                        throw std::runtime_error("Map key type must be int, string or variant<int, string>");
-                    }
-
-                    size_t dictOffset = ShmemDict::construct(heapPtr);
-                    ShmemDict *dict = reinterpret_cast<ShmemDict *>(ShmemObj::resolveOffset(dictOffset, heapPtr));
-                    for (auto &[key, val] : value)
-                    {
-                        dict->insert(key, val, heapPtr);
-                    }
-                    return dictOffset;
-                }
-                else
-                {
-                    throw std::runtime_error("Cannot construct object of type " + std::string(typeid(T).name()));
-                }
+                throw std::runtime_error("Cannot construct object of type " + std::string(typeid(T).name()));
             }
         }
         static void deconstruct(size_t offset, ShmemHeap *heapPtr);
@@ -123,7 +120,7 @@ private:
         static std::string toString(ShmemPrimitive_ *obj, int indent = 0, int maxElements = 4)
         {
 #define PRINT_OBJ(type)                                                   \
-    for (int i = 0; i < std::max(obj->size, maxElements); i++)            \
+    for (int i = 0; i < std::min(obj->size, maxElements); i++)            \
     {                                                                     \
         result += " " + std::to_string(reinterpret_cast<type *>(ptr)[i]); \
     }                                                                     \
@@ -138,7 +135,9 @@ private:
             case Bool:
                 PRINT_OBJ(bool);
             case Char:
-                PRINT_OBJ(char);
+                // Build a special case for char, as it's very much likely to be a string
+                result.append(" ").append(reinterpret_cast<const char *>(ptr));
+                break;
             case UChar:
                 PRINT_OBJ(unsigned char);
             case Short:
@@ -173,7 +172,7 @@ private:
     template <typename T>
     struct ShmemPrimitive : public ShmemPrimitive_
     {
-        static size_t construct(size_t size, ShmemHeap *heapPtr)
+        static size_t makeSpace(size_t size, ShmemHeap *heapPtr)
         {
             size_t offset = heapPtr->shmalloc(sizeof(ShmemPrimitive) + size * sizeof(T));
             ShmemObj *ptr = resolveOffset(offset, heapPtr);
@@ -181,11 +180,20 @@ private:
             ptr->size = size;
             return offset;
         }
+        static size_t construct(T val, ShmemHeap *heapPtr)
+        {
+            size_t offset = makeSpace(1, heapPtr);
+            ShmemPrimitive<T> *ptr = static_cast<ShmemPrimitive<T> *>(resolveOffset(offset, heapPtr));
+            ptr->type = TypeEncoding<T>::value;
+            ptr->size = 1;
+            ptr->getPtr()[0] = val;
+            return offset;
+        }
 
         static size_t construct(std::vector<T> vec, ShmemHeap *heapPtr)
         {
             size_t size = vec.size();
-            size_t offset = construct(size, heapPtr);
+            size_t offset = makeSpace(size, heapPtr);
             ShmemPrimitive<T> *ptr = static_cast<ShmemPrimitive<T> *>(resolveOffset(offset, heapPtr));
             memcpy(ptr->getPtr(), vec.data(), size * sizeof(T));
             return offset;
@@ -198,9 +206,23 @@ private:
                 throw std::runtime_error("Cannot use string to construct a non-char primitive object");
             }
             size_t size = str.size() + 1; // +1 for the \0
-            size_t offset = construct(size, heapPtr);
+            size_t offset = makeSpace(size, heapPtr);
             ShmemPrimitive<T> *ptr = static_cast<ShmemPrimitive<T> *>(resolveOffset(offset, heapPtr));
             memcpy(ptr->getPtr(), str.data(), size * sizeof(T));
+            return offset;
+        }
+
+        static size_t construct(const char *str, ShmemHeap *heapPtr)
+        {
+            if (TypeEncoding<T>::value != Char)
+            {
+                throw std::runtime_error("Cannot use string to construct a non-char primitive object");
+            }
+            size_t size = strlen(str) + 1; // +1 for the \0
+            size_t offset = makeSpace(size, heapPtr);
+            ShmemPrimitive<T> *ptr = static_cast<ShmemPrimitive<T> *>(resolveOffset(offset, heapPtr));
+            // copy the c string to ptr
+            strcpy(ptr->getPtr(), str);
             return offset;
         }
 
@@ -332,7 +354,7 @@ private:
             result.reserve(40);
             result.append("[P:").append(typeNames.at(this->type)).append(":").append(std::to_string(this->size)).append("]");
             const T *ptr = this->getPtr();
-            for (int i = 0; i < std::max(this->size, maxElements); i++)
+            for (int i = 0; i < std::min(this->size, maxElements); i++)
             {
                 result += " " + std::to_string(ptr[i]);
             }
@@ -428,6 +450,8 @@ private:
 
         int resolveIndex(int index) const;
 
+        static size_t makeSpace(size_t listCapacity, ShmemHeap *heapPtr);
+
         void add(ShmemObj *newObj, ShmemHeap *heapPtr);
         void assign(int index, ShmemObj *newObj, ShmemHeap *heapPtr);
 
@@ -438,7 +462,24 @@ private:
         size_t listCapacity() const;
         size_t potentialCapacity() const;
 
-        static size_t construct(size_t capacity, ShmemHeap *heapPtr);
+        template <typename T>
+        static size_t construct(std::vector<T> vec, ShmemHeap *heapPtr)
+        {
+            using vecDataType = typename unwrapVectorType<T>::type;
+            if constexpr (isPrimitive<vecDataType>())
+            {
+                throw std::runtime_error("Not a good idea to construct a list for an array of primitives");
+            }
+
+            size_t listOffset = ShmemList::makeSpace(vec.capacity(), heapPtr);
+            ShmemList *list = reinterpret_cast<ShmemList *>(ShmemObj::resolveOffset(listOffset, heapPtr));
+            for (int i = 0; i < vec.size(); i++)
+            {
+                list->add(vec[i], heapPtr);
+            }
+            return listOffset;
+        }
+
         static void deconstruct(size_t offset, ShmemHeap *heapPtr);
 
         ShmemObj *at(int index);
@@ -638,7 +679,7 @@ public:
             if (prev == nullptr)
             {
                 // The obj is the root object in the heap, update the entrance point
-                setEntrance(ShmemObj::construct(val, this->heapPtr));
+                this->setEntrance(ShmemObj::construct(val, this->heapPtr));
             }
             else
             {

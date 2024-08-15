@@ -7,36 +7,17 @@ ShmemAccessor::ShmemAccessor(ShmemHeap *heapPtr, std::vector<KeyType> path) : he
 
 inline ShmemAccessor::ShmemObj *ShmemAccessor::entrance() const
 {
-    size_t offset = entranceOffset();
-    if (offset == NPtr)
-    {
-        return nullptr;
-    }
-    return reinterpret_cast<ShmemObj *>(heapPtr->heapHead() + offset);
+    return reinterpret_cast<ShmemObj *>(this->heapPtr->entrance());
 }
 
-inline void ShmemAccessor::setEntrance(ShmemObj *obj)
+void ShmemAccessor::setEntrance(size_t offset)
 {
-    if (obj == nullptr)
-        entranceOffset() = NPtr;
-    else
-        entranceOffset() = reinterpret_cast<Byte *>(obj) - heapPtr->heapHead();
+    this->heapPtr->entranceOffset() = offset;
 }
 
-inline void ShmemAccessor::setEntrance(size_t offset)
+void ShmemAccessor::setEntrance(ShmemObj *obj)
 {
-    entranceOffset() = offset;
-}
-
-// protected methods
-inline size_t &ShmemAccessor::entranceOffset()
-{
-    return reinterpret_cast<size_t *>(this->heapPtr->staticSpaceHead())[3];
-}
-
-inline size_t ShmemAccessor::entranceOffset() const
-{
-    return reinterpret_cast<size_t *>(this->heapPtr->staticSpaceHead())[3];
+    this->heapPtr->entranceOffset() = reinterpret_cast<Byte *>(obj) - this->heapPtr->heapHead();
 }
 
 void ShmemAccessor::resolvePath(ShmemObj *&prevObj, ShmemObj *&obj, int &resolvedDepth) const
