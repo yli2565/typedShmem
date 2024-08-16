@@ -33,19 +33,9 @@ public:
 
     static std::string toString(const ShmemPrimitive_ *obj, int indent = 0, int maxElements = 4);
 
-    static const char *toString(const ShmemPrimitive_ *obj, int indent = 0, int maxElements = 4)
-    {
-        return const_cast<char *>(ShmemPrimitive_::toString(obj, indent, maxElements).c_str());
-    }
-
     std::string toString(int indent = 0, int maxElements = 4) const
     {
         return ShmemPrimitive_::toString(this, indent, maxElements);
-    }
-
-    const char *toString(int indent = 0, int maxElements = 4) const
-    {
-        return ShmemPrimitive_::toString(this, indent, maxElements).c_str();
     }
 
     static std::string elementToString(const ShmemPrimitive_ *obj, int index);
@@ -58,13 +48,22 @@ public:
     static size_t construct(T val, ShmemHeap *heapPtr);
 
     template <typename T>
-    static size_t construct(std::vector<T> vec, ShmemHeap *heapPtr);
+    static T getter(ShmemPrimitive_ *obj, int index = 0);
 
     template <typename T>
-    static T convert(ShmemPrimitive_ *obj, int index = 0);
+    static T getter(int index = 0);
+
+    template <typename T>
+    static void setter(ShmemPrimitive_ *obj, T value, int index);
+
+    template <typename T>
+    void setter(T value, int index);
 
     template <typename T>
     T operator[](int index) const;
+
+    template <typename T>
+    void set(T val, int index);
 };
 
 template <typename T>
@@ -74,15 +73,11 @@ protected:
     static size_t makeSpace(size_t size, ShmemHeap *heapPtr);
 
 public:
-    using ShmemPrimitive_::construct; // Bring base class construct methods into scope
+    static size_t construct(T val, ShmemHeap *heapPtr);
 
-    // static size_t construct(T val, ShmemHeap *heapPtr);
+    void checkType() const;
 
-    // static size_t construct(std::vector<T> vec, ShmemHeap *heapPtr);
-
-    // void checkType() const;
-
-    // T operator[](int index) const;
+    T operator[](int index) const;
 
     int find(T value) const;
 

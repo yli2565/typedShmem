@@ -15,12 +15,6 @@ inline size_t ShmemPrimitive_::makeSpace(size_t size, ShmemHeap *heapPtr)
 }
 
 template <typename T>
-inline size_t ShmemPrimitive<T>::makeSpace(size_t size, ShmemHeap *heapPtr)
-{
-    return ShmemPrimitive_::makeSpace<T>(size, heapPtr);
-}
-
-template <typename T>
 size_t ShmemPrimitive_::construct(T val, ShmemHeap *heapPtr)
 {
     if constexpr (isPrimitive<T>())
@@ -44,8 +38,9 @@ size_t ShmemPrimitive_::construct(T val, ShmemHeap *heapPtr)
         }
     }
     else if constexpr (isString<T>())
-    { // it is const char * or char *, as std::string will go to construct(std::string str, ...)
-        return ShmemPrimitive_::construct(val, heapPtr);
+    { // Call the non-template implementation
+        printf("Code reach a strange place\n");
+        return ShmemPrimitive_::construct(std::string(val), heapPtr);
     }
     else if constexpr (isVector<T>::value)
     {
@@ -58,7 +53,7 @@ size_t ShmemPrimitive_::construct(T val, ShmemHeap *heapPtr)
 }
 
 template <typename T>
-T ShmemPrimitive_::convert(ShmemPrimitive_ *obj, int index)
+T ShmemPrimitive_::getter(ShmemPrimitive_ *obj, int index)
 {
     if constexpr (isPrimitive<T>())
     {
@@ -91,27 +86,81 @@ T ShmemPrimitive_::convert(ShmemPrimitive_ *obj, int index)
     }
     if constexpr (isString<T>())
     {
-        // TODO: fill this
+        if (obj->type != Char)
+        {
+            throw std::runtime_error("Cannot convert non-char type to a string type");
+        }
+
+        if constexpr (std::is_same_v<T, std::string> || std::is_same_v<T, const std::string>)
+        {
+            return std::string(reinterpret_cast<const char *>(obj->getBytePtr()), obj->size);
+        }
+
+        if constexpr (std::is_same_v<T, char *> || std::is_same_v<T, const char *>)
+        { // TODO: Should I just allocate some mem and return it?
+            throw std::runtime_error("Cannot return char* type yet");
+        }
     }
     else
     { // Cannot convert
-        throw std::runtime_error("Cannot convert to non-primitive type");
+        throw std::runtime_error("Cannot convert");
     }
 }
 
 template <typename T>
-T ShmemPrimitive_::operator[](int index) const
+inline T ShmemPrimitive_::getter(int index)
 {
-    checkType();
-    if (index < 0)
-    { // negative index is relative to the end
-        index += this->size;
-    }
-    if (index >= this->size || index < 0)
+    return getter<T>(this, index);
+}
+
+template <typename T>
+void ShmemPrimitive_::setter(ShmemPrimitive_ *obj, T value, int index)
+{
+    if constexpr (isPrimitive<T>())
     {
-        throw std::runtime_error("Index out of bounds");
+        if constexpr (isVector<T>::value)
+        {
+            throw std::runtime_error("You can only set an element with a vector, instead of using a vector to assign the whole Primitive Obj.");
+        }
+        else
+        {
+#define SHMEM_CONVERT_PRIMITIVE(TYPE) \
+    reinterpret_cast<TYPE *>(obj->getBytePtr())[obj->resolveIndex(index)] = dynamic_cast<TYPE>(value);
+
+            SWITCH_PRIMITIVE_TYPES(obj->type, SHMEM_CONVERT_PRIMITIVE)
+
+#undef SHMEM_CONVERT_PRIMITIVE
+        }
     }
-    return this->getPtr()[index];
+    else
+    {
+        throw std::runtime_error("You can only set an element with a string");
+    }
+}
+
+template <typename T>
+inline void ShmemPrimitive_::setter(T value, int index)
+{
+    setter<T>(this, val, index);
+}
+
+// public getter and setters
+template <typename T>
+inline T ShmemPrimitive_::operator[](int index) const
+{
+    return this->getter<T>(index);
+}
+
+template <typename T>
+inline void ShmemPrimitive_::set(T value, int index)
+{
+    setter(this, value, index);
+}
+// ShmemPrimitive<T>
+template <typename T>
+inline size_t ShmemPrimitive<T>::makeSpace(size_t size, ShmemHeap *heapPtr)
+{
+    return ShmemPrimitive_::makeSpace<T>(size, heapPtr);
 }
 
 template <typename T>
@@ -134,18 +183,15 @@ int ShmemPrimitive<T>::find(T value) const
 }
 
 template <typename T>
+static size_t construct(T val, ShmemHeap *heapPtr)
+{
+    return ShmemPrimitive_::construct(val, heapPtr);
+}
+
+template <typename T>
 void ShmemPrimitive<T>::set(int index, T value)
 {
-    checkType();
-    if (index < 0)
-    { // negative index is relative to the end
-        index += this->size;
-    }
-    if (index >= this->size || index < 0)
-    {
-        throw std::runtime_error("Index out of bounds");
-    }
-    this->getPtr()[index] = value;
+    ShmemPrimitive_::setter(this, value, index);
 }
 
 template <typename T>

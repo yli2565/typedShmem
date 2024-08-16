@@ -15,9 +15,9 @@ int ShmemPrimitive_::resolveIndex(int index) const
 
 std::string ShmemPrimitive_::toString(const ShmemPrimitive_ *obj, int indent, int maxElements)
 {
-#define PRINT_OBJ(type)                                                              \
-    for (int i = 0; i < std::min(obj->size, maxElements); i++)                       \
-    {                                                                                \
+#define PRINT_OBJ(type)                                                                    \
+    for (int i = 0; i < std::min(obj->size, maxElements); i++)                             \
+    {                                                                                      \
         result.append(" ").append(std::to_string(reinterpret_cast<const type *>(ptr)[i])); \
     }
     std::string result;
@@ -26,7 +26,14 @@ std::string ShmemPrimitive_::toString(const ShmemPrimitive_ *obj, int indent, in
 
     const Byte *ptr = obj->getBytePtr();
 
-    SWITCH_PRIMITIVE_TYPES(obj->type, PRINT_OBJ)
+    if (obj->type == Char)
+    { // Handle char as a special case, as it's likely a character instead of a 1 byte integer
+        result.append(" ").append(reinterpret_cast<const char *>(obj->getBytePtr()));
+    }
+    else
+    {
+        SWITCH_PRIMITIVE_TYPES(obj->type, PRINT_OBJ)
+    }
 
 #undef PRINT_OBJ
     if (obj->size > maxElements)
