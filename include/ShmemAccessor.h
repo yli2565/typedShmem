@@ -2,9 +2,7 @@
 #define SHMEM_ACCESSOR_H
 
 #include "ShmemObj.h"
-#include "ShmemDict.h"
-#include "ShmemList.h"
-#include "ShmemPrimitive.h"
+#include "ShmemAccessor.h"
 
 class ShmemAccessor
 {
@@ -31,21 +29,21 @@ protected:
 
     /**
      * @brief Set the Entrance object
-     * 
-     * @param obj 
+     *
+     * @param obj
      * @warning the obj must belongs to this->heapPtr
      */
     void setEntrance(ShmemObj *obj);
 
     /**
      * @brief Set the entrance object by offset (Recommended, safer)
-     * 
+     *
      * @param offset the offset of the entrance object from the heap head
      */
     void setEntrance(size_t offset);
 
     // Utility functions
-    
+
     void resolvePath(ShmemObj *&prevObj, ShmemObj *&obj, int &resolvedDepth) const;
 
 public:
@@ -195,6 +193,10 @@ public:
         { // The prev ptr is the work target, as the obj ptr is the one get replaced
             if (prev == nullptr)
             {
+                if (obj != nullptr)
+                {
+                    ShmemObj::deconstruct(reinterpret_cast<Byte *>(obj) - this->heapPtr->heapHead(), this->heapPtr);
+                }
                 // The obj is the root object in the heap, update the entrance point
                 this->setEntrance(ShmemObj::construct(val, this->heapPtr));
             }

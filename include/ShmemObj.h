@@ -12,14 +12,13 @@
 // Forward declarations
 template <typename T>
 class ShmemPrimitive;
-
 class ShmemList;
 class ShmemDict;
 
 class IndexError : public std::runtime_error
 {
 public:
-    explicit IndexError(const std::string &message);
+    explicit IndexError(const std::string &message) : std::runtime_error(message){};
 };
 
 class ShmemObj
@@ -45,9 +44,9 @@ public:
 
     static std::string toString(ShmemObj *obj, int indent = 0);
 };
-#include "ShmemPrimitive.h"
-#include "ShmemDict.h"
-#include "ShmemList.h"
+// #include "ShmemPrimitive.h"
+// #include "ShmemDict.h"
+// #include "ShmemList.h"
 
 // Include the template implementation file
 #include "ShmemObj.tcc"

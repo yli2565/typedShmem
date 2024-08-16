@@ -1,7 +1,8 @@
 #ifndef SHMEM_DICT_TCC
 #define SHMEM_DICT_TCC
 
-// #include "ShmemDict.h"
+#include "ShmemObj.h"
+#include "ShmemDict.h"
 
 // Macro to define the construct functions for different key types
 #define SHMEM_DICT_CONSTRUCT(keyType)                                                                  \

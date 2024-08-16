@@ -1,12 +1,13 @@
 #ifndef SHMEM_PRIMITIVE_TCC
 #define SHMEM_PRIMITIVE_TCC
 
+#include "ShmemObj.h"
 #include "ShmemPrimitive.h"
 
 template <typename T>
-size_t ShmemPrimitive<T>::makeSpace(size_t size, ShmemHeap *heapPtr)
+inline size_t ShmemPrimitive_::makeSpace(size_t size, ShmemHeap *heapPtr)
 {
-    size_t offset = heapPtr->shmalloc(sizeof(ShmemPrimitive) + size * sizeof(T));
+    size_t offset = heapPtr->shmalloc(sizeof(ShmemPrimitive_) + size * sizeof(T));
     ShmemObj *ptr = reinterpret_cast<ShmemObj *>(heapPtr->heapHead() + offset);
     ptr->type = TypeEncoding<T>::value;
     ptr->size = size;
@@ -14,14 +15,33 @@ size_t ShmemPrimitive<T>::makeSpace(size_t size, ShmemHeap *heapPtr)
 }
 
 template <typename T>
+inline size_t ShmemPrimitive<T>::makeSpace(size_t size, ShmemHeap *heapPtr)
+{
+    return ShmemPrimitive_::makeSpace<T>(size, heapPtr);
+}
+
+template <typename T>
 size_t ShmemPrimitive<T>::construct(T val, ShmemHeap *heapPtr)
 {
-    size_t offset = makeSpace(1, heapPtr);
-    ShmemPrimitive<T> *ptr = static_cast<ShmemPrimitive<T> *>(heapPtr->heapHead() + offset);
-    ptr->type = TypeEncoding<T>::value;
-    ptr->size = 1;
-    ptr->getPtr()[0] = val;
-    return offset;
+    if constexpr (isPrimitive<T>())
+    { // signal value, such as int, bool, float or char
+        size_t offset = makeSpace(1, heapPtr);
+        ShmemPrimitive<T> *ptr = reinterpret_cast<ShmemPrimitive<T> *>(heapPtr->heapHead() + offset);
+        ptr->getPtr()[0] = val;
+        return offset;
+    }
+    else if constexpr (isString<T>())
+    { // it is const char * or char *, as std::string will go to construct(std::string str, ...)
+        return ShmemPrimitive_::construct(val, heapPtr);
+    }
+    else if constexpr (isVector<T>::value)
+    {
+        throw std::runtime_error("Code should not reach here, it should go to the better match construct(std::vector<T> vec,...)");
+    }
+    else
+    {
+        throw std::runtime_error("Cannot convert non-primitive object to primitive");
+    }
 }
 
 template <typename T>
@@ -29,36 +49,8 @@ size_t ShmemPrimitive<T>::construct(std::vector<T> vec, ShmemHeap *heapPtr)
 {
     size_t size = vec.size();
     size_t offset = makeSpace(size, heapPtr);
-    ShmemPrimitive<T> *ptr = static_cast<ShmemPrimitive<T> *>(heapPtr->heapHead() + offset);
+    ShmemPrimitive<T> *ptr = reinterpret_cast<ShmemPrimitive<T> *>(heapPtr->heapHead() + offset);
     memcpy(ptr->getPtr(), vec.data(), size * sizeof(T));
-    return offset;
-}
-
-template <typename T>
-size_t ShmemPrimitive<T>::construct(std::string str, ShmemHeap *heapPtr)
-{
-    if (TypeEncoding<T>::value != Char)
-    {
-        throw std::runtime_error("Cannot use string to construct a non-char primitive object");
-    }
-    size_t size = str.size() + 1; // +1 for the \0
-    size_t offset = makeSpace(size, heapPtr);
-    ShmemPrimitive<T> *ptr = static_cast<ShmemPrimitive<T> *>(heapPtr->heapHead() + offset);
-    memcpy(ptr->getPtr(), str.data(), size * sizeof(T));
-    return offset;
-}
-
-template <typename T>
-size_t ShmemPrimitive<T>::construct(const char *str, ShmemHeap *heapPtr)
-{
-    if (TypeEncoding<T>::value != Char)
-    {
-        throw std::runtime_error("Cannot use string to construct a non-char primitive object");
-    }
-    size_t size = strlen(str) + 1; // +1 for the \0
-    size_t offset = makeSpace(size, heapPtr);
-    ShmemPrimitive<T> *ptr = static_cast<ShmemPrimitive<T> *>(heapPtr->heapHead() + offset);
-    strcpy(ptr->getPtr(), str);
     return offset;
 }
 

@@ -1,8 +1,8 @@
+#include "ShmemObj.h"
+// Please keep this inclusion before header guard, which make the order of include correct
+
 #ifndef SHMEM_DICT_H
 #define SHMEM_DICT_H
-
-#include "ShmemObj.h"
-#include "ShmemHeap.h"
 #include <string>
 #include <variant>
 #include <map>
@@ -95,7 +95,6 @@ public:
 };
 
 // Include the template implementation file
-#include "ShmemObj.tcc"
 #include "ShmemDict.tcc"
 
 #endif // SHMEM_DICT_H

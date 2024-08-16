@@ -1,13 +1,18 @@
+#include "ShmemObj.h"
+// Please keep this inclusion before header guard, which make the order of include correct
+
 #ifndef SHMEM_PRIMITIVE_H
 #define SHMEM_PRIMITIVE_H
 
-#include "ShmemHeap.h"
-#include "ShmemObj.h"
 #include "TypeEncodings.h"
 #include <cstring>
 
 class ShmemPrimitive_ : public ShmemObj
 {
+protected:
+    template <typename T>
+    static size_t makeSpace(size_t size, ShmemHeap *heapPtr);
+
 public:
     static inline void deconstruct(size_t offset, ShmemHeap *heapPtr)
     {
@@ -25,22 +30,24 @@ public:
     }
 
     static std::string toString(ShmemPrimitive_ *obj, int indent = 0, int maxElements = 4);
+
+    static size_t construct(const char *str, ShmemHeap *heapPtr);
+
+    static size_t construct(std::string str, ShmemHeap *heapPtr);
 };
 
 template <typename T>
 class ShmemPrimitive : public ShmemPrimitive_
 {
-private:
+protected:
     static size_t makeSpace(size_t size, ShmemHeap *heapPtr);
 
 public:
+    using ShmemPrimitive_::construct; // Bring base class construct methods into scope
+
     static size_t construct(T val, ShmemHeap *heapPtr);
 
     static size_t construct(std::vector<T> vec, ShmemHeap *heapPtr);
-
-    static size_t construct(std::string str, ShmemHeap *heapPtr);
-
-    static size_t construct(const char *str, ShmemHeap *heapPtr);
 
     void checkType() const;
 
@@ -66,6 +73,6 @@ public:
 };
 
 #include "ShmemObj.tcc"
-#include "ShmemPrimitive.tcc" 
+#include "ShmemPrimitive.tcc"
 
 #endif // SHMEM_PRIMITIVE_H

@@ -63,3 +63,15 @@ void ShmemAccessor::resolvePath(ShmemObj *&prevObj, ShmemObj *&obj, int &resolve
     resolvedDepth = resolveDepth;
     return;
 }
+
+std::string ShmemAccessor::toString(int maxElements) const
+{
+    ShmemObj *obj, *prev;
+    int resolvedDepth;
+    resolvePath(prev, obj, resolvedDepth);
+    if (resolvedDepth != path.size())
+    {
+        throw std::runtime_error("Cannot index <remaining index> on object" + ShmemObj::toString(obj));
+    }
+    return ShmemObj::toString(obj);
+}

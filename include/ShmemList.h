@@ -1,7 +1,9 @@
+#include "ShmemObj.h"
+// Please keep this inclusion before header guard, which make the order of include correct
+
 #ifndef SHMEM_LIST_H
 #define SHMEM_LIST_H
 
-#include "ShmemObj.h"
 #include "ShmemHeap.h"
 #include <vector>
 #include <stdexcept>
@@ -80,7 +82,6 @@ public:
 };
 
 // Include the template implementation file
-#include "ShmemObj.tcc"
 #include "ShmemList.tcc"
 
 #endif // SHMEM_LIST_H

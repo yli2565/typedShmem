@@ -1,8 +1,8 @@
 #ifndef SHMEM_LIST_TCC
 #define SHMEM_LIST_TCC
 
-#include "ShmemList.h"
 #include "ShmemObj.h"
+#include "ShmemList.h"
 
 template <typename T>
 size_t ShmemList::construct(std::vector<T> vec, ShmemHeap *heapPtr)

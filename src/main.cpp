@@ -1,5 +1,7 @@
 #include <iostream>
 #include "ShmemObj.h"
+#include "ShmemAccessor.h"
+
 int main(int argc, char **argv)
 {
     // spdlog::set_default_logger(spdlog::basic_logger_mt("test", "test.log"));
@@ -10,6 +12,7 @@ int main(int argc, char **argv)
     SH.create();
     auto ACC = ShmemAccessor(&SH, {});
     ACC = 12;
+    ACC="string";
 
     SH.printShmHeap();
 

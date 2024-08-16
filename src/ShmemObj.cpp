@@ -2,21 +2,6 @@
 #include <cstring>
 #include <iostream>
 
-// hashIntOrString function
-int hashIntOrString(KeyType key)
-{
-    int hashCode = 0;
-    if (std::holds_alternative<std::string>(key))
-    {
-        hashCode = std::hash<std::string>{}(std::get<std::string>(key));
-    }
-    else
-    {
-        hashCode = std::hash<int>{}(std::get<int>(key));
-    }
-    return hashCode;
-}
-
 // ShmemObj methods
 
 // Constructor relies on template, it is defined in header file
