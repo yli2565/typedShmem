@@ -9,6 +9,54 @@
 #include <type_traits>
 #include <unordered_map>
 
+// Macro for simplicity
+#define SWITCH_PRIMITIVE_TYPES(SWITCH_TARGET, OPERATION_FUNC) \
+    switch (SWITCH_TARGET)                                    \
+    {                                                         \
+    case Bool:                                                \
+        OPERATION_FUNC(bool)                                  \
+        break;                                                \
+    case Char:                                                \
+        OPERATION_FUNC(char)                                  \
+        break;                                                \
+    case UChar:                                               \
+        OPERATION_FUNC(unsigned char)                         \
+        break;                                                \
+    case Short:                                               \
+        OPERATION_FUNC(short)                                 \
+        break;                                                \
+    case UShort:                                              \
+        OPERATION_FUNC(unsigned short)                        \
+        break;                                                \
+    case Int:                                                 \
+        OPERATION_FUNC(int)                                   \
+        break;                                                \
+    case UInt:                                                \
+        OPERATION_FUNC(unsigned int)                          \
+        break;                                                \
+    case Long:                                                \
+        OPERATION_FUNC(long)                                  \
+        break;                                                \
+    case ULong:                                               \
+        OPERATION_FUNC(unsigned long)                         \
+        break;                                                \
+    case LongLong:                                            \
+        OPERATION_FUNC(long long)                             \
+        break;                                                \
+    case ULongLong:                                           \
+        OPERATION_FUNC(unsigned long long)                    \
+        break;                                                \
+    case Float:                                               \
+        OPERATION_FUNC(float)                                 \
+        break;                                                \
+    case Double:                                              \
+        OPERATION_FUNC(double)                                \
+        break;                                                \
+    default:                                                  \
+        throw std::runtime_error("Unknown type");             \
+        break;                                                \
+    }
+    
 // Constants
 static const int Bool = 1;
 static const int Char = 2;
@@ -69,11 +117,10 @@ DEFINE_TYPE_ENCODING(float, Float)
 DEFINE_TYPE_ENCODING(double, Double)
 
 // String
-DEFINE_TYPE_ENCODING(char*, String)
-DEFINE_TYPE_ENCODING(const char*, String)
+DEFINE_TYPE_ENCODING(char *, String)
+DEFINE_TYPE_ENCODING(const char *, String)
 DEFINE_TYPE_ENCODING(std::string, String)
 DEFINE_TYPE_ENCODING(const std::string, String)
-
 
 template <typename T>
 struct isVector : std::false_type
@@ -137,7 +184,6 @@ struct TypeEncoding<std::vector<T>>
 {
     static constexpr int value = isPrimitive<T>() ? TypeEncoding<T>::value : List;
 };
-
 
 template <typename Key, typename T>
 struct TypeEncoding<std::map<Key, T>>

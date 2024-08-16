@@ -361,14 +361,14 @@ public:
      */
     void printShmHeap();
     /**
-     * @brief Get size_BPA of all blocks in the heap
+     * @brief Get size of all blocks in the heap, no state information
      *
      * @return vector of size_BPA of all blocks
      */
     std::vector<size_t> briefLayout();
     /**
      * @brief String representation of payload size and alloc bit of all blocks in the heap
-     *
+     * including state information
      * @return std::string
      * @note e.g. "256A, 128E, 64A, 32E, 16A, 8E, 4A, 2E, 1A" E-empty, A-allocated
      */

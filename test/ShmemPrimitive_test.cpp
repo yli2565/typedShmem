@@ -1,17 +1,26 @@
 #include <gtest/gtest.h>
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/stdout_color_sinks.h>
 #include <cstring>
 
-#include "ShmemHeap.h"
+#include "ShmemPrimitive.h"
+#include "ShmemAccessor.h"
 
-// Test Fixture for ShmemBase
-class ShmemHeapTest : public ::testing::Test
+class ShmemPrimitiveTest : public ::testing::Test
 {
 protected:
     // Setup code (called before each test)
+    ShmemPrimitiveTest() : shmHeap("test_shm_heap", 80, 1024), acc(&shmHeap){};
+
     void SetUp() override
     {
+        shmHeap.getLogger()->set_level(spdlog::level::info);
+        auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
+        shmHeap.getLogger()->sinks().clear();
+        shmHeap.getLogger()->sinks().push_back(console_sink);
         // Initialize necessary objects/resources
-        shmHeap = new ShmemHeap("test_shm_heap", 80, 1024);
+        shmHeap.create();
+
         // Set spdlog sink to a file
     }
 
@@ -19,177 +28,46 @@ protected:
     void TearDown() override
     {
         // Cleanup objects/resources
-        delete shmHeap;
+        // spdlog::drop_all();
     }
 
-    ShmemHeap *shmHeap;
+    ShmemHeap shmHeap;
+    ShmemAccessor acc;
 };
 
 // Test constructor with name and capacity
-TEST_F(ShmemHeapTest, Constructor)
+TEST_F(ShmemPrimitiveTest, BasicAssignmentAndMemoryUsage)
 {
-    EXPECT_EQ(shmHeap->getName(), "test_shm_heap");
-    // EXPECT_EQ(shmHeap->staticCapacity(), 80);
-    // EXPECT_EQ(shmHeap->heapCapacity(), 4096);
-    EXPECT_EQ(shmHeap->getCapacity(), 4096 + 80);
-    EXPECT_FALSE(shmHeap->isConnected());
-    EXPECT_FALSE(shmHeap->ownsSharedMemory());
-    EXPECT_EQ(shmHeap->getVersion(), -1);
+    size_t expectedMemSize = 0;
 
-    ShmemHeap another = ShmemHeap("another_shm_heap", 1, 4097);
-    EXPECT_EQ(another.getName(), "another_shm_heap");
-    EXPECT_EQ(another.getCapacity(), 2 * 4096 + 4 * 8);
+    acc = 1;
+    expectedMemSize = 24; // min payload is 24
+    EXPECT_EQ(shmHeap.briefLayout(), std::vector<size_t>({expectedMemSize, 4096 - expectedMemSize - unitSize * 2}));
+    EXPECT_EQ(acc.toString(20), "[P:int:1] 1");
+
+    acc = std::vector<float>(10, 1);
+    expectedMemSize = 8 + 40; // ShmemPrimitive header 8 bytes + 4*10 + 0 padding
+    EXPECT_EQ(shmHeap.briefLayout(), std::vector<size_t>({expectedMemSize, 4096 - expectedMemSize - unitSize * 2}));
+
+    acc = std::vector<int>(10, 1);
+    expectedMemSize = 8 + 40; // ShmemPrimitive header 8 bytes + 4*10 + 0 padding
+    EXPECT_EQ(shmHeap.briefLayout(), std::vector<size_t>({expectedMemSize, 4096 - expectedMemSize - unitSize * 2}));
+    EXPECT_EQ(acc.toString(20), "[P:int:10] 1 1 1 1 1 1 1 1 1 1");
+
+    acc = std::vector<size_t>(10, 1);
+    expectedMemSize = 8 + 8 * 10; // ShmemPrimitive header 8 bytes + 8*10 + 0 padding
+    EXPECT_EQ(shmHeap.briefLayout(), std::vector<size_t>({expectedMemSize, 4096 - expectedMemSize - unitSize * 2}));
+    EXPECT_EQ(acc.toString(20), "[P:unsigned long:10] 1 1 1 1 1 1 1 1 1 1");
+    EXPECT_EQ(acc.toString(4), "[P:unsigned long:10] 1 1 1 1 ...");
+
+    // shmHeap.printShmHeap();
+    // std::cout << acc.toString(10) << std::endl;
 }
 
-TEST_F(ShmemHeapTest, Create)
+TEST_F(ShmemPrimitiveTest, SetAndGetElement)
 {
-    shmHeap->create();
-    EXPECT_TRUE(shmHeap->isConnected());
-    EXPECT_TRUE(shmHeap->ownsSharedMemory());
-    EXPECT_EQ(shmHeap->staticCapacity(), 80);
-    EXPECT_EQ(shmHeap->heapCapacity(), 4096);
-}
-
-TEST_F(ShmemHeapTest, Connect)
-{
-    shmHeap->setHCap(4097);
-    shmHeap->setSCap(90);
-    shmHeap->create();
-
-    ShmemHeap another = ShmemHeap("test_shm_heap", 1, 1000000);
-    another.connect();
-    // After the connect, the capacity should based on the shared memory
-    EXPECT_EQ(another.staticCapacity(), 96);
-    EXPECT_EQ(another.heapCapacity(), 4096 * 2);
-}
-
-TEST_F(ShmemHeapTest, ResizeCapacityCorrectness)
-{
-    shmHeap->create();
-
-    shmHeap->resize(4097);
-
-    ShmemHeap another = ShmemHeap("test_shm_heap", 1, 1000000);
-    another.connect();
-
-    EXPECT_EQ(another.staticCapacity(), 80);
-    EXPECT_EQ(another.heapCapacity(), 4096 * 2);
-
-    shmHeap->resize(90, 4096 * 2 + 1);
-
-    EXPECT_EQ(another.staticCapacity(), 96);
-    EXPECT_EQ(another.heapCapacity(), 4096 * 3);
-}
-
-TEST_F(ShmemHeapTest, ResizeContentCorrectness)
-{
-    shmHeap->create();
-
-    size_t ptr1 = shmHeap->shmalloc(0x100);
-
-    shmHeap->resize(4097);
-
-    ShmemHeap another = ShmemHeap("test_shm_heap", 1, 1000000);
-    another.connect();
-
-    size_t ptr2 = another.shmalloc(7928 - 8 - 200 - 8);
-    size_t ptr3 = another.shmalloc(200);
-    shmHeap->shfree(ptr2);
-    EXPECT_EQ(another.briefLayoutStr(), "256A, 7712E, 200A");
-    // Create an allocated block at the end of the heap
-    shmHeap->resize(90, 4096 * 2 + 1);
-    EXPECT_EQ(another.briefLayoutStr(), "256A, 7712E, 200A, 4088E");
-
-    shmHeap->shfree(ptr3);
-    size_t ptr4 = another.shmalloc(12016 - 32);
-    // Create a small free block at the end of the heap
-
-    EXPECT_EQ(another.briefLayoutStr(), "256A, 11984A, 24E");
-
-    another.resize(4096 * 3 + 1);
-
-    // 4120 = 24 + 4096
-    EXPECT_EQ(shmHeap->briefLayoutStr(), "256A, 11984A, 4120E");
-
-    EXPECT_EQ(another.staticCapacity(), 96);
-    EXPECT_EQ(another.heapCapacity(), 4096 * 4);
-}
-
-TEST_F(ShmemHeapTest, FullMallocAndFree)
-{
-    shmHeap->setHCap(1);
-    shmHeap->create();
-    // Use multiple other object to modify the mem
-    ShmemHeap shm1 = ShmemHeap("test_shm_heap", 1, 1000000);
-    ShmemHeap shm2 = ShmemHeap("test_shm_heap", 4, 7);
-    ShmemHeap shm3 = ShmemHeap("test_shm_heap", 9, 999);
-    shm1.connect();
-    shm2.connect();
-    shm3.connect();
-
-    std::string expectedLayout = "";
-    for (int i = 0; i < 4096 / 32; i++)
-    {
-        if (i % 4 == 0)
-        {
-            shmHeap->shmalloc(1);
-        }
-        if (i % 4 == 1)
-        {
-            shm1.shmalloc(1);
-        }
-        if (i % 4 == 2)
-        {
-            shm2.shmalloc(1);
-        }
-        if (i % 4 == 3)
-        {
-            shm3.shmalloc(1);
-        }
-        expectedLayout += "24A";
-        if (i < 4096 / 32 - 1)
-            expectedLayout += ", ";
-    }
-
-    EXPECT_EQ(shmHeap->briefLayoutStr(), expectedLayout);
-
-    for (int i = 1; i < 4096 / 32 - 1; i++)
-    {
-        if (i % 4 == 0)
-        {
-            EXPECT_EQ(shmHeap->shfree(i * 32 + 8), 0);
-        }
-        if (i % 4 == 1)
-        {
-            // EXPECT_EQ(shm1.shfree(i * 32 + 8), 0);
-            EXPECT_EQ(shm1.shfree(reinterpret_cast<ShmemHeap::BlockHeader *>(shm1.heapHead() + i * 32 + 8)), 0);
-        }
-        if (i % 4 == 2)
-        {
-            EXPECT_EQ(shm2.shfree(reinterpret_cast<float *>(shm2.heapHead() + i * 32 + 8)), 0);
-        }
-        if (i % 4 == 3)
-        {
-            EXPECT_EQ(shm3.shfree(reinterpret_cast<Byte **>(shm3.heapHead() + i * 32 + 8)), 0);
-        }
-    }
-
-    EXPECT_EQ(shmHeap->briefLayoutStr(), "24A, 4024E, 24A");
-
-    shmHeap->shfree(8);
-    EXPECT_EQ(shmHeap->briefLayoutStr(), "4056E, 24A");
-
-    shm1.shfree(4096 - 32 + 8);
-    EXPECT_EQ(shm1.briefLayoutStr(), "4088E");
-}
-
-TEST_F(ShmemHeapTest, BasicRealloc)
-{
-    shmHeap->create();
-
-    size_t ptr1 = shmHeap->shmalloc(0x100);
-    EXPECT_EQ(shmHeap->briefLayoutStr(), "256A, 3824E");
-
-    size_t ptr2 = shmHeap->shrealloc(ptr1, 0x1FA);
-    EXPECT_EQ(shmHeap->briefLayoutStr(), "512A, 3568E");
+    acc = std::vector<float>(10, 1);
+    acc[2] = 2.f;
+    std::cout << acc.toString(10) << std::endl;
+    std::cout << acc[2] << std::endl;
 }

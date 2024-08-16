@@ -1,8 +1,8 @@
 #ifndef SHMEM_ACCESSOR_H
 #define SHMEM_ACCESSOR_H
 
+#include <iostream>
 #include "ShmemObj.h"
-#include "ShmemAccessor.h"
 
 class ShmemAccessor
 {
@@ -53,10 +53,12 @@ public:
     ShmemAccessor(ShmemHeap *heapPtr);
     ShmemAccessor(ShmemHeap *heapPtr, std::vector<KeyType> path);
 
+    ~ShmemAccessor() = default;
+
     template <typename... KeyTypes>
     ShmemAccessor operator[](KeyTypes... accessPath) const
     {
-        static_assert((std::is_same<KeyType, KeyTypes>::value && ...), "All arguments must be of type KeyType");
+        static_assert(((std::is_same<int, KeyTypes>::value || std::is_same<std::string, KeyTypes>::value || std::is_same<KeyType, KeyTypes>::value) && ...), "All arguments must be of type KeyType");
         std::vector<KeyType> newPath(this->path);
         newPath.insert(newPath.end(), {accessPath...});
         return ShmemAccessor(this->heapPtr, newPath);
@@ -71,9 +73,6 @@ public:
 
         int primitiveIndex;
         bool usePrimitiveIndex = false;
-
-        if (obj->type != TypeEncoding<T>::value)
-            throw std::runtime_error("Type mismatch");
 
         // Deal with unresolved path
         if (resolvedDepth != path.size())
@@ -228,5 +227,8 @@ public:
 
     std::string toString(int maxElements = 4) const;
 };
+
+// Overload the << operator for ShmemAccessor
+std::ostream &operator<<(std::ostream &os, const ShmemAccessor &acc);
 
 #endif // SHMEM_ACCESSOR_H

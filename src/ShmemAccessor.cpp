@@ -69,9 +69,35 @@ std::string ShmemAccessor::toString(int maxElements) const
     ShmemObj *obj, *prev;
     int resolvedDepth;
     resolvePath(prev, obj, resolvedDepth);
-    if (resolvedDepth != path.size())
+
+    bool partiallyResolved = resolvedDepth != path.size();
+
+    int primitiveIndex;
+    bool usePrimitiveIndex = false;
+
+    if (partiallyResolved)
     {
-        throw std::runtime_error("Cannot index <remaining index> on object" + ShmemObj::toString(obj));
+        if (resolvedDepth == path.size() - 1 && isPrimitive(obj->type) && std::holds_alternative<int>(path[resolvedDepth]))
+        {
+            primitiveIndex = std::get<int>(path[resolvedDepth]);
+            usePrimitiveIndex = true;
+        }
+        else
+        {
+            throw std::runtime_error("Cannot index <remaining index> on object" + ShmemObj::toString(obj));
+        }
     }
-    return ShmemObj::toString(obj);
+
+    if (usePrimitiveIndex)
+    {
+        return ShmemPrimitive_::elementToString(static_cast<ShmemPrimitive_ *>(obj), primitiveIndex);
+    }
+    else
+        return ShmemObj::toString(obj, 0, maxElements);
+}
+
+std::ostream &operator<<(std::ostream &os, const ShmemAccessor &acc)
+{
+    os << acc.toString() << std::endl;
+    return os;
 }

@@ -27,7 +27,7 @@ void ShmemObj::deconstruct(size_t offset, ShmemHeap *heapPtr)
     }
 }
 
-std::string ShmemObj::toString(ShmemObj *obj, int indent)
+std::string ShmemObj::toString(ShmemObj *obj, int indent, int maxElements)
 {
     if (obj == nullptr)
     {
@@ -36,11 +36,11 @@ std::string ShmemObj::toString(ShmemObj *obj, int indent)
     int type = obj->type;
     if (isPrimitive(type))
     {
-        return ShmemPrimitive_::toString(static_cast<ShmemPrimitive_ *>(obj), indent);
+        return ShmemPrimitive_::toString(static_cast<ShmemPrimitive_ *>(obj), indent, maxElements);
     }
     else if (type == List)
     {
-        return ShmemList::toString(static_cast<ShmemList *>(obj), indent);
+        return ShmemList::toString(static_cast<ShmemList *>(obj), indent, maxElements);
     }
     else if (type == Dict)
     {

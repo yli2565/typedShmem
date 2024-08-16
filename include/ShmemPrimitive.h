@@ -29,11 +29,42 @@ public:
         return reinterpret_cast<Byte *>(reinterpret_cast<Byte *>(this) + sizeof(ShmemObj));
     }
 
-    static std::string toString(ShmemPrimitive_ *obj, int indent = 0, int maxElements = 4);
+    int resolveIndex(int index) const;
+
+    static std::string toString(const ShmemPrimitive_ *obj, int indent = 0, int maxElements = 4);
+
+    static const char *toString(const ShmemPrimitive_ *obj, int indent = 0, int maxElements = 4)
+    {
+        return const_cast<char *>(ShmemPrimitive_::toString(obj, indent, maxElements).c_str());
+    }
+
+    std::string toString(int indent = 0, int maxElements = 4) const
+    {
+        return ShmemPrimitive_::toString(this, indent, maxElements);
+    }
+
+    const char *toString(int indent = 0, int maxElements = 4) const
+    {
+        return ShmemPrimitive_::toString(this, indent, maxElements).c_str();
+    }
+
+    static std::string elementToString(const ShmemPrimitive_ *obj, int index);
 
     static size_t construct(const char *str, ShmemHeap *heapPtr);
 
-    static size_t construct(std::string str, ShmemHeap *heapPtr);
+    static size_t construct(const std::string str, ShmemHeap *heapPtr);
+
+    template <typename T>
+    static size_t construct(T val, ShmemHeap *heapPtr);
+
+    template <typename T>
+    static size_t construct(std::vector<T> vec, ShmemHeap *heapPtr);
+
+    template <typename T>
+    static T convert(ShmemPrimitive_ *obj, int index = 0);
+
+    template <typename T>
+    T operator[](int index) const;
 };
 
 template <typename T>
@@ -45,13 +76,13 @@ protected:
 public:
     using ShmemPrimitive_::construct; // Bring base class construct methods into scope
 
-    static size_t construct(T val, ShmemHeap *heapPtr);
+    // static size_t construct(T val, ShmemHeap *heapPtr);
 
-    static size_t construct(std::vector<T> vec, ShmemHeap *heapPtr);
+    // static size_t construct(std::vector<T> vec, ShmemHeap *heapPtr);
 
-    void checkType() const;
+    // void checkType() const;
 
-    T operator[](int index) const;
+    // T operator[](int index) const;
 
     int find(T value) const;
 
@@ -68,8 +99,6 @@ public:
     const T *getPtr() const;
 
     T *getPtr();
-
-    std::string toString(int maxElements = 4) const;
 };
 
 #include "ShmemObj.tcc"

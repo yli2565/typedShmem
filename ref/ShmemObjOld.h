@@ -232,7 +232,7 @@ private:
             if (TypeEncoding<T>::value != oldType)
             {
                 // info :converting from one type to another
-                printf("Type mismatch\n");
+                printf("Is converting from %s to %s\n", typeNames.at(oldType), typeNames.at(TypeEncoding<T>::value));
             }
             size_t newOffset = heapPtr->shrealloc(this->offset, sizeof(ShmemPrimitive) + newSize * sizeof(T));
             ShmemObj *ptr = resolveOffset(newOffset, heapPtr);

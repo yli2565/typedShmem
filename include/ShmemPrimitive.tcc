@@ -21,14 +21,27 @@ inline size_t ShmemPrimitive<T>::makeSpace(size_t size, ShmemHeap *heapPtr)
 }
 
 template <typename T>
-size_t ShmemPrimitive<T>::construct(T val, ShmemHeap *heapPtr)
+size_t ShmemPrimitive_::construct(T val, ShmemHeap *heapPtr)
 {
     if constexpr (isPrimitive<T>())
-    { // signal value, such as int, bool, float or char
-        size_t offset = makeSpace(1, heapPtr);
-        ShmemPrimitive<T> *ptr = reinterpret_cast<ShmemPrimitive<T> *>(heapPtr->heapHead() + offset);
-        ptr->getPtr()[0] = val;
-        return offset;
+    {
+        if constexpr (isVector<T>::value)
+        { // a vector
+            using vecDataType = typename unwrapVectorType<T>::type;
+
+            size_t size = vec.size();
+            size_t offset = makeSpace(size, heapPtr);
+            ShmemPrimitive_ ptr = reinterpret_cast<ShmemPrimitive_ *>(heapPtr->heapHead() + offset);
+            memcpy(ptr->getPtr(), vec.data(), size * sizeof(vecDataType));
+            return offset;
+        }
+        else
+        { // signal value, such as int, bool, float or char
+            size_t offset = makeSpace(1, heapPtr);
+            ShmemPrimitive<T> *ptr = reinterpret_cast<ShmemPrimitive<T> *>(heapPtr->heapHead() + offset);
+            ptr->getPtr()[0] = val;
+            return offset;
+        }
     }
     else if constexpr (isString<T>())
     { // it is const char * or char *, as std::string will go to construct(std::string str, ...)
@@ -36,7 +49,7 @@ size_t ShmemPrimitive<T>::construct(T val, ShmemHeap *heapPtr)
     }
     else if constexpr (isVector<T>::value)
     {
-        throw std::runtime_error("Code should not reach here, it should go to the better match construct(std::vector<T> vec,...)");
+        throw std::runtime_error("Code should not reach here Primitive object doesn't accept nested type");
     }
     else
     {
@@ -45,26 +58,49 @@ size_t ShmemPrimitive<T>::construct(T val, ShmemHeap *heapPtr)
 }
 
 template <typename T>
-size_t ShmemPrimitive<T>::construct(std::vector<T> vec, ShmemHeap *heapPtr)
+T ShmemPrimitive_::convert(ShmemPrimitive_ *obj, int index)
 {
-    size_t size = vec.size();
-    size_t offset = makeSpace(size, heapPtr);
-    ShmemPrimitive<T> *ptr = reinterpret_cast<ShmemPrimitive<T> *>(heapPtr->heapHead() + offset);
-    memcpy(ptr->getPtr(), vec.data(), size * sizeof(T));
-    return offset;
-}
-
-template <typename T>
-void ShmemPrimitive<T>::checkType() const
-{
-    if (isPrimitive<T>() && TypeEncoding<T>::value != this->type)
+    if constexpr (isPrimitive<T>())
     {
-        throw std::runtime_error("Type mismatch");
+        if constexpr (isVector<T>::value)
+        { // All elements
+            if (index != 0)
+            {
+                printf("It's nonsense to provide an index when converting to a vector\n");
+            }
+            using vecDataType = typename unwrapVectorType<T>::type;
+            std::vector<vecDataType> result(obj->size);
+
+#define SHMEM_PRIMITIVE_CONVERT_VEC(TYPE)                                                                                                       \
+    return std::transform(reinterpret_cast<TYPE *>(obj->getBytePtr()), reinterpret_cast<TYPE *>(obj->getBytePtr()) + obj->size, result.begin(), \
+                          [](TYPE value) { return dynamic_cast<vecDataType>(value); });
+
+            SWITCH_PRIMITIVE_TYPES(obj->type, SHMEM_PRIMITIVE_CONVERT_VEC)
+
+#undef SHMEM_PRIMITIVE_CONVERT_VEC
+        }
+        else
+        { // Single element
+#define SHMEM_PRIMITIVE_CONVERT(TYPE) \
+    return dynamic_cast<T>(reinterpret_cast<TYPE *>(obj->getBytePtr())[obj->resolveIndex(index)]);
+
+            SWITCH_PRIMITIVE_TYPES(obj->type, SHMEM_PRIMITIVE_CONVERT)
+
+#undef SHMEM_PRIMITIVE_CONVERT
+        }
+    }
+    if constexpr (isString<T>())
+    {
+        // TODO: fill this
+    }
+    else
+    { // Cannot convert
+        throw std::runtime_error("Cannot convert to non-primitive type");
     }
 }
 
 template <typename T>
-T ShmemPrimitive<T>::operator[](int index) const
+T ShmemPrimitive_::operator[](int index) const
 {
     checkType();
     if (index < 0)
@@ -170,24 +206,6 @@ T *ShmemPrimitive<T>::getPtr()
 {
     checkType();
     return reinterpret_cast<T *>(getBytePtr());
-}
-
-template <typename T>
-std::string ShmemPrimitive<T>::toString(int maxElements) const
-{
-    std::string result;
-    result.reserve(40);
-    result.append("[P:").append(typeNames.at(this->type)).append(":").append(std::to_string(this->size)).append("]");
-    const T *ptr = this->getPtr();
-    for (int i = 0; i < std::min(this->size, maxElements); i++)
-    {
-        result += " " + std::to_string(ptr[i]);
-    }
-    if (this->size > 3)
-    {
-        result += " ...";
-    }
-    return result;
 }
 
 #endif // SHMEM_PRIMITIVE_TCC

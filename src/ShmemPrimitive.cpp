@@ -1,56 +1,52 @@
 #include "ShmemPrimitive.h"
 
-std::string ShmemPrimitive_::toString(ShmemPrimitive_ *obj, int indent, int maxElements)
+int ShmemPrimitive_::resolveIndex(int index) const
 {
-#define PRINT_OBJ(type)                                                   \
-    for (int i = 0; i < std::min(obj->size, maxElements); i++)            \
-    {                                                                     \
-        result += " " + std::to_string(reinterpret_cast<type *>(ptr)[i]); \
-    }                                                                     \
-    break;
+    // Adjust negative index and use modulo to handle out-of-bounds
+    index = (index < 0) ? index + this->size : index;
+
+    if (index >= this->size)
+    {
+        throw IndexError("ShmemPrimitive index out of bounds");
+    }
+
+    return index;
+}
+
+std::string ShmemPrimitive_::toString(const ShmemPrimitive_ *obj, int indent, int maxElements)
+{
+#define PRINT_OBJ(type)                                                              \
+    for (int i = 0; i < std::min(obj->size, maxElements); i++)                       \
+    {                                                                                \
+        result.append(" ").append(std::to_string(reinterpret_cast<const type *>(ptr)[i])); \
+    }
     std::string result;
     result.reserve(40);
     result.append("[P:").append(typeNames.at(obj->type)).append(":").append(std::to_string(obj->size)).append("]");
 
-    Byte *ptr = obj->getBytePtr();
-    switch (obj->type)
-    {
-    case Bool:
-        PRINT_OBJ(bool);
-    case Char:
-        result.append(" ").append(reinterpret_cast<const char *>(ptr));
-        break;
-    case UChar:
-        PRINT_OBJ(unsigned char);
-    case Short:
-        PRINT_OBJ(short);
-    case UShort:
-        PRINT_OBJ(unsigned short);
-    case Int:
-        PRINT_OBJ(int);
-    case UInt:
-        PRINT_OBJ(unsigned int);
-    case Long:
-        PRINT_OBJ(long);
-    case ULong:
-        PRINT_OBJ(unsigned long);
-    case LongLong:
-        PRINT_OBJ(long long);
-    case ULongLong:
-        PRINT_OBJ(unsigned long long);
-    case Float:
-        PRINT_OBJ(float);
-    case Double:
-        PRINT_OBJ(double);
-    default:
-        throw std::runtime_error("Unknown type");
-        break;
-    }
+    const Byte *ptr = obj->getBytePtr();
+
+    SWITCH_PRIMITIVE_TYPES(obj->type, PRINT_OBJ)
+
 #undef PRINT_OBJ
+    if (obj->size > maxElements)
+    {
+        result += " ...";
+    }
     return result;
 }
 
-size_t ShmemPrimitive_::construct(std::string str, ShmemHeap *heapPtr)
+std::string ShmemPrimitive_::elementToString(const ShmemPrimitive_ *obj, int index)
+{
+#define ELEMENT_TO_STRING(TYPE) \
+    return std::to_string(reinterpret_cast<const TYPE *>(obj->getBytePtr())[index]);
+
+    SWITCH_PRIMITIVE_TYPES(obj->type, ELEMENT_TO_STRING)
+
+#undef ELEMENT_TO_STRING
+}
+
+size_t ShmemPrimitive_::construct(const std::string str, ShmemHeap *heapPtr)
 {
     size_t size = str.size() + 1; // +1 for the \0
     size_t offset = makeSpace<char>(size, heapPtr);

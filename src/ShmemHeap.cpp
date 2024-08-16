@@ -159,7 +159,8 @@ size_t &ShmemHeap::freeBlockListOffset()
     return reinterpret_cast<size_t *>(this->shmPtr)[2];
 }
 
-size_t &ShmemHeap::entranceOffset(){
+size_t &ShmemHeap::entranceOffset()
+{
     checkConnection();
     return entranceOffset_unsafe();
 }
@@ -451,7 +452,7 @@ std::vector<size_t> ShmemHeap::briefLayout()
     BlockHeader *current = reinterpret_cast<BlockHeader *>(heapHead);
     while (reinterpret_cast<Byte *>(current) < heapTail)
     {
-        layout.push_back(current->size_BPA);
+        layout.push_back(current->size() - sizeof(BlockHeader));
         current = current->getNextPtr();
     }
 
@@ -461,7 +462,20 @@ std::vector<size_t> ShmemHeap::briefLayout()
 std::string ShmemHeap::briefLayoutStr()
 {
     checkConnection();
-    std::vector<size_t> layout = briefLayout();
+    // Get the raw layout
+    std::vector<size_t> layout = {};
+
+    Byte *heapHead = this->heapHead_unsafe();
+    Byte *heapTail = this->heapTail_unsafe();
+
+    BlockHeader *current = reinterpret_cast<BlockHeader *>(heapHead);
+    while (reinterpret_cast<Byte *>(current) < heapTail)
+    {
+        layout.push_back(current->size_BPA);
+        current = current->getNextPtr();
+    }
+
+    // Convert to string
     std::string layoutStr = "";
     for (int i = 0; i < layout.size(); i++)
     {

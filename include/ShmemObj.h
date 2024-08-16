@@ -42,7 +42,7 @@ public:
     static size_t construct(const T &value, ShmemHeap *heapPtr);
     static void deconstruct(size_t offset, ShmemHeap *heapPtr);
 
-    static std::string toString(ShmemObj *obj, int indent = 0);
+    static std::string toString(ShmemObj *obj, int indent = 0, int maxElements = 4);
 };
 // #include "ShmemPrimitive.h"
 // #include "ShmemDict.h"
