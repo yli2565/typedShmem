@@ -64,6 +64,38 @@ void ShmemAccessor::resolvePath(ShmemObj *&prevObj, ShmemObj *&obj, int &resolve
     return;
 }
 
+// __len__ implementation
+size_t ShmemAccessor::len() const
+{
+    ShmemObj *obj, *prev;
+    int resolvedDepth;
+    resolvePath(prev, obj, resolvedDepth);
+
+    if (resolvedDepth != path.size())
+    {
+        std::string lastPath = std::holds_alternative<int>(path[resolvedDepth]) ? std::to_string(std::get<int>(path[resolvedDepth])) : std::get<std::string>(path[resolvedDepth]);
+        throw std::runtime_error("Cannot resolve " + lastPath + "on object" + ShmemObj::toString(obj));
+    }
+
+    if (isPrimitive(obj->type))
+    {
+        return static_cast<ShmemPrimitive_ *>(obj)->len();
+    }
+    else if (obj->type == List)
+    {
+        return static_cast<ShmemList *>(obj)->len();
+    }
+    else if (obj->type == Dict)
+    {
+        return static_cast<ShmemDict *>(obj)->len();
+    }
+    else
+    {
+        throw std::runtime_error("Cannot get len of " + typeNames.at(obj->type));
+    }
+}
+
+// __str__ implementation
 std::string ShmemAccessor::toString(int maxElements) const
 {
     ShmemObj *obj, *prev;
@@ -98,6 +130,6 @@ std::string ShmemAccessor::toString(int maxElements) const
 
 std::ostream &operator<<(std::ostream &os, const ShmemAccessor &acc)
 {
-    os << acc.toString() << std::endl;
+    os << acc.toString();
     return os;
 }

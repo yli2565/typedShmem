@@ -12,10 +12,16 @@ int main(int argc, char **argv)
     SH.create();
     auto ACC = ShmemAccessor(&SH, {});
     ACC = 12;
-    ACC="string";
+    ACC = "string";
 
+    float t = ACC;
     SH.printShmHeap();
 
-    std::cout << ACC.toString() << std::endl;
+    ACC = std::vector<int>(10, 1);
+    if (ACC == std::vector<int>(10, 1))
+    {
+        std::cout << "std::vector<int> is equal to std::vector<int>(10, 1)" << std::endl;
+    }
+    std::cout << ACC << std::endl;
     return 0;
 }

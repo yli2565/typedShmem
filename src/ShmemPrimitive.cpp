@@ -1,5 +1,5 @@
 #include "ShmemPrimitive.h"
-
+// Utility functions
 int ShmemPrimitive_::resolveIndex(int index) const
 {
     // Adjust negative index and use modulo to handle out-of-bounds
@@ -13,13 +13,9 @@ int ShmemPrimitive_::resolveIndex(int index) const
     return index;
 }
 
+// __str__ implementation
 std::string ShmemPrimitive_::toString(const ShmemPrimitive_ *obj, int indent, int maxElements)
 {
-#define PRINT_OBJ(type)                                                                    \
-    for (int i = 0; i < std::min(obj->size, maxElements); i++)                             \
-    {                                                                                      \
-        result.append(" ").append(std::to_string(reinterpret_cast<const type *>(ptr)[i])); \
-    }
     std::string result;
     result.reserve(40);
     result.append("[P:").append(typeNames.at(obj->type)).append(":").append(std::to_string(obj->size)).append("]");
@@ -28,17 +24,27 @@ std::string ShmemPrimitive_::toString(const ShmemPrimitive_ *obj, int indent, in
 
     if (obj->type == Char)
     { // Handle char as a special case, as it's likely a character instead of a 1 byte integer
-        result.append(" ").append(reinterpret_cast<const char *>(obj->getBytePtr()));
+        result.append(" ").append(reinterpret_cast<const char *>(obj->getBytePtr()), maxElements);
+        if (obj->size - 1 > maxElements)
+        {
+            result += "...";
+        }
     }
     else
     {
-        SWITCH_PRIMITIVE_TYPES(obj->type, PRINT_OBJ)
+#define PRINT_OBJ(type)                                                                    \
+    for (int i = 0; i < std::min(obj->size, maxElements); i++)                             \
+    {                                                                                      \
+        result.append(" ").append(std::to_string(reinterpret_cast<const type *>(ptr)[i])); \
     }
+        SWITCH_PRIMITIVE_TYPES(obj->type, PRINT_OBJ)
 
 #undef PRINT_OBJ
-    if (obj->size > maxElements)
-    {
-        result += " ...";
+
+        if (obj->size > maxElements)
+        {
+            result += " ...";
+        }
     }
     return result;
 }
@@ -69,4 +75,20 @@ size_t ShmemPrimitive_::construct(const char *str, ShmemHeap *heapPtr)
     ShmemPrimitive_ *ptr = reinterpret_cast<ShmemPrimitive_ *>(heapPtr->heapHead() + offset);
     strcpy(reinterpret_cast<char *>(ptr->getBytePtr()), str);
     return offset;
+}
+
+// Type (Special interface)
+int ShmemPrimitive_::typeId() const
+{
+    return this->type;
+}
+std::string ShmemPrimitive_::typeStr() const
+{
+    return typeNames.at(this->type);
+}
+
+// __len__
+size_t ShmemPrimitive_::len() const
+{
+    return this->size;
 }

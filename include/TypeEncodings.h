@@ -8,6 +8,7 @@
 #include <sstream>
 #include <type_traits>
 #include <unordered_map>
+#include <cxxabi.h>
 
 // Macro for simplicity
 #define SWITCH_PRIMITIVE_TYPES(SWITCH_TARGET, OPERATION_FUNC) \
@@ -56,7 +57,7 @@
         throw std::runtime_error("Unknown type");             \
         break;                                                \
     }
-    
+
 // Constants
 static const int Bool = 1;
 static const int Char = 2;
@@ -164,6 +165,12 @@ struct unwrapMapType<std::map<Key, T>>
     using keyType = Key;
     using type = T;
 };
+
+template <typename T>
+constexpr std::string typeName()
+{
+    return std::string(abi::__cxa_demangle(typeid(T).name(), nullptr, nullptr, nullptr));
+}
 
 template <typename T>
 constexpr bool isPrimitive()

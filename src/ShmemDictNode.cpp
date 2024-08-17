@@ -14,9 +14,9 @@ size_t ShmemDictNode::construct(KeyType key, ShmemHeap *heapPtr)
     ptr->setParent(nullptr);
     ptr->setData(nullptr);
     if (std::holds_alternative<std::string>(key))
-        ptr->keyOffset = ShmemPrimitive<char>::construct(std::get<std::string>(key), heapPtr) - offset;
+        ptr->keyOffset = ShmemPrimitive_::construct(std::get<std::string>(key), heapPtr) - offset;
     else
-        ptr->keyOffset = ShmemPrimitive<int>::construct(std::get<int>(key), heapPtr) - offset;
+        ptr->keyOffset = ShmemPrimitive_::construct(std::get<int>(key), heapPtr) - offset;
     return offset;
 }
 

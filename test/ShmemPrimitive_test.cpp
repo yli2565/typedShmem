@@ -35,7 +35,7 @@ protected:
     ShmemAccessor acc;
 };
 
-// Test constructor with name and capacity
+// Core tests
 TEST_F(ShmemPrimitiveTest, BasicAssignmentAndMemoryUsage)
 {
     size_t expectedMemSize = 0;
@@ -67,7 +67,24 @@ TEST_F(ShmemPrimitiveTest, BasicAssignmentAndMemoryUsage)
 TEST_F(ShmemPrimitiveTest, SetAndGetElement)
 {
     acc = std::vector<float>(10, 1);
-    acc[2] = 2.f;
-    std::cout << acc.toString(10) << std::endl;
-    std::cout << acc[2] << std::endl;
+    acc[0] = 's';
+    EXPECT_EQ(acc[0], 's');
+    acc[1] = double(11);
+    EXPECT_EQ(acc[1], 11);
+    acc[2] = 12;
+    EXPECT_EQ(acc[2], 12);
+    EXPECT_EQ(acc, std::vector<int>({'s', 11, 12, 1, 1, 1, 1, 1, 1, 1}));
+
+    EXPECT_ANY_THROW(acc[10] = "s");
+
+    EXPECT_ANY_THROW(acc[10] = std::vector<int>(10, 1));
+}
+
+TEST_F(ShmemPrimitiveTest, Find)
+{
+    acc = std::vector<float>(10, 1);
+    acc[0] = 's';
+
+    EXPECT_EQ(acc.contains('s'), 12);
+
 }

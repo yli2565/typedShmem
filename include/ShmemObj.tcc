@@ -12,19 +12,11 @@ size_t ShmemObj::construct(const T &value, ShmemHeap *heapPtr)
 {
     if constexpr (isPrimitive<T>())
     {
-        if constexpr (isVector<T>::value)
-        {
-            using vecDataType = typename unwrapVectorType<T>::type;
-            return ShmemPrimitive<vecDataType>::construct(value, heapPtr);
-        }
-        else
-        {
-            return ShmemPrimitive<T>::construct(value, heapPtr);
-        }
+        return ShmemPrimitive_::construct(value, heapPtr);
     }
     else if constexpr (isString<T>())
     {
-        return ShmemPrimitive<char>::construct(value, heapPtr);
+        return ShmemPrimitive_::construct(value, heapPtr);
     }
     else if constexpr (isVector<T>::value)
     {

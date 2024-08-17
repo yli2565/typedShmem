@@ -64,6 +64,11 @@ public:
         return ShmemAccessor(this->heapPtr, newPath);
     }
 
+
+    // __len__
+    size_t len() const;
+    
+    // __getitem__
     template <typename T>
     operator T() const
     {
@@ -109,9 +114,9 @@ public:
             else
             {
                 if (usePrimitiveIndex)
-                    return reinterpret_cast<ShmemPrimitive<T> *>(obj)->operator[](primitiveIndex);
+                    return reinterpret_cast<ShmemPrimitive_ *>(obj)->operator[]<T>(primitiveIndex);
                 else
-                    return reinterpret_cast<ShmemPrimitive<T> *>(obj)->operator T();
+                    return reinterpret_cast<ShmemPrimitive_ *>(obj)->operator T();
             }
         }
         else if constexpr (isString<T>())
@@ -124,6 +129,7 @@ public:
         }
     }
 
+    // __setitem__
     template <typename T>
     ShmemAccessor &operator=(T val)
     {
@@ -180,7 +186,7 @@ public:
         if (partiallyResolved)
         { // The obj ptr is the work target
             if (usePrimitiveIndex)
-                static_cast<ShmemPrimitive<T> *>(obj)->set(primitiveIndex, val);
+                static_cast<ShmemPrimitive_ *>(obj)->set(val, primitiveIndex);
             else if (insertNewKey)
             {
                 static_cast<ShmemDict *>(obj)->insert(path[resolvedDepth], val, this->heapPtr);
@@ -225,7 +231,44 @@ public:
         return *this;
     }
 
+    // __str__
     std::string toString(int maxElements = 4) const;
+
+    // Arithmetic Interface
+
+    template <typename T>
+    bool operator==(T val) const
+    {
+        T thisVal = this->operator T();
+        if constexpr (isPrimitive<T>())
+        {
+            if constexpr (isVector<T>::value)
+            {
+                if (val.size() != thisVal.size())
+                    return false;
+                for (size_t i = 0; i < val.size(); i++)
+                {
+                    if (val[i] != thisVal[i])
+                    {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            else
+            {
+                return val == thisVal;
+            }
+        }
+        else if constexpr (isString<T>())
+        {
+            return val == thisVal;
+        }
+        else
+        {
+            throw std::runtime_error("Nested type equal not implemented yet");
+        }
+    }
 };
 
 // Overload the << operator for ShmemAccessor
