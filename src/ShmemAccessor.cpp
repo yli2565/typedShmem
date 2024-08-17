@@ -64,6 +64,33 @@ void ShmemAccessor::resolvePath(ShmemObj *&prevObj, ShmemObj *&obj, int &resolve
     return;
 }
 
+// Type (Special interface)
+int ShmemAccessor::typeId() const
+{
+    ShmemObj *obj, *prev;
+    int resolvedDepth;
+    resolvePath(prev, obj, resolvedDepth);
+
+    if (resolvedDepth != path.size())
+    {
+        throw std::runtime_error("Cannot resolve " + pathToString(path.data() + (resolvedDepth - 1), path.size() - (resolvedDepth - 1)) + " on object " + ShmemObj::toString(obj));
+    }
+    return obj->type;
+}
+
+std::string ShmemAccessor::typeStr() const
+{
+    ShmemObj *obj, *prev;
+    int resolvedDepth;
+    resolvePath(prev, obj, resolvedDepth);
+
+    if (resolvedDepth != path.size())
+    {
+        throw std::runtime_error("Cannot resolve " + pathToString(path.data() + (resolvedDepth - 1), path.size() - (resolvedDepth - 1)) + " on object " + ShmemObj::toString(obj));
+    }
+    return typeNames.at(obj->type);
+}
+
 // __len__ implementation
 size_t ShmemAccessor::len() const
 {
@@ -92,6 +119,62 @@ size_t ShmemAccessor::len() const
     else
     {
         throw std::runtime_error("Cannot get len of " + typeNames.at(obj->type));
+    }
+}
+
+// __delitem__
+void ShmemAccessor::del(int index)
+{
+    ShmemObj *obj, *prev;
+    int resolvedDepth;
+    resolvePath(prev, obj, resolvedDepth);
+
+    if (resolvedDepth != path.size())
+    {
+        throw std::runtime_error("Cannot resolve " + pathToString(path.data() + (resolvedDepth - 1), path.size() - (resolvedDepth - 1)) + " on object " + ShmemObj::toString(obj));
+    }
+
+    if (isPrimitive(obj->type))
+    {
+        static_cast<ShmemPrimitive_ *>(obj)->del(index);
+        // throw std::runtime_error("Cannot delete from " + typeNames.at(obj->type) + " Primitive Object, as it's immutable");
+    }
+    else if (obj->type == List)
+    {
+        static_cast<ShmemList *>(obj)->del(index);
+    }
+    else if (obj->type == Dict)
+    {
+        static_cast<ShmemDict *>(obj)->del(index, this->heapPtr);
+    }
+    else
+    {
+        throw std::runtime_error("Cannot delete from " + typeNames.at(obj->type) + " Primitive Object, as it's immutable");
+    }
+}
+
+void ShmemAccessor::del(std::string key)
+{
+    ShmemObj *obj, *prev;
+    int resolvedDepth;
+    resolvePath(prev, obj, resolvedDepth);
+
+    if (isPrimitive(obj->type))
+    {
+        throw std::runtime_error("Cannot use string as index on from Primitive Object");
+        // throw std::runtime_error("Cannot delete from " + typeNames.at(obj->type) + " Primitive Object, as it's immutable");
+    }
+    else if (obj->type == List)
+    {
+        throw std::runtime_error("Cannot use string as index on from List Object");
+    }
+    else if (obj->type == Dict)
+    {
+        static_cast<ShmemDict *>(obj)->del(key, this->heapPtr);
+    }
+    else
+    {
+        throw std::runtime_error("Cannot delete from " + typeNames.at(obj->type) + " Object");
     }
 }
 
@@ -132,4 +215,23 @@ std::ostream &operator<<(std::ostream &os, const ShmemAccessor &acc)
 {
     os << acc.toString();
     return os;
+}
+
+// Utilities
+std::string ShmemAccessor::pathToString(const KeyType *path, int size)
+{
+    std::string pathStr;
+    for (int i = 0; i < size; i++)
+    {
+        KeyType pathElement = path[i];
+        pathStr += std::holds_alternative<int>(pathElement) ? std::to_string(std::get<int>(pathElement)) : std::get<std::string>(pathElement);
+        if (i != size - 1)
+            pathStr += ".";
+    }
+    return pathStr;
+}
+
+std::string ShmemAccessor::pathToString() const
+{
+    return pathToString(path.data(), path.size());
 }

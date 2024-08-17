@@ -12,22 +12,19 @@
 class ShmemList : public ShmemObj
 {
 protected:
+    uint listSize;
+    ptrdiff_t listSpaceOffset;
+
     ptrdiff_t *relativeOffsetPtr();
     const ptrdiff_t *relativeOffsetPtr() const;
-
-    ShmemObj *getObj(int index) const;
-    void setObj(int index, ShmemObj *obj);
 
     int resolveIndex(int index) const;
 
     static size_t makeSpace(size_t listCapacity, ShmemHeap *heapPtr);
+    static size_t makeListSpace(size_t listCapacity, ShmemHeap *heapPtr);
 
-    void add(ShmemObj *newObj, ShmemHeap *heapPtr);
-    void assign(int index, ShmemObj *newObj, ShmemHeap *heapPtr);
-
-public:
-    uint listSize;
-    ptrdiff_t listSpaceOffset;
+    // __str__ implementation
+    static std::string toString(ShmemList *list, int indent = 0, int maxElements = 4);
 
     /**
      * @brief Capacity of the list
@@ -46,6 +43,7 @@ public:
      */
     size_t potentialCapacity() const;
 
+public:
     /**
      * @brief Generic constructor for ShmemList, accepts a vector as input
      *
@@ -68,17 +66,64 @@ public:
 
     static void deconstruct(size_t offset, ShmemHeap *heapPtr);
 
-    ShmemObj *at(int index);
+    // Type (Special interface)
+    int typeId() const;
+    std::string typeStr() const;
 
-    ShmemObj *pop();
+    // __len__
+    size_t len() const;
 
+    // __getitem__
     template <typename T>
-    void add(T val, ShmemHeap *heapPtr);
+    T get(int index) const;
 
+    // __setitem__ (only for assign)
     template <typename T>
-    void assign(int index, T val, ShmemHeap *heapPtr);
+    void set(const T &val, int index);
 
-    static std::string toString(ShmemList *list, int indent = 0, int maxElements = 4);
+    // __delitem__ (for remove/pop)
+    void del(int index);
+
+    // __contains__
+    template <typename T>
+    bool contains(T value) const;
+
+    // __index__
+    template <typename T>
+    int index(T value, int start = 0, int end = -1) const;
+
+    // __str__
+    std::string toString(int indent = 0, int maxElements = 4) const;
+
+    // List interface
+
+    // Resize utility
+    void resize(int newSize, ShmemHeap *heapPtr); // use makeListSpace(newSize)
+
+    // __append__
+    template <typename T>
+    ShmemList *append(const T &val, ShmemHeap *heapPtr);
+
+    // __extend__
+    template <typename T>
+    ShmemList *extend(const ShmemList *another, ShmemHeap *heapPtr);
+
+    // __insert__
+    template <typename T>
+    ShmemList *insert(int index, const T &val, ShmemHeap *heapPtr);
+
+    // __remove__ (del alias)
+    ShmemList *remove(int index);
+
+    // __pop__
+    ShmemList *pop(int index = -1);
+
+    // __clear__
+    ShmemList *clear();
+
+    // Aliases
+    template <typename T>
+    T operator[](int index) const; // get alias
 };
 
 // Include the template implementation file

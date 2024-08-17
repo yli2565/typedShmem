@@ -15,7 +15,7 @@ inline size_t ShmemPrimitive_::makeSpace(size_t size, ShmemHeap *heapPtr)
 }
 
 template <typename T>
-size_t ShmemPrimitive_::construct(T val, ShmemHeap *heapPtr)
+size_t ShmemPrimitive_::construct(const T &val, ShmemHeap *heapPtr)
 {
     if constexpr (isPrimitive<T>())
     {
@@ -52,8 +52,11 @@ size_t ShmemPrimitive_::construct(T val, ShmemHeap *heapPtr)
     }
 }
 
+// Collection interface
+
+// __getitem__
 template <typename T>
-T ShmemPrimitive_::getter(const ShmemPrimitive_ *obj, int index)
+inline T ShmemPrimitive_::get(int index) const
 {
     if constexpr (isPrimitive<T>())
     {
@@ -64,36 +67,36 @@ T ShmemPrimitive_::getter(const ShmemPrimitive_ *obj, int index)
                 printf("It's nonsense to provide an index when converting to a vector\n");
             }
             using vecDataType = typename unwrapVectorType<T>::type;
-            std::vector<vecDataType> result(obj->size);
+            std::vector<vecDataType> result(this->size);
 
-#define SHMEM_PRIMITIVE_CONVERT_VEC(TYPE)                                                                                                            \
-    std::transform(reinterpret_cast<const TYPE *>(obj->getBytePtr()), reinterpret_cast<const TYPE *>(obj->getBytePtr()) + obj->size, result.begin(), \
-                   [](TYPE value) { return static_cast<vecDataType>(value); });                                                                      \
+#define SHMEM_PRIMITIVE_CONVERT_VEC(TYPE)                                                                                                               \
+    std::transform(reinterpret_cast<const TYPE *>(this->getBytePtr()), reinterpret_cast<const TYPE *>(this->getBytePtr()) + this->size, result.begin(), \
+                   [](TYPE value) { return static_cast<vecDataType>(value); });                                                                         \
     return result;
-            SWITCH_PRIMITIVE_TYPES(obj->type, SHMEM_PRIMITIVE_CONVERT_VEC)
+            SWITCH_PRIMITIVE_TYPES(this->type, SHMEM_PRIMITIVE_CONVERT_VEC)
 
 #undef SHMEM_PRIMITIVE_CONVERT_VEC
         }
         else
         { // Single element
 #define SHMEM_PRIMITIVE_CONVERT(TYPE) \
-    return static_cast<T>(reinterpret_cast<const TYPE *>(obj->getBytePtr())[obj->resolveIndex(index)]);
+    return static_cast<T>(reinterpret_cast<const TYPE *>(this->getBytePtr())[this->resolveIndex(index)]);
 
-            SWITCH_PRIMITIVE_TYPES(obj->type, SHMEM_PRIMITIVE_CONVERT)
+            SWITCH_PRIMITIVE_TYPES(this->type, SHMEM_PRIMITIVE_CONVERT)
 
 #undef SHMEM_PRIMITIVE_CONVERT
         }
     }
     if constexpr (isString<T>())
     {
-        if (obj->type != Char)
+        if (this->type != Char)
         {
             throw std::runtime_error("Cannot convert non-char type to a string type");
         }
 
         if constexpr (std::is_same_v<T, std::string> || std::is_same_v<T, const std::string>)
         {
-            return std::string(reinterpret_cast<const char *>(obj->getBytePtr()), obj->size);
+            return std::string(reinterpret_cast<const char *>(this->getBytePtr()), this->size);
         }
         else if constexpr (std::is_same_v<T, char *> || std::is_same_v<T, const char *>)
         { // TODO: Should I just allocate some mem and return it?
@@ -111,58 +114,6 @@ T ShmemPrimitive_::getter(const ShmemPrimitive_ *obj, int index)
 }
 
 template <typename T>
-inline T ShmemPrimitive_::getter(int index) const
-{
-    return getter<T>(this, index);
-}
-
-template <typename T>
-void ShmemPrimitive_::setter(ShmemPrimitive_ *obj, T value, int index)
-{
-    if constexpr (isPrimitive<T>())
-    {
-        if constexpr (isVector<T>::value)
-        {
-            throw std::runtime_error("Setting " + typeNames.at(obj->type) + " with " + typeName<T>() + " is not allowed");
-        }
-        else
-        {
-#define SHMEM_CONVERT_PRIMITIVE(TYPE) \
-    reinterpret_cast<TYPE *>(obj->getBytePtr())[obj->resolveIndex(index)] = static_cast<TYPE>(value);
-
-            SWITCH_PRIMITIVE_TYPES(obj->type, SHMEM_CONVERT_PRIMITIVE)
-
-#undef SHMEM_CONVERT_PRIMITIVE
-        }
-    }
-    else
-    {
-        throw std::runtime_error("Setting " + typeNames.at(obj->type) + " with " + typeName<T>() + " is not allowed");
-    }
-}
-
-template <typename T>
-inline void ShmemPrimitive_::setter(T value, int index)
-{
-    setter<T>(this, value, index);
-}
-
-// interface
-
-template <typename T>
-ShmemPrimitive_::operator T() const
-{
-    return this->getter<T>();
-}
-
-// __getitem__
-template <typename T>
-inline T ShmemPrimitive_::get(int index) const
-{
-    return this->getter<T>(index);
-}
-
-template <typename T>
 inline T ShmemPrimitive_::operator[](int index) const
 {
     return this->getter<T>(index);
@@ -170,14 +121,77 @@ inline T ShmemPrimitive_::operator[](int index) const
 
 // __setitem__
 template <typename T>
-inline void ShmemPrimitive_::set(T value, int index)
+inline void ShmemPrimitive_::set(const T &value, int index)
 {
-    setter(this, value, index);
+    if constexpr (isPrimitive<T>())
+    {
+        if constexpr (isVector<T>::value)
+        {
+            throw std::runtime_error("Setting " + typeNames.at(this->type) + " with " + typeName<T>() + " is not allowed");
+        }
+        else
+        {
+#define SHMEM_CONVERT_PRIMITIVE(TYPE) \
+    reinterpret_cast<TYPE *>(this->getBytePtr())[this->resolveIndex(index)] = static_cast<TYPE>(value);
+
+            SWITCH_PRIMITIVE_TYPES(this->type, SHMEM_CONVERT_PRIMITIVE)
+
+#undef SHMEM_CONVERT_PRIMITIVE
+        }
+    }
+    else
+    {
+        throw std::runtime_error("Setting " + typeNames.at(this->type) + " with " + typeName<T>() + " is not allowed");
+    }
+}
+
+// __delitem__
+
+void ShmemPrimitive_::del(int index)
+{
+    index = this->resolveIndex(index);
+    Byte *ptr = this->getBytePtr();
+#define SHMEM_DEL_PRIMITIVE(TYPE)                                                \
+    for (int i = index; i < this->size - 1; i++)                                 \
+    {                                                                            \
+        reinterpret_cast<TYPE *>(ptr)[i] = reinterpret_cast<TYPE *>(ptr)[i + 1]; \
+    }
+
+    SWITCH_PRIMITIVE_TYPES(this->type, SHMEM_DEL_PRIMITIVE)
+
+#undef SHMEM_DEL_PRIMITIVE
+
+    this->size--;
 }
 
 // __contains__
 template <typename T>
-int ShmemPrimitive_::contains(T value) const
+bool ShmemPrimitive_::contains(T value) const
+{
+    Byte *ptr = this->getBytePtr();
+#define SHMEM_PRIMITIVE_COMP(TYPE)                                         \
+    for (int i = 0; i < this->size; i++)                                   \
+    {                                                                      \
+        try                                                                \
+        {                                                                  \
+            if (static_cast<T>(reinterpret_cast<TYPE *>(ptr)[i]) == value) \
+                return true;                                               \
+        }                                                                  \
+        catch (std::bad_cast & e)                                          \
+        {                                                                  \
+            continue;                                                      \
+        }                                                                  \
+    }
+
+    SWITCH_PRIMITIVE_TYPES(this->type, SHMEM_PRIMITIVE_COMP)
+
+#undef SHMEM_PRIMITIVE_COMP
+    return false;
+}
+
+// __index__
+template <typename T>
+int ShmemPrimitive_::index(T value) const
 {
     Byte *ptr = this->getBytePtr();
 #define SHMEM_PRIMITIVE_COMP(TYPE)                                         \
@@ -201,14 +215,13 @@ int ShmemPrimitive_::contains(T value) const
 }
 
 // __str__
-inline std::string ShmemPrimitive_::toString(int indent = 0, int maxElements = 4) const
-{
-    return ShmemPrimitive_::toString(this, indent, maxElements);
-}
+// Type independent, in ShmemPrimitive.cpp
 
-inline std::string ShmemPrimitive_::elementToString(int index) const
+// Convert
+template <typename T>
+inline ShmemPrimitive_::operator T() const
 {
-    return ShmemPrimitive_::elementToString(this, index);
+    return this->get<T>();
 }
 
 // Arithmetic Interface

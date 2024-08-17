@@ -6,6 +6,10 @@
 
 class ShmemAccessor
 {
+private:
+    static std::string pathToString(const KeyType* path, int size);
+    std::string pathToString() const;
+
 protected:
     /**
      * @brief Get offset of the entrance point to the data structure on the heap
@@ -64,72 +68,21 @@ public:
         return ShmemAccessor(this->heapPtr, newPath);
     }
 
+    // Type (Special interface)
+    int typeId() const;
+    std::string typeStr() const;
 
     // __len__
     size_t len() const;
-    
+
     // __getitem__
     template <typename T>
-    operator T() const
-    {
-        ShmemObj *obj, *prev;
-        int resolvedDepth;
-        resolvePath(prev, obj, resolvedDepth);
-
-        int primitiveIndex;
-        bool usePrimitiveIndex = false;
-
-        // Deal with unresolved path
-        if (resolvedDepth != path.size())
-        {
-            // There are some path not resolved
-            // The only case allowed is that the last element is a primitive, and the last path is an index on the primitive array
-            if (resolvedDepth == path.size() - 1)
-            {
-                if (std::holds_alternative<int>(path[resolvedDepth]))
-                {
-                    primitiveIndex = std::get<int>(path[resolvedDepth]);
-                    usePrimitiveIndex = true;
-                }
-                else
-                {
-                    throw std::runtime_error("Cannot index <string> on primitive array");
-                }
-            }
-            else
-            {
-                throw std::runtime_error("Cannot index <remaining index> on primitive object");
-            }
-        }
-
-        // convert to target type
-        if constexpr (isPrimitive<T>())
-        {
-            // Based on the required return type, phrase the primitive object
-            if constexpr (isVector<T>::value)
-            {
-                using vecType = typename unwrapVectorType<T>::type;
-                return reinterpret_cast<ShmemPrimitive<vecType> *>(obj)->operator T();
-            }
-            else
-            {
-                if (usePrimitiveIndex)
-                    return reinterpret_cast<ShmemPrimitive_ *>(obj)->operator[]<T>(primitiveIndex);
-                else
-                    return reinterpret_cast<ShmemPrimitive_ *>(obj)->operator T();
-            }
-        }
-        else if constexpr (isString<T>())
-        {
-            return reinterpret_cast<ShmemPrimitive<char> *>(obj)->operator T();
-        }
-        else
-        {
-            throw std::runtime_error("Cannot convert to this type (C++ doesn't support dynamic type)");
-        }
-    }
+    T get() const;
 
     // __setitem__
+    template <typename T>
+    void set(T val);
+
     template <typename T>
     ShmemAccessor &operator=(T val)
     {
@@ -231,13 +184,117 @@ public:
         return *this;
     }
 
+    // __delitem__
+    void del(int index);         // For List/Dict
+    void del(std::string index); // For Dict
+
+    // __contains__
+    template <typename T>
+    bool contains(const T& value) const
+    {
+        ShmemObj *obj, *prev;
+        int resolvedDepth;
+        resolvePath(prev, obj, resolvedDepth);
+
+        if (resolvedDepth != path.size())
+        {
+            return false;
+        }
+
+        if (isPrimitive(obj->type))
+        {
+            return static_cast<ShmemPrimitive_ *>(obj)->contains(value);
+        }
+        else if (obj->type == List)
+        {
+            return static_cast<ShmemList *>(obj)->contains(value);
+        }
+        else if (obj->type == Dict)
+        {
+            return static_cast<ShmemDict *>(obj)->contains(value);
+        }
+        else
+        {
+            throw std::runtime_error("Unknown type");
+        }
+    }
+
+    // __index__ (for list / primitive array)
+    template <typename T>
+    int index(const T& ) const;
+
+    // __key__ (for dict)
+    template <typename T>
+    int key(const T& ) const;
+
     // __str__
     std::string toString(int maxElements = 4) const;
+
+    // Converters
+    template <typename T>
+    operator T() const
+    {
+        ShmemObj *obj, *prev;
+        int resolvedDepth;
+        resolvePath(prev, obj, resolvedDepth);
+
+        int primitiveIndex;
+        bool usePrimitiveIndex = false;
+
+        // Deal with unresolved path
+        if (resolvedDepth != path.size())
+        {
+            // There are some path not resolved
+            // The only case allowed is that the last element is a primitive, and the last path is an index on the primitive array
+            if (resolvedDepth == path.size() - 1)
+            {
+                if (std::holds_alternative<int>(path[resolvedDepth]))
+                {
+                    primitiveIndex = std::get<int>(path[resolvedDepth]);
+                    usePrimitiveIndex = true;
+                }
+                else
+                {
+                    throw std::runtime_error("Cannot index <string> on primitive array");
+                }
+            }
+            else
+            {
+                throw std::runtime_error("Cannot index <remaining index> on primitive object");
+            }
+        }
+
+        // convert to target type
+        if constexpr (isPrimitive<T>())
+        {
+            // Based on the required return type, phrase the primitive object
+            if constexpr (isVector<T>::value)
+            {
+                using vecType = typename unwrapVectorType<T>::type;
+                return reinterpret_cast<ShmemPrimitive<vecType> *>(obj)->operator T();
+            }
+            else
+            {
+                if (usePrimitiveIndex)
+                    return reinterpret_cast<ShmemPrimitive_ *>(obj)->operator[]<T>(primitiveIndex);
+                else
+                    return reinterpret_cast<ShmemPrimitive_ *>(obj)->operator T();
+            }
+        }
+        else if constexpr (isString<T>())
+        {
+            return reinterpret_cast<ShmemPrimitive<char> *>(obj)->operator T();
+        }
+        else
+        {
+            throw std::runtime_error("Cannot convert to this type (C++ doesn't support dynamic type)");
+        }
+    }
 
     // Arithmetic Interface
 
     template <typename T>
-    bool operator==(T val) const
+    bool operator==(const T& val) const
     {
         T thisVal = this->operator T();
         if constexpr (isPrimitive<T>())

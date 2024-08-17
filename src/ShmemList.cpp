@@ -5,7 +5,7 @@
 size_t ShmemList::makeSpace(size_t listCapacity, ShmemHeap *heapPtr)
 {
     size_t offset = heapPtr->shmalloc(sizeof(ShmemList));
-    size_t listSpaceOffset = heapPtr->shmalloc(listCapacity * sizeof(ptrdiff_t));
+    size_t listSpaceOffset = makeListSpace(listCapacity, heapPtr);
     ShmemList *ptr = static_cast<ShmemList *>(resolveOffset(offset, heapPtr));
 
     ptr->type = List;
@@ -14,10 +14,20 @@ size_t ShmemList::makeSpace(size_t listCapacity, ShmemHeap *heapPtr)
     ptr->listSize = 0;
     ptr->listSpaceOffset = listSpaceOffset - offset; // The offset provided by shmalloc is relative to the heap head, we need to convert it to the offset relative to the list object
 
-    // init the list space
-    ptrdiff_t *basePtr = ptr->relativeOffsetPtr();
-    std::fill(basePtr, basePtr + listCapacity, NPtr);
     return offset;
+}
+
+size_t ShmemList::makeListSpace(size_t listCapacity, ShmemHeap *heapPtr)
+{
+    size_t listSpaceOffset = heapPtr->shmalloc(listCapacity * sizeof(ptrdiff_t));
+    Byte *payloadPtr = heapPtr->heapHead() + listSpaceOffset;
+    size_t payLoadSize = reinterpret_cast<ShmemHeap::BlockHeader *>(payloadPtr - sizeof(ShmemHeap::BlockHeader))->size() - sizeof(ShmemHeap::BlockHeader);
+
+    // init the list space with NPtr (would be interpret as nullptr)
+    size_t maxListCapacity = payLoadSize / sizeof(ptrdiff_t);
+    std::fill(reinterpret_cast<ptrdiff_t *>(payloadPtr), reinterpret_cast<ptrdiff_t *>(payloadPtr) + maxListCapacity, NPtr);
+
+    return listSpaceOffset;
 }
 
 // Public methods

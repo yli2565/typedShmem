@@ -13,19 +13,19 @@ int ShmemPrimitive_::resolveIndex(int index) const
     return index;
 }
 
-// __str__ implementation
-std::string ShmemPrimitive_::toString(const ShmemPrimitive_ *obj, int indent, int maxElements)
+// __str__
+inline std::string ShmemPrimitive_::toString(int indent = 0, int maxElements = 4) const
 {
     std::string result;
     result.reserve(40);
-    result.append("[P:").append(typeNames.at(obj->type)).append(":").append(std::to_string(obj->size)).append("]");
+    result.append("[P:").append(typeNames.at(this->type)).append(":").append(std::to_string(this->size)).append("]");
 
-    const Byte *ptr = obj->getBytePtr();
+    const Byte *ptr = this->getBytePtr();
 
-    if (obj->type == Char)
+    if (this->type == Char)
     { // Handle char as a special case, as it's likely a character instead of a 1 byte integer
-        result.append(" ").append(reinterpret_cast<const char *>(obj->getBytePtr()), maxElements);
-        if (obj->size - 1 > maxElements)
+        result.append(" ").append(reinterpret_cast<const char *>(this->getBytePtr()), maxElements);
+        if (this->size - 1 > maxElements)
         {
             result += "...";
         }
@@ -33,15 +33,15 @@ std::string ShmemPrimitive_::toString(const ShmemPrimitive_ *obj, int indent, in
     else
     {
 #define PRINT_OBJ(type)                                                                    \
-    for (int i = 0; i < std::min(obj->size, maxElements); i++)                             \
+    for (int i = 0; i < std::min(this->size, maxElements); i++)                            \
     {                                                                                      \
         result.append(" ").append(std::to_string(reinterpret_cast<const type *>(ptr)[i])); \
     }
-        SWITCH_PRIMITIVE_TYPES(obj->type, PRINT_OBJ)
+        SWITCH_PRIMITIVE_TYPES(this->type, PRINT_OBJ)
 
 #undef PRINT_OBJ
 
-        if (obj->size > maxElements)
+        if (this->size > maxElements)
         {
             result += " ...";
         }
@@ -49,12 +49,12 @@ std::string ShmemPrimitive_::toString(const ShmemPrimitive_ *obj, int indent, in
     return result;
 }
 
-std::string ShmemPrimitive_::elementToString(const ShmemPrimitive_ *obj, int index)
+inline std::string ShmemPrimitive_::elementToString(int index) const
 {
 #define ELEMENT_TO_STRING(TYPE) \
-    return std::to_string(reinterpret_cast<const TYPE *>(obj->getBytePtr())[index]);
+    return std::to_string(reinterpret_cast<const TYPE *>(this->getBytePtr())[index]);
 
-    SWITCH_PRIMITIVE_TYPES(obj->type, ELEMENT_TO_STRING)
+    SWITCH_PRIMITIVE_TYPES(this->type, ELEMENT_TO_STRING)
 
 #undef ELEMENT_TO_STRING
 }

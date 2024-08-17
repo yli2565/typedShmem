@@ -40,6 +40,11 @@ bool ShmemDictNode::isBlack() const
     return color == 1;
 }
 
+int ShmemDictNode::getColor() const
+{
+    return color;
+}
+
 void ShmemDictNode::colorRed()
 {
     this->color = 0;
@@ -48,6 +53,11 @@ void ShmemDictNode::colorRed()
 void ShmemDictNode::colorBlack()
 {
     this->color = 1;
+}
+
+void ShmemDictNode::setColor(int color)
+{
+    this->color = color;
 }
 
 ShmemDictNode *ShmemDictNode::left() const
@@ -128,6 +138,15 @@ void ShmemDictNode::setData(ShmemObj *obj)
         dataOffset = NPtr; // Set offset to an impossible value to indicate nullptr
     else
         dataOffset = reinterpret_cast<uintptr_t>(obj) - reinterpret_cast<uintptr_t>(this);
+}
+
+int ShmemDictNode::keyType() const
+{
+    return key()->type;
+}
+int ShmemDictNode::dataType() const
+{
+    return data()->type;
 }
 
 int ShmemDictNode::hashedKey() const

@@ -4,6 +4,11 @@
 #include "ShmemObj.h"
 #include "ShmemDict.h"
 
+inline const ShmemDictNode *ShmemDict::search(KeyType key) const
+{
+    return const_cast<ShmemDict *>(this)->search(key);
+}
+
 // Macro to define the construct functions for different key types
 #define SHMEM_DICT_CONSTRUCT(keyType)                                                                  \
     template <typename T>                                                                              \
@@ -24,10 +29,46 @@ SHMEM_DICT_CONSTRUCT(KeyType)
 
 #undef SHMEM_DICT_CONSTRUCT
 
+// set's implementation is in ShmemDict.tcc
 template <typename T>
-void ShmemDict::insert(KeyType key, T val, ShmemHeap *heapPtr)
+inline void ShmemDict::set(KeyType key, const T &value, ShmemHeap *heapPtr)
 {
-    insert(key, heapPtr->heapHead() + ShmemObj::construct<T>(val, heapPtr), heapPtr);
+    insert(key, value, heapPtr);
+}
+
+template <typename T>
+ShmemDictNode *ShmemDict::searchKeyHelper(ShmemDictNode *node, const T &value)
+{
+    if (node == this->NIL())
+        return nullptr;
+
+    ShmemDictNode *left = searchKeyHelper(node->left(), value);
+    if (left != nullptr)
+        return left;
+
+    if (node->data() == value)
+    {
+        return node;
+    }
+
+    ShmemDictNode *right = searchKeyHelper(node->right(), value);
+    if (right != nullptr)
+        return right;
+    return nullptr;
+}
+// key's implementation is in ShmemDict.tcc
+template <typename T>
+KeyType ShmemDict::key(const T &value) const
+{
+    ShmemDictNode *target = const_cast<ShmemDict *>(this)->searchKeyHelper(const_cast<ShmemDict *>(this)->root(), value);
+    return target->keyVal();
+}
+
+// operator[]'s implementation is in ShmemDict.tcc
+template <typename T>
+T ShmemDict::operator[](int index) const
+{
+    // Function implementation
 }
 
 #endif // SHMEM_DICT_TCC

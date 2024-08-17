@@ -21,12 +21,6 @@ protected:
         return reinterpret_cast<Byte *>(reinterpret_cast<Byte *>(this) + sizeof(ShmemObj));
     }
 
-public:
-    static inline void deconstruct(size_t offset, ShmemHeap *heapPtr)
-    {
-        heapPtr->shfree(heapPtr->heapHead() + offset);
-    }
-
     inline const Byte *getBytePtr() const
     {
         return getBytePtr();
@@ -34,36 +28,25 @@ public:
 
     int resolveIndex(int index) const;
 
-    static std::string toString(const ShmemPrimitive_ *obj, int indent = 0, int maxElements = 4);
-
-    static std::string elementToString(const ShmemPrimitive_ *obj, int index);
+public:
+    // Constructors
+    template <typename T>
+    static size_t construct(const T &val, ShmemHeap *heapPtr);
 
     static size_t construct(const char *str, ShmemHeap *heapPtr);
 
     static size_t construct(const std::string str, ShmemHeap *heapPtr);
 
-    template <typename T>
-    static size_t construct(T val, ShmemHeap *heapPtr);
+    // Destructors
+    static inline void deconstruct(size_t offset, ShmemHeap *heapPtr)
+    {
+        heapPtr->shfree(heapPtr->heapHead() + offset);
+    }
 
-    // __getitem__ implementation
-    template <typename T>
-    static T getter(const ShmemPrimitive_ *obj, int index = 0);
-
-    template <typename T>
-    T getter(int index = 0) const;
-
-    // __setitem__ implementation
-    template <typename T>
-    static void setter(ShmemPrimitive_ *obj, T value, int index);
-
-    template <typename T>
-    void setter(T value, int index);
-
-public:
     // Type (Special interface)
     int typeId() const;
-    int typeStr() const;
-    
+    std::string typeStr() const;
+
     // __len__
     size_t len() const;
 
@@ -76,31 +59,36 @@ public:
 
     // __setitem__
     template <typename T>
-    void set(T val, int index);    
+    void set(const T &val, int index);
+
+    // __delitem__
+
+    /**
+     * @brief remove element at index
+     * 
+     * @param index element index to delete
+     * @note poor performance due to array shifting
+     */
+    void del(int index);
 
     // __contains__
     template <typename T>
-    int contains(T value) const;
+    bool contains(T value) const;
+
+    // __index__
+    template <typename T>
+    int index(T value) const;
 
     // __str__
-    inline std::string toString(int indent = 0, int maxElements = 4) const
-    {
-        return ShmemPrimitive_::toString(this, indent, maxElements);
-    }
+    std::string toString(int indent = 0, int maxElements = 4) const;
 
-    inline std::string elementToString(int index) const
-    {
-        return ShmemPrimitive_::elementToString(this, index);
-    }
+    std::string elementToString(int index) const;
 
     // Converters
     template <typename T>
     operator T() const;
 
-
-
     // Arithmetic interface
-
 };
 
 template <typename T>
