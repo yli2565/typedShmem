@@ -2,6 +2,27 @@
 
 // Protected methods
 
+// Core methods
+ShmemObj *ShmemList::getObj(int index) const
+{
+    ptrdiff_t offset = relativeOffsetPtr()[resolveIndex(index)];
+    if (offset == NPtr)
+        return nullptr;
+    return const_cast<ShmemObj *>(reinterpret_cast<const ShmemObj *>(reinterpret_cast<const Byte *>(this) + offset));
+}
+
+void ShmemList::setObj(int index, ShmemObj *obj)
+{
+    if (obj == nullptr)
+        relativeOffsetPtr()[resolveIndex(index)] = NPtr;
+    else
+        relativeOffsetPtr()[resolveIndex(index)] = reinterpret_cast<Byte *>(obj) - reinterpret_cast<Byte *>(this);
+}
+
+// relativeOffsetPtr() inlined in tcc
+
+// resolveIndex(int index) inlined in tcc
+
 size_t ShmemList::makeSpace(size_t listCapacity, ShmemHeap *heapPtr)
 {
     size_t offset = heapPtr->shmalloc(sizeof(ShmemList));
@@ -30,7 +51,9 @@ size_t ShmemList::makeListSpace(size_t listCapacity, ShmemHeap *heapPtr)
     return listSpaceOffset;
 }
 
-// Public methods
+// listCapacity() inlined in tcc
+
+// potentialCapacity() inlined in tcc
 
 size_t ShmemList::construct(size_t capacity, ShmemHeap *heapPtr)
 {
@@ -43,62 +66,89 @@ void ShmemList::deconstruct(size_t offset, ShmemHeap *heapPtr)
     Byte *heapHead = heapPtr->heapHead();
     for (int i = 0; i < ptr->size; i++)
     {
-        ShmemObj *obj = ptr->at(i);
+        ShmemObj *obj = ptr->getObj(i);
         ShmemObj::deconstruct(reinterpret_cast<Byte *>(obj) - heapHead, heapPtr);
     }
     heapPtr->shfree(ptr);
 }
 
-ShmemObj *ShmemList::at(int index)
+size_t ShmemList::len() const
 {
-    return getObj(index);
+    return this->listSize;
 }
 
-void ShmemList::add(ShmemObj *newObj, ShmemHeap *heapPtr)
-{
-    if (this->listSize >= this->listCapacity())
-    {
-        // TODO: extend the list
-        throw std::runtime_error("List is full");
-    }
-    relativeOffsetPtr()[this->listSize] = reinterpret_cast<Byte *>(newObj) - reinterpret_cast<Byte *>(this);
-    this->listSize++;
-}
-
-void ShmemList::assign(int index, ShmemObj *newObj, ShmemHeap *heapPtr)
+void ShmemList::del(int index, ShmemHeap *heapPtr)
 {
     ptrdiff_t *basePtr = relativeOffsetPtr();
     int resolvedIndex = resolveIndex(index);
-    ShmemObj *originalObj = this->getObj(resolvedIndex);
-    if (originalObj != nullptr)
+
+    ptrdiff_t offset = basePtr[resolvedIndex];
+
+    if (offset != NPtr)
     {
-        ShmemObj::deconstruct(reinterpret_cast<Byte *>(originalObj) - reinterpret_cast<Byte *>(this), heapPtr);
+        ShmemObj *victim = const_cast<ShmemObj *>(reinterpret_cast<const ShmemObj *>(reinterpret_cast<const Byte *>(this) + offset));
+        ShmemObj::deconstruct(reinterpret_cast<Byte *>(victim) - heapPtr->heapHead(), heapPtr);
     }
-    setObj(resolvedIndex, newObj);
+
+    for (int i = resolvedIndex; i < this->listSize - 1; i++)
+    {
+        basePtr[i] = basePtr[i + 1];
+    }
+    basePtr[this->listSize - 1] = NPtr;
+
+    this->listSize--;
 }
 
-ShmemObj *ShmemList::pop()
-{
-    ShmemObj *originalObj = this->getObj(this->listSize);
-    setObj(this->listSize, nullptr);
-    return originalObj;
-}
-
-std::string ShmemList::toString(ShmemList *list, int indent, int maxElements)
+std::string ShmemList::toString(int indent, int maxElements) const
 {
     std::string result;
     std::string indentStr = std::string(indent, ' ');
 
     result += "[\n";
-    for (int i = 0; i < std::min(static_cast<int>(list->listSize), maxElements); i++)
+    for (int i = 0; i < std::min(static_cast<int>(this->listSize), maxElements); i++)
     {
-        result += ShmemObj::toString(list->getObj(i), indent + 1) + "\n";
+        result += ShmemObj::toString(this->getObj(i), indent + 1) + "\n";
     }
-    if (list->listSize > maxElements)
+    if (this->listSize > maxElements)
     {
         result += indentStr + "...\n";
     }
     result += indentStr + "]";
 
     return result;
+}
+
+void ShmemList::resize(int newSize, ShmemHeap *heapPtr)
+{
+    if (potentialCapacity() >= newSize)
+        return; // No need to resize
+
+    uintptr_t oldListSpaceOffset = reinterpret_cast<Byte *>(this) - heapPtr->heapHead() + this->listSpaceOffset;
+    size_t newListSpaceOffset = heapPtr->shrealloc(oldListSpaceOffset, newSize * sizeof(ptrdiff_t));
+
+    this->listSpaceOffset += newListSpaceOffset - oldListSpaceOffset;
+}
+
+ShmemList *ShmemList::remove(int index, ShmemHeap *heapPtr)
+{
+    del(index, heapPtr);
+}
+
+// pop() implemented in tcc
+
+ShmemList *ShmemList::clear(ShmemHeap *heapPtr)
+{
+    ptrdiff_t *basePtr = relativeOffsetPtr();
+
+    for (int i = 0; i < this->listSize; i++)
+    {
+        if (basePtr[i] != NPtr)
+        {
+            ShmemObj *victim = const_cast<ShmemObj *>(reinterpret_cast<const ShmemObj *>(reinterpret_cast<const Byte *>(this) + basePtr[i]));
+            ShmemObj::deconstruct(reinterpret_cast<Byte *>(victim) - heapPtr->heapHead(), heapPtr);
+        }
+        basePtr[i] = NPtr;
+    }
+
+    this->listSize = 0;
 }

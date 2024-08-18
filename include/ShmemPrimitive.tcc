@@ -116,7 +116,7 @@ inline T ShmemPrimitive_::get(int index) const
 template <typename T>
 inline T ShmemPrimitive_::operator[](int index) const
 {
-    return this->getter<T>(index);
+    return this->operator T(index);
 }
 
 // __setitem__
@@ -226,64 +226,5 @@ inline ShmemPrimitive_::operator T() const
 
 // Arithmetic Interface
 // TODO
-
-// ShmemPrimitive<T>
-template <typename T>
-inline size_t ShmemPrimitive<T>::makeSpace(size_t size, ShmemHeap *heapPtr)
-{
-    return ShmemPrimitive_::makeSpace<T>(size, heapPtr);
-}
-
-template <typename T>
-inline ShmemPrimitive<T>::operator T() const
-{
-    return this->ShmemPrimitive_::getter<T>();
-}
-
-template <typename T>
-inline ShmemPrimitive<T>::operator std::vector<T>() const
-{
-    return this->ShmemPrimitive_::getter<std::vector<T>>();
-}
-
-template <typename T>
-inline ShmemPrimitive<T>::operator std::string() const
-{
-    return this->ShmemPrimitive_::getter<std::string>();
-}
-
-template <typename T>
-T ShmemPrimitive<T>::get(int index) const
-{
-    return this->ShmemPrimitive_::getter<T>(index);
-}
-
-template <typename T>
-T ShmemPrimitive<T>::operator[](int index) const
-{
-    return this->ShmemPrimitive_::getter<T>(index);
-}
-
-template <typename T>
-inline void ShmemPrimitive<T>::set(T value, int index)
-{
-    this->ShmemPrimitive_::setter<T>(value, index);
-}
-template <typename T>
-int ShmemPrimitive<T>::contains(T value) const
-{
-    return this->ShmemPrimitive_::contains<T>(value);
-}
-
-template <typename T>
-inline const T *ShmemPrimitive<T>::getPtr() const
-{
-    if (TypeEncoding<T>::value != this->type)
-    {
-        throw std::runtime_error("Type mismatch");
-    }
-
-    return reinterpret_cast<T *>(getBytePtr());
-}
 
 #endif // SHMEM_PRIMITIVE_TCC

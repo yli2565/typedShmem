@@ -50,7 +50,7 @@ void ShmemAccessor::resolvePath(ShmemObj *&prevObj, ShmemObj *&obj, int &resolve
                 }
 
                 prev = current;
-                current = currentList->at(std::get<int>(pathElement));
+                current = currentList->getObj(std::get<int>(pathElement));
             }
         }
         catch (IndexError &e)
@@ -141,7 +141,7 @@ void ShmemAccessor::del(int index)
     }
     else if (obj->type == List)
     {
-        static_cast<ShmemList *>(obj)->del(index);
+        static_cast<ShmemList *>(obj)->del(index, this->heapPtr);
     }
     else if (obj->type == Dict)
     {
@@ -205,7 +205,7 @@ std::string ShmemAccessor::toString(int maxElements) const
 
     if (usePrimitiveIndex)
     {
-        return ShmemPrimitive_::elementToString(static_cast<ShmemPrimitive_ *>(obj), primitiveIndex);
+        return static_cast<ShmemPrimitive_ *>(obj)->elementToString(primitiveIndex);
     }
     else
         return ShmemObj::toString(obj, 0, maxElements);

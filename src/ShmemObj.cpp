@@ -4,6 +4,16 @@
 
 // ShmemObj methods
 
+int ShmemObj::typeId() const
+{
+    return this->type;
+}
+
+std::string ShmemObj::typeStr() const
+{
+    return typeNames.at(this->type);
+}
+
 // Constructor relies on template, it is defined in header file
 
 void ShmemObj::deconstruct(size_t offset, ShmemHeap *heapPtr)
@@ -36,15 +46,15 @@ std::string ShmemObj::toString(ShmemObj *obj, int indent, int maxElements)
     int type = obj->type;
     if (isPrimitive(type))
     {
-        return ShmemPrimitive_::toString(static_cast<ShmemPrimitive_ *>(obj), indent, maxElements);
+        return static_cast<ShmemPrimitive_ *>(obj)->toString(indent, maxElements);
     }
     else if (type == List)
     {
-        return ShmemList::toString(static_cast<ShmemList *>(obj), indent, maxElements);
+        return static_cast<ShmemList *>(obj)->toString(indent, maxElements);
     }
     else if (type == Dict)
     {
-        return ShmemDict::toString(static_cast<ShmemDict *>(obj), indent);
+        return static_cast<ShmemDict *>(obj)->toString(indent, maxElements);
     }
     else
     {

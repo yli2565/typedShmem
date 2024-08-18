@@ -4,27 +4,7 @@
 #include "ShmemObj.h"
 #include "ShmemList.h"
 
-template <typename T>
-size_t ShmemList::construct(std::vector<T> vec, ShmemHeap *heapPtr)
-{
-    using vecDataType = typename unwrapVectorType<T>::type;
-    if constexpr (isPrimitive<vecDataType>() && !isVector<vecDataType>::value)
-    {
-        throw std::runtime_error("Not a good idea to construct a list for an array of primitives");
-    }
-
-    size_t listOffset = ShmemList::makeSpace(vec.capacity(), heapPtr);
-    ShmemList *list = reinterpret_cast<ShmemList *>(ShmemObj::resolveOffset(listOffset, heapPtr));
-    for (int i = 0; i < static_cast<int>(vec.size()); i++)
-    {
-        list->add(vec[i], heapPtr);
-    }
-    return listOffset;
-}
-
 // Inline implementations
-
-// Arithmetics
 inline ptrdiff_t *ShmemList::relativeOffsetPtr()
 {
     return reinterpret_cast<ptrdiff_t *>(reinterpret_cast<Byte *>(this) + this->listSpaceOffset);
@@ -48,8 +28,6 @@ inline int ShmemList::resolveIndex(int index) const
     return index;
 }
 
-// Public methods
-// Accessors
 inline size_t ShmemList::listCapacity() const
 {
     return this->ShmemObj::size;
@@ -59,4 +37,162 @@ inline size_t ShmemList::potentialCapacity() const
 {
     return (reinterpret_cast<const ShmemHeap::BlockHeader *>(reinterpret_cast<const Byte *>(this->relativeOffsetPtr()) - sizeof(ShmemHeap::BlockHeader))->size() - sizeof(ShmemHeap::BlockHeader)) / sizeof(ptrdiff_t);
 }
+
+template <typename T>
+size_t ShmemList::construct(std::vector<T> vec, ShmemHeap *heapPtr)
+{
+    using vecDataType = typename unwrapVectorType<T>::type;
+    if constexpr (isPrimitive<vecDataType>() && !isVector<vecDataType>::value)
+    {
+        throw std::runtime_error("Not a good idea to construct a list for an array of primitives");
+    }
+
+    size_t listOffset = ShmemList::makeSpace(vec.capacity(), heapPtr);
+    ShmemList *list = reinterpret_cast<ShmemList *>(ShmemObj::resolveOffset(listOffset, heapPtr));
+    for (int i = 0; i < static_cast<int>(vec.size()); i++)
+    {
+        list->add(vec[i], heapPtr);
+    }
+    return listOffset;
+}
+
+template <typename T>
+T ShmemList::get(int index) const
+{
+    return getObj(resolveIndex(index))->operator T();
+}
+
+template <typename T>
+void ShmemList::set(const T &val, int index, ShmemHeap *heapPtr)
+{
+    ptrdiff_t *basePtr = relativeOffsetPtr();
+    int resolvedIndex = resolveIndex(index);
+
+    ptrdiff_t offset = basePtr[resolvedIndex];
+
+    if (offset != NPtr)
+    {
+        ShmemObj *victim = const_cast<ShmemObj *>(reinterpret_cast<const ShmemObj *>(reinterpret_cast<const Byte *>(this) + offset));
+        ShmemObj::deconstruct(reinterpret_cast<Byte *>(victim) - heapPtr->heapHead(), heapPtr);
+    }
+
+    basePtr[resolvedIndex] = ShmemList::construct(val, heapPtr) - reinterpret_cast<Byte *>(this);
+}
+
+// del() implemented in ShmemList.cpp
+
+template <typename T>
+bool ShmemList::contains(T value) const
+{
+    ptrdiff_t *basePtr = relativeOffsetPtr();
+    int resolvedIndex = resolveIndex(index);
+
+    for (int i = 0; i < this->listSize; i++)
+    {
+        ptrdiff_t offset = basePtr[i];
+        if (offset != NPtr)
+        {
+            ShmemObj *obj = const_cast<ShmemObj *>(reinterpret_cast<const ShmemObj *>(reinterpret_cast<const Byte *>(this) + offset));
+            if (obj == value)
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+template <typename T>
+int ShmemList::index(T value, int start, int end) const
+{
+    ptrdiff_t *basePtr = relativeOffsetPtr();
+
+    int trueStart = resolveIndex(start);
+    int trueEnd = resolveIndex(end);
+
+    for (int i = trueStart; i < trueEnd; i++)
+    {
+        ptrdiff_t offset = basePtr[i];
+        if (offset != NPtr)
+        {
+            ShmemObj *obj = const_cast<ShmemObj *>(reinterpret_cast<const ShmemObj *>(reinterpret_cast<const Byte *>(this) + offset));
+            if (obj == value)
+            {
+                return i;
+            }
+        }
+    }
+    return -1;
+}
+
+template <typename T>
+ShmemList *ShmemList::append(const T &val, ShmemHeap *heapPtr)
+{
+    if (this->listSize >= this->listCapacity())
+        this->resize(this->listSize * 2, heapPtr);
+
+    ptrdiff_t *basePtr = relativeOffsetPtr();
+    int resolvedIndex = resolveIndex(index);
+
+    basePtr[resolvedIndex] = (heapPtr->heapHead() + ShmemList::construct(val, heapPtr)) - reinterpret_cast<Byte *>(this);
+
+    this->listSize++;
+    return this;
+}
+
+template <typename T>
+ShmemList *ShmemList::extend(const ShmemList *another, ShmemHeap *heapPtr)
+{
+    if (another->type != List)
+    {
+        throw std::runtime_error("Can only extend a list with another list");
+    }
+
+    resize(this->potentialCapacity() + another->potentialCapacity(), heapPtr);
+
+    ptrdiff_t *basePtrEnd = relativeOffsetPtr() + this->listSize;
+
+    std::copy(another->relativeOffsetPtr(), another->relativeOffsetPtr() + another->listSize, basePtrEnd);
+
+    this->listSize += another->listSize;
+    return this;
+}
+
+template <typename T>
+ShmemList *ShmemList::insert(int index, const T &val, ShmemHeap *heapPtr)
+{
+    // Implementation here
+}
+
+// remove() implemented in ShmemList.cpp
+
+template <typename T>
+T ShmemList::pop(int index, ShmemHeap *heapPtr)
+{
+    T result;
+
+    ptrdiff_t *basePtr = relativeOffsetPtr();
+    int resolvedIndex = resolveIndex(index);
+
+    ptrdiff_t offset = basePtr[resolvedIndex];
+
+    if (offset != NPtr)
+    {
+        ShmemObj *victim = const_cast<ShmemObj *>(reinterpret_cast<const ShmemObj *>(reinterpret_cast<const Byte *>(this) + offset));
+        result = victim->operator T();
+        ShmemObj::deconstruct(reinterpret_cast<Byte *>(victim) - heapPtr->heapHead(), heapPtr);
+    }
+
+    this->listSize--;
+
+    return result;
+}
+template <typename T>
+T ShmemList::operator[](int index) const
+{
+    // Implementation here
+}
+
+// Non-template function implementations are in ShmemList.cpp
+
 #endif // SHMEM_LIST_TCC

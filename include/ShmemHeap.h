@@ -228,7 +228,7 @@ public:
     size_t shmalloc(size_t size);
 
     /**
-     * @brief Reallocate a block in the heap
+     * @brief Reallocate a block in the heap, keep content
      * @param offset offset of original block from the heap head
      * @param size new size of the payload, will be padded to a multiple of unitSize
      * @return offset of the reallocated block from the heap head

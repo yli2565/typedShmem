@@ -397,16 +397,6 @@ void ShmemDict::deconstruct(size_t offset, ShmemHeap *heapPtr)
     heapPtr->shfree(reinterpret_cast<Byte *>(ptr));
 }
 
-int ShmemDict::typeId() const
-{
-    return this->type;
-}
-
-std::string ShmemDict::typeStr() const
-{
-    return typeNames.at(this->type);
-}
-
 size_t ShmemDict::len() const
 {
     return this->size;

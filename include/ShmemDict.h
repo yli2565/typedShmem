@@ -54,6 +54,8 @@ public:
 
 class ShmemDict : public ShmemObj
 {
+    friend class ShmemAccessor;
+
 protected:
     ptrdiff_t rootOffset;
     ptrdiff_t NILOffset;
@@ -73,7 +75,7 @@ protected:
     void insert(KeyType key, ShmemObj *data, ShmemHeap *heapPtr);
 
     ShmemDictNode *search(KeyType key);
-   const ShmemDictNode *search(KeyType key)const;
+    const ShmemDictNode *search(KeyType key) const;
 
     // Traversal helpers
     void toStringHelper(const ShmemDictNode *node, int indent, std::ostringstream &resultStream, int currentElement, int maxElements) const;
@@ -96,10 +98,6 @@ public:
     static size_t construct(std::map<KeyType, T> map, ShmemHeap *heapPtr);
 
     static void deconstruct(size_t offset, ShmemHeap *heapPtr);
-
-    // Type (Special interface)
-    int typeId() const;
-    std::string typeStr() const;
 
     // __len__
     size_t len() const;

@@ -7,7 +7,7 @@
 class ShmemAccessor
 {
 private:
-    static std::string pathToString(const KeyType* path, int size);
+    static std::string pathToString(const KeyType *path, int size);
     std::string pathToString() const;
 
 protected:
@@ -190,7 +190,7 @@ public:
 
     // __contains__
     template <typename T>
-    bool contains(const T& value) const
+    bool contains(const T &value) const
     {
         ShmemObj *obj, *prev;
         int resolvedDepth;
@@ -221,11 +221,11 @@ public:
 
     // __index__ (for list / primitive array)
     template <typename T>
-    int index(const T& ) const;
+    int index(const T &) const;
 
     // __key__ (for dict)
     template <typename T>
-    int key(const T& ) const;
+    int key(const T &) const;
 
     // __str__
     std::string toString(int maxElements = 4) const;
@@ -294,7 +294,7 @@ public:
     // Arithmetic Interface
 
     template <typename T>
-    bool operator==(const T& val) const
+    bool operator==(const T &val) const
     {
         T thisVal = this->operator T();
         if constexpr (isPrimitive<T>())

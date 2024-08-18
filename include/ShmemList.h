@@ -11,9 +11,15 @@
 
 class ShmemList : public ShmemObj
 {
+    friend class ShmemAccessor;
+
 protected:
     uint listSize;
     ptrdiff_t listSpaceOffset;
+
+    // Core methods
+    ShmemObj *getObj(int index) const;
+    void setObj(int index, ShmemObj *obj);
 
     ptrdiff_t *relativeOffsetPtr();
     const ptrdiff_t *relativeOffsetPtr() const;
@@ -22,9 +28,6 @@ protected:
 
     static size_t makeSpace(size_t listCapacity, ShmemHeap *heapPtr);
     static size_t makeListSpace(size_t listCapacity, ShmemHeap *heapPtr);
-
-    // __str__ implementation
-    static std::string toString(ShmemList *list, int indent = 0, int maxElements = 4);
 
     /**
      * @brief Capacity of the list
@@ -66,10 +69,6 @@ public:
 
     static void deconstruct(size_t offset, ShmemHeap *heapPtr);
 
-    // Type (Special interface)
-    int typeId() const;
-    std::string typeStr() const;
-
     // __len__
     size_t len() const;
 
@@ -79,10 +78,10 @@ public:
 
     // __setitem__ (only for assign)
     template <typename T>
-    void set(const T &val, int index);
+    void set(const T &val, int index, ShmemHeap *heapPtr);
 
     // __delitem__ (for remove/pop)
-    void del(int index);
+    void del(int index, ShmemHeap *heapPtr);
 
     // __contains__
     template <typename T>
@@ -113,13 +112,14 @@ public:
     ShmemList *insert(int index, const T &val, ShmemHeap *heapPtr);
 
     // __remove__ (del alias)
-    ShmemList *remove(int index);
+    ShmemList *remove(int index, ShmemHeap *heapPtr);
 
     // __pop__
-    ShmemList *pop(int index = -1);
+    template <typename T>
+    T pop(int index = -1, ShmemHeap *heapPtr);
 
     // __clear__
-    ShmemList *clear();
+    ShmemList *clear(ShmemHeap *heapPtr);
 
     // Aliases
     template <typename T>

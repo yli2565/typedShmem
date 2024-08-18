@@ -14,6 +14,7 @@ template <typename T>
 class ShmemPrimitive;
 class ShmemList;
 class ShmemDict;
+class ShmemAccessor;
 
 class IndexError : public std::runtime_error
 {
@@ -23,6 +24,7 @@ public:
 
 class ShmemObj
 {
+    friend class ShmemAccessor;
 protected:
     size_t capacity() const;
     bool isBusy() const;
@@ -37,6 +39,10 @@ public:
     int size;
 
     ShmemObj() = delete;
+
+    // Type (Special interface)
+    int typeId() const;
+    std::string typeStr() const;
 
     template <typename T>
     static size_t construct(const T &value, ShmemHeap *heapPtr);
