@@ -104,6 +104,8 @@ std::string ShmemList::toString(int indent, int maxElements) const
     std::string result;
     std::string indentStr = std::string(indent, ' ');
 
+    maxElements = maxElements > 0 ? maxElements : this->listSize;
+    
     result += "[\n";
     for (int i = 0; i < std::min(static_cast<int>(this->listSize), maxElements); i++)
     {
@@ -118,20 +120,25 @@ std::string ShmemList::toString(int indent, int maxElements) const
     return result;
 }
 
-void ShmemList::resize(int newSize, ShmemHeap *heapPtr)
+void ShmemList::resize(int newCapacity, ShmemHeap *heapPtr)
 {
-    if (potentialCapacity() >= newSize)
-        return; // No need to resize
+    if (potentialCapacity() < newCapacity)
+    {
+        uintptr_t oldListSpaceOffset = reinterpret_cast<Byte *>(this) - heapPtr->heapHead() + this->listSpaceOffset;
+        size_t newListSpaceOffset = heapPtr->shrealloc(oldListSpaceOffset, newCapacity * sizeof(ptrdiff_t));
 
-    uintptr_t oldListSpaceOffset = reinterpret_cast<Byte *>(this) - heapPtr->heapHead() + this->listSpaceOffset;
-    size_t newListSpaceOffset = heapPtr->shrealloc(oldListSpaceOffset, newSize * sizeof(ptrdiff_t));
+        this->listSpaceOffset += newListSpaceOffset - oldListSpaceOffset;
+    }
 
-    this->listSpaceOffset += newListSpaceOffset - oldListSpaceOffset;
+    this->size = newCapacity;
+
+    return;
 }
 
 ShmemList *ShmemList::remove(int index, ShmemHeap *heapPtr)
 {
     del(index, heapPtr);
+    return this;
 }
 
 // pop() implemented in tcc
@@ -151,4 +158,6 @@ ShmemList *ShmemList::clear(ShmemHeap *heapPtr)
     }
 
     this->listSize = 0;
+
+    return this;
 }

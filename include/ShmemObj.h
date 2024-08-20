@@ -25,6 +25,7 @@ public:
 class ShmemObj
 {
     friend class ShmemAccessor;
+
 protected:
     size_t capacity() const;
     bool isBusy() const;
@@ -48,8 +49,22 @@ public:
     static size_t construct(const T &value, ShmemHeap *heapPtr);
     static void deconstruct(size_t offset, ShmemHeap *heapPtr);
 
-    static std::string toString(ShmemObj *obj, int indent = 0, int maxElements = 4);
+    static std::string toString(ShmemObj *obj, int indent = 0, int maxElements = -1);
+
+    // Arithmetic
+    template <typename T>
+    bool operator==(const T &val) const;
+
+    bool operator==(const char *val) const;
 };
+
+template <typename T>
+struct isObjPtr
+{
+    static const bool value = std::is_pointer<T>::value &&
+                              std::is_base_of<ShmemObj, typename std::remove_pointer<T>::type>::value;
+};
+
 // #include "ShmemPrimitive.h"
 // #include "ShmemDict.h"
 // #include "ShmemList.h"

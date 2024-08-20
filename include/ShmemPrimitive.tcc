@@ -15,7 +15,7 @@ inline size_t ShmemPrimitive_::makeSpace(size_t size, ShmemHeap *heapPtr)
 }
 
 template <typename T>
-size_t ShmemPrimitive_::construct(const T &val, ShmemHeap *heapPtr)
+inline size_t ShmemPrimitive_::construct(const T &val, ShmemHeap *heapPtr)
 {
     if constexpr (isPrimitive<T>())
     {
@@ -89,6 +89,9 @@ inline T ShmemPrimitive_::get(int index) const
     }
     if constexpr (isString<T>())
     {
+        if (index != 0)
+            printf("It's nonsense to provide an index when converting to a string\n");
+
         if (this->type != Char)
         {
             throw std::runtime_error("Cannot convert non-char type to a string type");
@@ -96,7 +99,7 @@ inline T ShmemPrimitive_::get(int index) const
 
         if constexpr (std::is_same_v<T, std::string> || std::is_same_v<T, const std::string>)
         {
-            return std::string(reinterpret_cast<const char *>(this->getBytePtr()), this->size);
+            return std::string(reinterpret_cast<const char *>(this->getBytePtr()), this->size-1);
         }
         else if constexpr (std::is_same_v<T, char *> || std::is_same_v<T, const char *>)
         { // TODO: Should I just allocate some mem and return it?
@@ -116,7 +119,7 @@ inline T ShmemPrimitive_::get(int index) const
 template <typename T>
 inline T ShmemPrimitive_::operator[](int index) const
 {
-    return this->operator T(index);
+    return this->get<T>(index);
 }
 
 // __setitem__
@@ -147,7 +150,7 @@ inline void ShmemPrimitive_::set(const T &value, int index)
 
 // __delitem__
 
-void ShmemPrimitive_::del(int index)
+inline void ShmemPrimitive_::del(int index)
 {
     index = this->resolveIndex(index);
     Byte *ptr = this->getBytePtr();
@@ -166,21 +169,21 @@ void ShmemPrimitive_::del(int index)
 
 // __contains__
 template <typename T>
-bool ShmemPrimitive_::contains(T value) const
+inline bool ShmemPrimitive_::contains(T value) const
 {
-    Byte *ptr = this->getBytePtr();
-#define SHMEM_PRIMITIVE_COMP(TYPE)                                         \
-    for (int i = 0; i < this->size; i++)                                   \
-    {                                                                      \
-        try                                                                \
-        {                                                                  \
-            if (static_cast<T>(reinterpret_cast<TYPE *>(ptr)[i]) == value) \
-                return true;                                               \
-        }                                                                  \
-        catch (std::bad_cast & e)                                          \
-        {                                                                  \
-            continue;                                                      \
-        }                                                                  \
+    const Byte *ptr = this->getBytePtr();
+#define SHMEM_PRIMITIVE_COMP(TYPE)                                                     \
+    for (int i = 0; i < this->size; i++)                                               \
+    {                                                                                  \
+        try                                                                            \
+        {                                                                              \
+            if (static_cast<const T>(reinterpret_cast<const TYPE *>(ptr)[i]) == value) \
+                return true;                                                           \
+        }                                                                              \
+        catch (std::bad_cast & e)                                                      \
+        {                                                                              \
+            continue;                                                                  \
+        }                                                                              \
     }
 
     SWITCH_PRIMITIVE_TYPES(this->type, SHMEM_PRIMITIVE_COMP)
@@ -191,7 +194,7 @@ bool ShmemPrimitive_::contains(T value) const
 
 // __index__
 template <typename T>
-int ShmemPrimitive_::index(T value) const
+inline int ShmemPrimitive_::index(T value) const
 {
     Byte *ptr = this->getBytePtr();
 #define SHMEM_PRIMITIVE_COMP(TYPE)                                         \
@@ -221,10 +224,71 @@ int ShmemPrimitive_::index(T value) const
 template <typename T>
 inline ShmemPrimitive_::operator T() const
 {
-    return this->get<T>();
+    return this->ShmemPrimitive_::get<T>(0);
 }
 
 // Arithmetic Interface
-// TODO
+template <typename T>
+inline bool ShmemPrimitive_::operator==(const T &val) const
+{
+    if constexpr (isObjPtr<T>::value)
+    {
+        if (val->type != this->type)
+            return false;
+        // Ensure T = const ShmemPrimitive<this->type>*
 
+        if (this->size != val->size)
+            return false;
+
+        const Byte *ptr = this->getBytePtr();
+        const Byte *valPtr = reinterpret_cast<const ShmemPrimitive_ *>(val)->getBytePtr();
+
+#define SHMEM_CMP_PRIMITIVE(TYPE)                                                                \
+    for (size_t i = 0; i < this->size; i++)                                                      \
+    {                                                                                            \
+        if (reinterpret_cast<const TYPE *>(ptr)[i] != reinterpret_cast<const TYPE *>(valPtr)[i]) \
+            return false;                                                                        \
+    }
+
+        SWITCH_PRIMITIVE_TYPES(this->type, SHMEM_CMP_PRIMITIVE)
+
+        return true;
+
+#undef SHMEM_CMP_PRIMITIVE
+    }
+    else if constexpr (isString<T>())
+    {
+        return this->operator std::string() == std::string(val);
+    }
+    else if constexpr (isPrimitive<T>())
+    {
+        if constexpr (isVector<T>::value)
+        {
+            using vecDataType = typename unwrapVectorType<T>::type;
+
+            if (this->size != val.size())
+                return false;
+
+            for (int i = 0; i < this->size; i++)
+            {
+                if (this->get<vecDataType>(i) != val[i])
+                    return false;
+            }
+
+            return true;
+        }
+        else
+        {
+            if (this->type != TypeEncoding<T>::value)
+                return false;
+            if (this->size != 1)
+                return false;
+            return this->get<T>(0) == val;
+        }
+    }
+    else
+    {
+        throw std::runtime_error("Comparison of " + typeNames.at(this->type) + " with " + typeName<T>() + " is not allowed");
+    }
+}
 #endif // SHMEM_PRIMITIVE_TCC

@@ -43,6 +43,7 @@ std::string ShmemObj::toString(ShmemObj *obj, int indent, int maxElements)
     {
         return "nullptr";
     }
+
     int type = obj->type;
     if (isPrimitive(type))
     {
@@ -60,4 +61,10 @@ std::string ShmemObj::toString(ShmemObj *obj, int indent, int maxElements)
     {
         throw std::runtime_error("Encounter unknown type in deconstruction");
     }
+}
+
+// Arithmetic operators
+bool ShmemObj::operator==(const char *val) const
+{
+    return static_cast<const ShmemPrimitive_ *>(this)->operator==(std::string(val));
 }

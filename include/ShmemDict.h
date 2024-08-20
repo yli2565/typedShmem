@@ -103,12 +103,12 @@ public:
     size_t len() const;
 
     // __getitem__
-    template <typename T>
-    void set(KeyType key, const T &value, ShmemHeap *heapPtr);
-
-    // __setitem__ (only for assign)
     ShmemObj *get(KeyType key) const;
 
+    // __setitem__ (only for assign)
+    template <typename T>
+    void set(const T &value, KeyType key, ShmemHeap *heapPtr);
+    
     // __delitem__
     void del(KeyType key, ShmemHeap *heapPtr);
 
@@ -120,7 +120,7 @@ public:
     KeyType key(const T &value) const;
 
     // __str__
-    std::string toString(int indent = 0, int maxElements = 4);
+    std::string toString(int indent = 0, int maxElements = -1) const;
 
     // Dict interface
 
@@ -137,6 +137,31 @@ public:
     // Aliases
     template <typename T>
     T operator[](int index) const; // get alias
+
+    // Arithmetic Interface
+    template <typename T>
+    bool operator==(const T &val) const
+    {
+        if constexpr (isObjPtr<T>::value)
+        {
+            if (val->type != this->type)
+                return false;
+            // Ensure T = const ShmemDict*
+
+            if (this->size != val->size)
+                return false;
+
+            return this->toString() == reinterpret_cast<const ShmemDict *>(val)->toString();
+        }
+        else if constexpr (isMap<T>::value)
+        {
+            return this->operator T == val;
+        }
+        else
+        {
+            throw std::runtime_error("Comparison of " + typeNames.at(this->type) + " with " + typeName<T>() + " is not allowed");
+        }
+    }
 };
 
 // Include the template implementation file

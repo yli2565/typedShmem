@@ -66,10 +66,12 @@ TEST_F(ShmemPrimitiveTest, BasicAssignmentAndMemoryUsage)
 
 TEST_F(ShmemPrimitiveTest, SetAndGetElement)
 {
+    // Vector
     acc = std::vector<float>(10, 1);
     acc[0] = 's';
     EXPECT_EQ(acc[0], 's');
     acc[1] = double(11);
+
     EXPECT_EQ(acc[1], 11);
     acc[2] = 12;
     EXPECT_EQ(acc[2], 12);
@@ -78,6 +80,10 @@ TEST_F(ShmemPrimitiveTest, SetAndGetElement)
     EXPECT_ANY_THROW(acc[10] = "s");
 
     EXPECT_ANY_THROW(acc[10] = std::vector<int>(10, 1));
+
+    // String 
+    acc = "string";
+    EXPECT_EQ(acc, "string");
 }
 
 TEST_F(ShmemPrimitiveTest, Find)
@@ -85,6 +91,6 @@ TEST_F(ShmemPrimitiveTest, Find)
     acc = std::vector<float>(10, 1);
     acc[0] = 's';
 
-    EXPECT_EQ(acc.contains('s'), 12);
+    EXPECT_EQ(acc.contains('s'), true);
 
 }

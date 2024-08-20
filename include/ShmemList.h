@@ -92,7 +92,7 @@ public:
     int index(T value, int start = 0, int end = -1) const;
 
     // __str__
-    std::string toString(int indent = 0, int maxElements = 4) const;
+    std::string toString(int indent = 0, int maxElements = -1) const;
 
     // List interface
 
@@ -116,7 +116,7 @@ public:
 
     // __pop__
     template <typename T>
-    T pop(int index = -1, ShmemHeap *heapPtr);
+    T pop(int index, ShmemHeap *heapPtr);
 
     // __clear__
     ShmemList *clear(ShmemHeap *heapPtr);
@@ -124,6 +124,10 @@ public:
     // Aliases
     template <typename T>
     T operator[](int index) const; // get alias
+
+    // Arithmetic
+    template <typename T>
+    bool operator==(const T &val) const;
 };
 
 // Include the template implementation file

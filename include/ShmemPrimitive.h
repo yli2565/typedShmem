@@ -25,7 +25,7 @@ protected:
 
     inline const Byte *getBytePtr() const
     {
-        return getBytePtr();
+        return const_cast<ShmemPrimitive_ *>(this)->getBytePtr();
     }
 
     int resolveIndex(int index) const;
@@ -78,7 +78,7 @@ public:
     int index(T value) const;
 
     // __str__
-    std::string toString(int indent = 0, int maxElements = 4) const;
+    std::string toString(int indent = 0, int maxElements = -1) const;
 
     std::string elementToString(int index) const;
 
@@ -86,37 +86,10 @@ public:
     template <typename T>
     operator T() const;
 
-    // Arithmetic interface
-};
+    // Arithmetic operators
+    template <typename T>
+    bool operator==(const T &val) const;
 
-template <typename T>
-class ShmemPrimitive : public ShmemPrimitive_
-{
-    static_assert(isPrimitive<T>() && !isVector<T>::value, "ShmemPrimitive can only be instantiated with int, double, or float.");
-
-    friend class ShmemAccessor;
-
-protected:
-    static size_t makeSpace(size_t size, ShmemHeap *heapPtr);
-
-    const T *getPtr() const;
-
-public:
-    using ShmemPrimitive_::construct;
-
-    operator T() const;
-
-    operator std::vector<T>() const;
-
-    operator std::string() const;
-
-    T get(int index) const;
-
-    T operator[](int index) const;
-
-    void set(T value, int index);
-
-    int contains(T value) const;
 };
 
 template <typename T>
@@ -142,37 +115,38 @@ protected:
 public:
     using ShmemPrimitive_::construct;
 
-    // Calls base class template function with T
+    // __getitem__
     T get(int index) const
     {
         return ShmemPrimitive_::get<T>(index);
     }
 
-    // Operator[] calls base class template function with T
     T operator[](int index) const
     {
         return ShmemPrimitive_::operator[]<T>(index);
     }
 
-    // Calls base class template function with T
+    // __setitem__
     void set(T value, int index)
     {
         ShmemPrimitive_::set<T>(value, index);
     }
 
-    // Calls base class template function with T
+    // __delitem__
+
+    // __contains__
     int contains(T value) const
     {
         return ShmemPrimitive_::contains<T>(value);
     }
 
-    // Calls base class template function with T
+    // __index__
     int index(T value) const
     {
         return ShmemPrimitive_::index<T>(value);
     }
 
-    // Conversion operators
+    // Converters
     operator T() const
     {
         return this->ShmemPrimitive_::operator T();
@@ -187,8 +161,6 @@ public:
     {
         return this->ShmemPrimitive_::operator std::string();
     }
-
-    // Additional interface that could be provided by ShmemPrimitive
 };
 
 #include "ShmemObj.tcc"

@@ -14,8 +14,10 @@ int ShmemPrimitive_::resolveIndex(int index) const
 }
 
 // __str__
-inline std::string ShmemPrimitive_::toString(int indent = 0, int maxElements = 4) const
+std::string ShmemPrimitive_::toString(int indent, int maxElements) const
 {
+    maxElements = maxElements > 0 ? maxElements : this->size;
+
     std::string result;
     result.reserve(40);
     result.append("[P:").append(typeNames.at(this->type)).append(":").append(std::to_string(this->size)).append("]");
@@ -49,7 +51,7 @@ inline std::string ShmemPrimitive_::toString(int indent = 0, int maxElements = 4
     return result;
 }
 
-inline std::string ShmemPrimitive_::elementToString(int index) const
+std::string ShmemPrimitive_::elementToString(int index) const
 {
 #define ELEMENT_TO_STRING(TYPE) \
     return std::to_string(reinterpret_cast<const TYPE *>(this->getBytePtr())[index]);
@@ -77,18 +79,9 @@ size_t ShmemPrimitive_::construct(const char *str, ShmemHeap *heapPtr)
     return offset;
 }
 
-// Type (Special interface)
-int ShmemPrimitive_::typeId() const
-{
-    return this->type;
-}
-std::string ShmemPrimitive_::typeStr() const
-{
-    return typeNames.at(this->type);
-}
-
 // __len__
 size_t ShmemPrimitive_::len() const
 {
     return this->size;
 }
+

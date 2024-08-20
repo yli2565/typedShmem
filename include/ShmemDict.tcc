@@ -29,11 +29,11 @@ SHMEM_DICT_CONSTRUCT(KeyType)
 
 #undef SHMEM_DICT_CONSTRUCT
 
-// set's implementation is in ShmemDict.tcc
+// __setitem__
 template <typename T>
-inline void ShmemDict::set(KeyType key, const T &value, ShmemHeap *heapPtr)
+inline void ShmemDict::set(const T &value, KeyType key, ShmemHeap *heapPtr)
 {
-    insert(key, value, heapPtr);
+    insert(key, reinterpret_cast<ShmemObj *>(heapPtr->heapHead() + ShmemObj::construct(value, heapPtr)), heapPtr);
 }
 
 template <typename T>
@@ -56,7 +56,8 @@ ShmemDictNode *ShmemDict::searchKeyHelper(ShmemDictNode *node, const T &value)
         return right;
     return nullptr;
 }
-// key's implementation is in ShmemDict.tcc
+
+// __keys__
 template <typename T>
 KeyType ShmemDict::key(const T &value) const
 {
@@ -64,11 +65,11 @@ KeyType ShmemDict::key(const T &value) const
     return target->keyVal();
 }
 
-// operator[]'s implementation is in ShmemDict.tcc
+// __getitem__ alias
 template <typename T>
 T ShmemDict::operator[](int index) const
 {
-    // Function implementation
+    return get<T>(index);
 }
 
 #endif // SHMEM_DICT_TCC

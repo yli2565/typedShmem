@@ -142,7 +142,7 @@ public:
                 static_cast<ShmemPrimitive_ *>(obj)->set(val, primitiveIndex);
             else if (insertNewKey)
             {
-                static_cast<ShmemDict *>(obj)->insert(path[resolvedDepth], val, this->heapPtr);
+                static_cast<ShmemDict *>(obj)->set(val, path[resolvedDepth], this->heapPtr);
             }
             else
                 throw std::runtime_error("Code should not reach here");
@@ -168,11 +168,11 @@ public:
                 }
                 else if (prevType == List)
                 {
-                    static_cast<ShmemList *>(prev)->assign(std::get<int>(path.back()), val, this->heapPtr);
+                    static_cast<ShmemList *>(prev)->set(val, std::get<int>(path.back()), this->heapPtr);
                 }
                 else if (prevType == Dict)
                 {
-                    static_cast<ShmemDict *>(prev)->insert(path[resolvedDepth], val, this->heapPtr);
+                    static_cast<ShmemDict *>(prev)->set(val, path[resolvedDepth], this->heapPtr);
                 }
                 else
                 {
@@ -228,7 +228,7 @@ public:
     int key(const T &) const;
 
     // __str__
-    std::string toString(int maxElements = 4) const;
+    std::string toString(int maxElements = -1) const;
 
     // Converters
     template <typename T>
@@ -255,12 +255,12 @@ public:
                 }
                 else
                 {
-                    throw std::runtime_error("Cannot index <string> on primitive array");
+                    throw std::runtime_error("Cannot index string: " + std::get<std::string>(path[resolvedDepth]) + " on primitive array");
                 }
             }
             else
             {
-                throw std::runtime_error("Cannot index <remaining index> on primitive object");
+                throw std::runtime_error("Cannot index " + pathToString(path.data() + (resolvedDepth - 1), path.size() - (resolvedDepth - 1)) + " on primitive object");
             }
         }
 
@@ -291,40 +291,54 @@ public:
         }
     }
 
-    // Arithmetic Interface
-
     template <typename T>
     bool operator==(const T &val) const
     {
-        T thisVal = this->operator T();
-        if constexpr (isPrimitive<T>())
+        ShmemObj *obj, *prev;
+        int resolvedDepth;
+        resolvePath(prev, obj, resolvedDepth);
+
+        int primitiveIndex;
+        bool usePrimitiveIndex = false;
+
+        // Deal with unresolved path
+        if (resolvedDepth != path.size())
         {
-            if constexpr (isVector<T>::value)
+            // There are some path not resolved
+            // The only case allowed is that the last element is a primitive, and the last path is an index on the primitive array
+            if (resolvedDepth == path.size() - 1)
             {
-                if (val.size() != thisVal.size())
-                    return false;
-                for (size_t i = 0; i < val.size(); i++)
+                if (std::holds_alternative<int>(path[resolvedDepth]))
                 {
-                    if (val[i] != thisVal[i])
-                    {
-                        return false;
-                    }
+                    primitiveIndex = std::get<int>(path[resolvedDepth]);
+                    usePrimitiveIndex = true;
                 }
-                return true;
+                else
+                {
+                    throw std::runtime_error("Cannot index string: " + std::get<std::string>(path[resolvedDepth]) + " on primitive array");
+                }
             }
             else
             {
-                return val == thisVal;
+                throw std::runtime_error("Cannot index " + pathToString(path.data() + (resolvedDepth - 1), path.size() - (resolvedDepth - 1)) + " on primitive object");
             }
         }
-        else if constexpr (isString<T>())
-        {
-            return val == thisVal;
+
+        if (usePrimitiveIndex)
+        { // The result is a primitive
+            if constexpr (isPrimitive<T>() && !isVector<T>::value)
+                return reinterpret_cast<ShmemPrimitive_ *>(obj)->operator[]<T>(primitiveIndex) == val;
+            else
+                throw std::runtime_error("Cannot compare primitive types to a non-primitive value");
         }
         else
-        {
-            throw std::runtime_error("Nested type equal not implemented yet");
-        }
+            return obj->operator==(val);
+    }
+
+    template <typename T>
+    bool operator!=(const T &val) const
+    {
+        return !this->operator==(val);
     }
 };
 

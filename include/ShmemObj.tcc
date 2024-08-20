@@ -32,6 +32,41 @@ size_t ShmemObj::construct(const T &value, ShmemHeap *heapPtr)
     }
 }
 
+template <typename T>
+bool ShmemObj::operator==(const T &val) const
+{
+    if constexpr (isObjPtr<T>::value)
+    {
+        if (isPrimitive(this->type) && isPrimitive(val->type))
+            return reinterpret_cast<const ShmemPrimitive_ *>(this)->operator==(val);
+        else if (this->type == List && val->type == List)
+            return reinterpret_cast<const ShmemList *>(this)->operator==(val);
+        else if (this->type == Dict && val->type == Dict)
+            return reinterpret_cast<const ShmemDict *>(this)->operator==(val);
+        else
+            throw std::runtime_error("Unsupported type comparison: this->type = " + std::to_string(this->type) + "; val->type = " + std::to_string(val->type));
+    }
+    else if constexpr (isPrimitive<T>())
+    {
+        return reinterpret_cast<const ShmemPrimitive_ *>(this)->operator==(val);
+    }
+    else if constexpr (isString<T>()){
+        return reinterpret_cast<const ShmemPrimitive_ *>(this)->operator==(val);
+    }
+    else if constexpr (isVector<T>::value)
+    { // Already exclude the primitive vector case
+        return reinterpret_cast<const ShmemList *>(this)->operator==(val);
+    }
+    else if constexpr (isMap<T>::value)
+    {
+        return reinterpret_cast<const ShmemDict *>(this)->operator==(val);
+    }
+    else
+    {
+        throw std::runtime_error("Comparison of " + typeNames.at(this->type) + " with " + typeName<T>() + " is not allowed");
+    }
+}
+
 // inline part
 
 inline size_t ShmemObj::capacity() const

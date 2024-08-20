@@ -397,11 +397,13 @@ void ShmemDict::deconstruct(size_t offset, ShmemHeap *heapPtr)
     heapPtr->shfree(reinterpret_cast<Byte *>(ptr));
 }
 
+// __len__
 size_t ShmemDict::len() const
 {
     return this->size;
 }
 
+// __getitem__
 ShmemObj *ShmemDict::get(KeyType key) const
 {
     const ShmemDictNode *result = search(key);
@@ -410,6 +412,9 @@ ShmemObj *ShmemDict::get(KeyType key) const
     return result->data();
 }
 
+// __setitem__ implemented in .tcc, alias to insert()
+
+// __delitem__
 void ShmemDict::del(KeyType key, ShmemHeap *heapPtr)
 {
     ShmemDictNode *nodeToDelete = search(key);
@@ -464,6 +469,7 @@ void ShmemDict::del(KeyType key, ShmemHeap *heapPtr)
     }
 }
 
+// __contains__
 bool ShmemDict::contains(KeyType key) const
 {
     const ShmemDictNode *result = search(key);
@@ -472,7 +478,8 @@ bool ShmemDict::contains(KeyType key) const
     return true;
 }
 
-std::string ShmemDict::toString(int indent, int maxElements)
+// __str__
+std::string ShmemDict::toString(int indent, int maxElements) const
 {
     std::ostringstream resultStream;
     toStringHelper(this->root(), indent, resultStream, 0, maxElements);
@@ -487,6 +494,7 @@ std::string ShmemDict::toString(int indent, int maxElements)
     }
 }
 
+// __keys__
 std::vector<KeyType> ShmemDict::keys(bool *allInt_, bool *allString_) const
 {
     bool allInt = true;
