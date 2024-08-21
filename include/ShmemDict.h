@@ -8,8 +8,6 @@
 #include <map>
 #include <stdexcept>
 
-using KeyType = std::variant<int, std::string>;
-
 int hashIntOrString(KeyType key);
 
 const static KeyType NILKey = "NILKey:js82nfd-";
@@ -70,6 +68,8 @@ protected:
     void fixInsert(ShmemDictNode *nodeK);
     void transplant(ShmemDictNode *nodeU, ShmemDictNode *nodeV);
     ShmemDictNode *minimum(ShmemDictNode *node) const;
+    ShmemDictNode *maximum(ShmemDictNode *node) const;
+    ShmemDictNode *findSuccessor(const ShmemDictNode *node) const;
     void fixDelete(ShmemDictNode *nodeX);
 
     void insert(KeyType key, ShmemObj *data, ShmemHeap *heapPtr);
@@ -97,6 +97,24 @@ public:
     template <typename T>
     static size_t construct(std::map<KeyType, T> map, ShmemHeap *heapPtr);
 
+    // template <typename T>
+    // static size_t construct(std::initializer_list<std::pair<int, T>> map, ShmemHeap *heapPtr)
+    // {
+    //     return ShmemDict::construct(std::map<int, T>(map), heapPtr);
+    // }
+
+    // template <typename T>
+    // static size_t construct(std::initializer_list<std::pair<std::string, T>> map, ShmemHeap *heapPtr)
+    // {
+    //     return ShmemDict::construct(std::map<std::string, T>(map), heapPtr);
+    // }
+
+    // template <typename T>
+    // static size_t construct(std::initializer_list<std::pair<KeyType, T>> map, ShmemHeap *heapPtr)
+    // {
+    //     return ShmemDict::construct(std::map<KeyType, T>(map), heapPtr);
+    // }
+
     static void deconstruct(size_t offset, ShmemHeap *heapPtr);
 
     // __len__
@@ -108,7 +126,7 @@ public:
     // __setitem__ (only for assign)
     template <typename T>
     void set(const T &value, KeyType key, ShmemHeap *heapPtr);
-    
+
     // __delitem__
     void del(KeyType key, ShmemHeap *heapPtr);
 
@@ -130,38 +148,25 @@ public:
     // Not implemented in this way, as providing direct ptr to ShmemObj is dangerous
     // We should provide a list of keys and let ShmemAccessor generate a key based ShmemAccessor List
 
-    // Arithmetic Interface
+    // Iterator Interface
+    KeyType beginIdx() const;
+    KeyType endIdx() const;
+    KeyType nextIdx(KeyType index) const;
+
+    // Converters
     template <typename T>
-    T get(KeyType key) const;
+    operator T() const;
 
     // Aliases
     template <typename T>
     T operator[](int index) const; // get alias
 
+    template <typename T>
+    T get(KeyType key) const; // get + convert alias
+
     // Arithmetic Interface
     template <typename T>
-    bool operator==(const T &val) const
-    {
-        if constexpr (isObjPtr<T>::value)
-        {
-            if (val->type != this->type)
-                return false;
-            // Ensure T = const ShmemDict*
-
-            if (this->size != val->size)
-                return false;
-
-            return this->toString() == reinterpret_cast<const ShmemDict *>(val)->toString();
-        }
-        else if constexpr (isMap<T>::value)
-        {
-            return this->operator T == val;
-        }
-        else
-        {
-            throw std::runtime_error("Comparison of " + typeNames.at(this->type) + " with " + typeName<T>() + " is not allowed");
-        }
-    }
+    bool operator==(const T &val) const;
 };
 
 // Include the template implementation file

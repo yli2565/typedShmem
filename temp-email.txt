@@ -33,3 +33,11 @@ resulting reward. I think, even in exploration, in similar state space, the acti
 
 So, your paper shows we can define subtask the is learned
 
+
+Yes, I will apply in 2025. For the time being, I'm sure doing research interest me much more than working in a company, but
+One of the main concern is that, if I apply now, I might choose a direction that that I'm not interested in and will work on for the following two or even four years(If I apply for doc).
+I still planned to graduate in 2025 Summer, but I will stay in UW for another year in some way, probability OPT. I also want your advise on if there's any lab members working in this lab after they graduate? 
+
+I wanted to inform you that I plan to apply in 2025. Currently, I found doing research more interesting than working in a company. However, I have some concerns about choosing a research group without knowing my own interest, as I may end up working in an area I’m not fully passionate about for the next two to four years, especially if I pursue a Ph.D.
+
+In a short term, I still plan to graduate in Summer 2025, but I intend to stay at UW for another year, possibly through OPT. I would appreciate your advice on whether any lab members have continued working in this lab after graduation.

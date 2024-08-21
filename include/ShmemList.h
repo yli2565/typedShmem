@@ -121,6 +121,13 @@ public:
     // __clear__
     ShmemList *clear(ShmemHeap *heapPtr);
 
+    // Iterator related
+    int nextIdx(int index) const;
+    
+    // Converters
+    template <typename T>
+    operator T() const;
+
     // Aliases
     template <typename T>
     T operator[](int index) const; // get alias

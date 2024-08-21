@@ -9,6 +9,7 @@
 #include <type_traits>
 #include <unordered_map>
 #include <cxxabi.h>
+#include <variant>
 
 // Macro for simplicity
 #define SWITCH_PRIMITIVE_TYPES(SWITCH_TARGET, OPERATION_FUNC) \
@@ -144,6 +145,16 @@ struct isMap<std::map<Key, T>> : std::true_type
 };
 
 template <typename T>
+struct isPair : std::false_type
+{
+};
+
+template <typename Key, typename T>
+struct isPair<std::pair<Key, T>> : std::true_type
+{
+};
+
+template <typename T>
 struct unwrapVectorType
 {
 };
@@ -167,6 +178,29 @@ struct unwrapMapType<std::map<Key, T>>
 };
 
 template <typename T>
+struct unwrapInitializerListType
+{
+};
+
+template <typename T>
+struct unwrapInitializerListType<std::initializer_list<T>>
+{
+    using type = T;
+};
+
+template <typename T>
+struct unwrapPairType
+{
+};
+
+template <typename Key, typename T>
+struct unwrapPairType<std::pair<Key, T>>
+{
+    using keyType = Key;
+    using type = T;
+};
+
+template <typename T>
 constexpr std::string typeName()
 {
     return std::string(abi::__cxa_demangle(typeid(T).name(), nullptr, nullptr, nullptr));
@@ -175,6 +209,21 @@ constexpr std::string typeName()
 template <typename T>
 constexpr bool isPrimitive()
 {
+    if constexpr (isVector<T>::value)
+    {
+        using vecDataType = typename unwrapVectorType<T>::type;
+        return (isPrimitive<vecDataType>() && !isVector<vecDataType>::value);
+    }
+    return TypeEncoding<T>::value < PrimitiveThreshold && TypeEncoding<T>::value >= 0;
+}
+
+template <typename T>
+constexpr bool isPrimitiveBaseCase()
+{
+    if constexpr (isVector<T>::value)
+    {
+        return false;
+    }
     return TypeEncoding<T>::value < PrimitiveThreshold && TypeEncoding<T>::value >= 0;
 }
 
@@ -184,12 +233,38 @@ constexpr bool isString()
     return TypeEncoding<T>::value == String;
 }
 
+template <typename T>
+constexpr bool isVectorInitializerList()
+{
+    using vecDataType = typename unwrapInitializerListType<T>::type;
+    if constexpr (isPair<vecDataType>::value)
+    {
+        return false;
+    }
+    return true;
+}
+
+template <typename T>
+constexpr bool isMapInitializerList()
+{
+    using mapPairType = typename unwrapInitializerListType<T>::type;
+    if constexpr (isPair<mapPairType>::value)
+    {
+        using keyType = typename mapPairType::first_type;
+        if constexpr (std::is_same_v<keyType, std::variant<int, std::string>> || isString<keyType>() || std::is_convertible_v<keyType, int>)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool isPrimitive(int type);
 
 template <typename T>
 struct TypeEncoding<std::vector<T>>
 {
-    static constexpr int value = isPrimitive<T>() ? TypeEncoding<T>::value : List;
+    static constexpr int value = isPrimitiveBaseCase<T>() ? TypeEncoding<T>::value : List;
 };
 
 template <typename Key, typename T>

@@ -7,6 +7,7 @@
 template <typename T>
 inline size_t ShmemPrimitive_::makeSpace(size_t size, ShmemHeap *heapPtr)
 {
+    // Alignment will be automatically done
     size_t offset = heapPtr->shmalloc(sizeof(ShmemPrimitive_) + size * sizeof(T));
     ShmemObj *ptr = reinterpret_cast<ShmemObj *>(heapPtr->heapHead() + offset);
     ptr->type = TypeEncoding<T>::value;
@@ -51,6 +52,11 @@ inline size_t ShmemPrimitive_::construct(const T &val, ShmemHeap *heapPtr)
         throw std::runtime_error("Cannot convert non-primitive object to primitive");
     }
 }
+
+// template <typename T>
+// inline size_t ShmemPrimitive_::construct(const std::initializer_list<T> &value, ShmemHeap *heapPtr){
+//     return ShmemPrimitive_::construct(std::vector<T>(value), heapPtr);
+// }
 
 // Collection interface
 
@@ -99,7 +105,7 @@ inline T ShmemPrimitive_::get(int index) const
 
         if constexpr (std::is_same_v<T, std::string> || std::is_same_v<T, const std::string>)
         {
-            return std::string(reinterpret_cast<const char *>(this->getBytePtr()), this->size-1);
+            return std::string(reinterpret_cast<const char *>(this->getBytePtr()), this->size - 1);
         }
         else if constexpr (std::is_same_v<T, char *> || std::is_same_v<T, const char *>)
         { // TODO: Should I just allocate some mem and return it?
@@ -149,7 +155,6 @@ inline void ShmemPrimitive_::set(const T &value, int index)
 }
 
 // __delitem__
-
 inline void ShmemPrimitive_::del(int index)
 {
     index = this->resolveIndex(index);
@@ -224,7 +229,27 @@ inline int ShmemPrimitive_::index(T value) const
 template <typename T>
 inline ShmemPrimitive_::operator T() const
 {
-    return this->ShmemPrimitive_::get<T>(0);
+    if constexpr (isPrimitive<T>())
+    {
+        if constexpr (isVector<T>::value)
+        {
+            return this->ShmemPrimitive_::get<T>(0);
+        }
+        else
+        {
+            if (this->size != 1)
+                throw std::runtime_error("Cannot convert an array to a single value");
+            return this->ShmemPrimitive_::get<T>(0);
+        }
+    }
+    if constexpr (isString<T>())
+    {
+        return this->ShmemPrimitive_::get<T>(0);
+    }
+    else
+    {
+        throw std::runtime_error("Cannot convert " + typeNames.at(this->type) + " to " + typeName<T>());
+    }
 }
 
 // Arithmetic Interface
@@ -279,11 +304,9 @@ inline bool ShmemPrimitive_::operator==(const T &val) const
         }
         else
         {
-            if (this->type != TypeEncoding<T>::value)
-                return false;
             if (this->size != 1)
                 return false;
-            return this->get<T>(0) == val;
+            return this->operator T() == val;
         }
     }
     else

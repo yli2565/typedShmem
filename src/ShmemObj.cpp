@@ -37,6 +37,7 @@ void ShmemObj::deconstruct(size_t offset, ShmemHeap *heapPtr)
     }
 }
 
+// __str__
 std::string ShmemObj::toString(ShmemObj *obj, int indent, int maxElements)
 {
     if (obj == nullptr)
@@ -62,6 +63,57 @@ std::string ShmemObj::toString(ShmemObj *obj, int indent, int maxElements)
         throw std::runtime_error("Encounter unknown type in deconstruction");
     }
 }
+
+// Iterator
+KeyType ShmemObj::beginIdx() const
+{
+    if (isPrimitive(this->type))
+        return 0;
+    else if (this->type == List)
+        return 0;
+    else if (this->type == Dict)
+        return static_cast<const ShmemDict *>(this)->beginIdx();
+    else
+        throw std::runtime_error("Unknown type");
+}
+
+KeyType ShmemObj::endIdx() const
+{
+    if (isPrimitive(this->type))
+        return static_cast<int>(static_cast<const ShmemPrimitive_ *>(this)->len());
+    else if (this->type == List)
+        return static_cast<int>(static_cast<const ShmemList *>(this)->len());
+    else if (this->type == Dict)
+        return static_cast<const ShmemDict *>(this)->endIdx();
+    else
+        throw std::runtime_error("Unknown type");
+}
+
+KeyType ShmemObj::nextIdx(KeyType index) const
+{
+    if (isPrimitive(this->type))
+    {
+        if (std::holds_alternative<std::string>(index))
+            throw std::runtime_error("Cannot use string as index on Primitive Object");
+        return static_cast<const ShmemPrimitive_ *>(this)->nextIdx(std::get<int>(index));
+    }
+    else if (this->type == List)
+    {
+        if (std::holds_alternative<std::string>(index))
+            throw std::runtime_error("Cannot use string as index on List Object");
+        return static_cast<const ShmemList *>(this)->nextIdx(std::get<int>(index));
+    }
+    else if (this->type == Dict)
+    {
+        return static_cast<const ShmemDict *>(this)->nextIdx(index);
+    }
+    else
+    {
+        throw std::runtime_error("Unknown type");
+    }
+}
+
+// Convertors implemented in .tcc
 
 // Arithmetic operators
 bool ShmemObj::operator==(const char *val) const

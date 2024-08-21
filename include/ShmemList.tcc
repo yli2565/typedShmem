@@ -41,8 +41,7 @@ inline size_t ShmemList::potentialCapacity() const
 template <typename T>
 size_t ShmemList::construct(std::vector<T> vec, ShmemHeap *heapPtr)
 {
-    using vecDataType = typename unwrapVectorType<T>::type;
-    if constexpr (isPrimitive<vecDataType>() && !isVector<vecDataType>::value)
+    if constexpr (isPrimitive<T>() && !isVector<T>::value)
     {
         throw std::runtime_error("Not a good idea to construct a list for an array of primitives");
     }
@@ -200,10 +199,41 @@ T ShmemList::pop(int index, ShmemHeap *heapPtr)
 
     return result;
 }
+
+// Converters
+template <typename T>
+ShmemList::operator T() const
+{
+    ptrdiff_t *basePtr = relativeOffsetPtr();
+    if constexpr (isPrimitive<T>())
+    {
+        throw std::runtime_error("Cannot convert list to primitive");
+        // TODO: in special case this should be enabled, (all elements in the list have the same type and size=1)
+    }
+    else if constexpr (isVector<T>::value)
+    {
+        using vecDataType = typename unwrapVectorType<T>::type;
+        T result;
+        result.reserve(this->listSize);
+
+        for (int i = 0; i < this->listSize; i++)
+        {
+            ShmemObj *target = const_cast<ShmemObj *>(reinterpret_cast<const ShmemObj *>(reinterpret_cast<const Byte *>(this) + basePtr[i]));
+            result.push_back(target->operator vecDataType());
+        }
+
+        return result;
+    }
+    else
+    {
+        throw std::runtime_error("Cannot convert the list to " + typeName<T>() + ". List: " + this->toString());
+    }
+}
+
 template <typename T>
 T ShmemList::operator[](int index) const
 {
-    // Implementation here
+    return this->get<T>(index);
 }
 
 // Arithmetic

@@ -20,7 +20,7 @@ protected:
 
     inline Byte *getBytePtr()
     {
-        return reinterpret_cast<Byte *>(reinterpret_cast<Byte *>(this) + sizeof(ShmemObj));
+        return reinterpret_cast<Byte *>(reinterpret_cast<Byte *>(this) + sizeof(ShmemPrimitive_));
     }
 
     inline const Byte *getBytePtr() const
@@ -34,6 +34,9 @@ public:
     // Constructors
     template <typename T>
     static size_t construct(const T &val, ShmemHeap *heapPtr);
+
+    template <typename T>
+    size_t construct(const std::initializer_list<T> &value, ShmemHeap *heapPtr);
 
     static size_t construct(const char *str, ShmemHeap *heapPtr);
 
@@ -82,6 +85,9 @@ public:
 
     std::string elementToString(int index) const;
 
+    // Iterator related
+    int nextIdx(int index) const;
+
     // Converters
     template <typename T>
     operator T() const;
@@ -89,7 +95,6 @@ public:
     // Arithmetic operators
     template <typename T>
     bool operator==(const T &val) const;
-
 };
 
 template <typename T>

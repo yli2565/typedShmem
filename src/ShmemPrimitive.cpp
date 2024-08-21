@@ -18,9 +18,9 @@ std::string ShmemPrimitive_::toString(int indent, int maxElements) const
 {
     maxElements = maxElements > 0 ? maxElements : this->size;
 
-    std::string result;
+    std::string result(" ", indent);
     result.reserve(40);
-    result.append("[P:").append(typeNames.at(this->type)).append(":").append(std::to_string(this->size)).append("]");
+    result.append("(P:").append(typeNames.at(this->type)).append(":").append(std::to_string(this->size)).append(")[");
 
     const Byte *ptr = this->getBytePtr();
 
@@ -34,10 +34,14 @@ std::string ShmemPrimitive_::toString(int indent, int maxElements) const
     }
     else
     {
-#define PRINT_OBJ(type)                                                                    \
-    for (int i = 0; i < std::min(this->size, maxElements); i++)                            \
-    {                                                                                      \
-        result.append(" ").append(std::to_string(reinterpret_cast<const type *>(ptr)[i])); \
+#define PRINT_OBJ(type)                                                        \
+    for (int i = 0; i < std::min(this->size, maxElements); i++)                \
+    {                                                                          \
+        result.append(std::to_string(reinterpret_cast<const type *>(ptr)[i])); \
+        if (i < this->size - 1)                                                \
+        {                                                                      \
+            result.append(", ");                                               \
+        }                                                                      \
     }
         SWITCH_PRIMITIVE_TYPES(this->type, PRINT_OBJ)
 
@@ -45,9 +49,11 @@ std::string ShmemPrimitive_::toString(int indent, int maxElements) const
 
         if (this->size > maxElements)
         {
-            result += " ...";
+            result += "...";
         }
     }
+
+    result.append("]");
     return result;
 }
 
@@ -80,8 +86,17 @@ size_t ShmemPrimitive_::construct(const char *str, ShmemHeap *heapPtr)
 }
 
 // __len__
-size_t ShmemPrimitive_::len() const
-{
+size_t ShmemPrimitive_::len() const{
     return this->size;
 }
 
+// Iterator related
+int ShmemPrimitive_::nextIdx(int index) const
+{
+    int resolvedIndex = resolveIndex(index);
+    if (resolvedIndex >= this->size)
+    {
+        throw StopIteration("Primitive array index out of bounds");
+    }
+    return resolvedIndex + 1;
+}

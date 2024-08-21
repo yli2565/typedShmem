@@ -28,10 +28,61 @@ size_t ShmemObj::construct(const T &value, ShmemHeap *heapPtr)
     }
     else
     {
-        throw std::runtime_error("Cannot construct object of type " + std::string(typeid(T).name()));
+        throw std::runtime_error("Cannot construct object of type " + typeName<T>());
     }
 }
 
+// template <typename T>
+// size_t ShmemObj::construct(const std::initializer_list<T> &value, ShmemHeap *heapPtr)
+// {
+//     if constexpr (isVectorInitializerList<std::initializer_list<T>>())
+//     {
+//         if constexpr (isPrimitiveBaseCase<T>())
+//         {
+//             return ShmemPrimitive_::construct(value, heapPtr);
+//         }
+//         else
+//         {
+//             return ShmemList::construct(value, heapPtr);
+//         }
+//     }
+//     if constexpr (isMapInitializerList<std::initializer_list<T>>())
+//     {
+//         return ShmemDict::construct(value, heapPtr);
+//     }
+//     else
+//     {
+//         throw std::runtime_error("Cannot construct object of type " + typeName<T>());
+//     }
+// }
+
+// Converters
+template <typename T>
+ShmemObj::operator T() const
+{
+    if constexpr (isPrimitive<T>())
+    {
+        return ShmemPrimitive_::operator T();
+    }
+    else if constexpr (isString<T>())
+    {
+        return ShmemPrimitive_::operator T();
+    }
+    else if constexpr (isVector<T>::value)
+    {
+        return ShmemList::operator T();
+    }
+    else if constexpr (isMap<T>::value)
+    {
+        return ShmemDict::operator T();
+    }
+    else
+    {
+        throw std::runtime_error("Cannot convert " + typeNames.at(this->type) + " to type " + typeName<T>());
+    }
+}
+
+// Arithmetic
 template <typename T>
 bool ShmemObj::operator==(const T &val) const
 {
@@ -50,7 +101,8 @@ bool ShmemObj::operator==(const T &val) const
     {
         return reinterpret_cast<const ShmemPrimitive_ *>(this)->operator==(val);
     }
-    else if constexpr (isString<T>()){
+    else if constexpr (isString<T>())
+    {
         return reinterpret_cast<const ShmemPrimitive_ *>(this)->operator==(val);
     }
     else if constexpr (isVector<T>::value)

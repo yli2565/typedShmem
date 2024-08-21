@@ -62,13 +62,14 @@ size_t ShmemList::construct(size_t capacity, ShmemHeap *heapPtr)
 
 void ShmemList::deconstruct(size_t offset, ShmemHeap *heapPtr)
 {
-    ShmemList *ptr = reinterpret_cast<ShmemList *>(resolveOffset(offset, heapPtr));
     Byte *heapHead = heapPtr->heapHead();
+    ShmemList *ptr = reinterpret_cast<ShmemList *>(heapHead + offset);
     for (int i = 0; i < ptr->size; i++)
     {
         ShmemObj *obj = ptr->getObj(i);
         ShmemObj::deconstruct(reinterpret_cast<Byte *>(obj) - heapHead, heapPtr);
     }
+    heapPtr->shfree(reinterpret_cast<Byte *>(ptr) + ptr->listSpaceOffset);
     heapPtr->shfree(ptr);
 }
 
@@ -102,10 +103,12 @@ void ShmemList::del(int index, ShmemHeap *heapPtr)
 std::string ShmemList::toString(int indent, int maxElements) const
 {
     std::string result;
-    std::string indentStr = std::string(indent, ' ');
+    std::string indentStr(indent, ' ');
+
+    result.append(indentStr).append("(L:").append(std::to_string(this->listSize)).append(")");
 
     maxElements = maxElements > 0 ? maxElements : this->listSize;
-    
+
     result += "[\n";
     for (int i = 0; i < std::min(static_cast<int>(this->listSize), maxElements); i++)
     {
@@ -141,6 +144,16 @@ ShmemList *ShmemList::remove(int index, ShmemHeap *heapPtr)
     return this;
 }
 
+// Iterator related
+int ShmemList::nextIdx(int index) const
+{
+    int resolvedIndex = resolveIndex(index);
+    if (resolvedIndex >= this->size)
+    {
+        throw StopIteration("List index out of bounds");
+    }
+    return (resolvedIndex + 1);
+}
 // pop() implemented in tcc
 
 ShmemList *ShmemList::clear(ShmemHeap *heapPtr)

@@ -165,6 +165,32 @@ ShmemDictNode *ShmemDict::minimum(ShmemDictNode *node) const
     return node;
 }
 
+ShmemDictNode *ShmemDict::maximum(ShmemDictNode *node) const
+{
+    while (node->right() != NIL())
+    {
+        node = node->right();
+    }
+    return node;
+}
+ShmemDictNode *ShmemDict::findSuccessor(const ShmemDictNode *node) const
+{
+    // If the right subtree is not null, the successor is the minimum key in the right subtree
+    if (node->right() != NIL())
+    {
+        return minimum(node->right());
+    }
+
+    // If there is no right subtree, the successor is an ancestor
+    ShmemDictNode *p = node->parent();
+    while (p != nullptr && node == p->right())
+    {
+        node = p;
+        p = p->parent();
+    }
+    return p;
+}
+
 void ShmemDict::fixDelete(ShmemDictNode *nodeX)
 {
     while (nodeX != root() && !nodeX->isRed())
@@ -508,4 +534,25 @@ std::vector<KeyType> ShmemDict::keys(bool *allInt_, bool *allString_) const
         *allString_ = allString;
 
     return result;
+}
+
+// Iterator related
+KeyType ShmemDict::beginIdx() const
+{
+    const ShmemDictNode *min = minimum(this->root());
+    return min->keyVal(); // if NIL, it is the end() iterator, and the whole dict is empty
+}
+KeyType ShmemDict::endIdx() const{
+    return this->NIL()->keyVal();
+}
+
+KeyType ShmemDict::nextIdx(KeyType index) const
+{
+    const ShmemDictNode *node = search(index);
+    if (node == nullptr)
+        throw IndexError("Cannot get next index of a non-existent key");
+    const ShmemDictNode *successor = findSuccessor(node);
+    if (successor == nullptr)
+        throw StopIteration("End of dict");
+    return successor->keyVal();
 }

@@ -9,6 +9,8 @@
 #include <stdexcept>
 #include <functional>
 
+using KeyType = std::variant<int, std::string>;
+
 // Forward declarations
 template <typename T>
 class ShmemPrimitive;
@@ -20,6 +22,12 @@ class IndexError : public std::runtime_error
 {
 public:
     explicit IndexError(const std::string &message) : std::runtime_error(message){};
+};
+
+class StopIteration : public std::runtime_error
+{
+public:
+    explicit StopIteration(const std::string &message) : std::runtime_error(message){};
 };
 
 class ShmemObj
@@ -47,9 +55,22 @@ public:
 
     template <typename T>
     static size_t construct(const T &value, ShmemHeap *heapPtr);
+
+    // template <typename T>
+    // size_t construct(const std::initializer_list<T> &value, ShmemHeap *heapPtr);
+
     static void deconstruct(size_t offset, ShmemHeap *heapPtr);
 
     static std::string toString(ShmemObj *obj, int indent = 0, int maxElements = -1);
+
+    // Iterator related
+    KeyType beginIdx() const;
+    KeyType endIdx() const;
+    KeyType nextIdx(KeyType index) const;
+
+    // Converters
+    template <typename T>
+    operator T() const;
 
     // Arithmetic
     template <typename T>

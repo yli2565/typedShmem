@@ -65,6 +65,16 @@ KeyType ShmemDict::key(const T &value) const
     return target->keyVal();
 }
 
+// Convertors
+template <typename T>
+ShmemDict::operator T() const
+{
+    if (isMap<T>::value){
+        using mapDataType = typename unwrapMapType<T>::type;
+        
+    }
+}
+
 // __getitem__ alias
 template <typename T>
 T ShmemDict::operator[](int index) const
@@ -72,4 +82,27 @@ T ShmemDict::operator[](int index) const
     return get<T>(index);
 }
 
+template <typename T>
+bool ShmemDict::operator==(const T &val) const
+{
+    if constexpr (isObjPtr<T>::value)
+    {
+        if (val->type != this->type)
+            return false;
+        // Ensure T = const ShmemDict*
+
+        if (this->size != val->size)
+            return false;
+
+        return this->toString() == reinterpret_cast<const ShmemDict *>(val)->toString();
+    }
+    else if constexpr (isMap<T>::value)
+    {
+        return this->operator T == val;
+    }
+    else
+    {
+        throw std::runtime_error("Comparison of " + typeNames.at(this->type) + " with " + typeName<T>() + " is not allowed");
+    }
+}
 #endif // SHMEM_DICT_TCC

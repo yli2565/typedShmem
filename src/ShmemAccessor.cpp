@@ -73,22 +73,18 @@ int ShmemAccessor::typeId() const
 
     if (resolvedDepth != path.size())
     {
-        throw std::runtime_error("Cannot resolve " + pathToString(path.data() + (resolvedDepth - 1), path.size() - (resolvedDepth - 1)) + " on object " + ShmemObj::toString(obj));
+        if (resolvedDepth == path.size() - 1 && isPrimitive(obj->type) && std::holds_alternative<int>(path[resolvedDepth]))
+        { // Return the typeId of primitive element
+            return obj->type;
+        }
+        throw std::runtime_error("Cannot resolve " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + ShmemObj::toString(obj));
     }
     return obj->type;
 }
 
 std::string ShmemAccessor::typeStr() const
 {
-    ShmemObj *obj, *prev;
-    int resolvedDepth;
-    resolvePath(prev, obj, resolvedDepth);
-
-    if (resolvedDepth != path.size())
-    {
-        throw std::runtime_error("Cannot resolve " + pathToString(path.data() + (resolvedDepth - 1), path.size() - (resolvedDepth - 1)) + " on object " + ShmemObj::toString(obj));
-    }
-    return typeNames.at(obj->type);
+    return typeNames.at(this->typeId());
 }
 
 // __len__ implementation
@@ -100,6 +96,10 @@ size_t ShmemAccessor::len() const
 
     if (resolvedDepth != path.size())
     {
+        if (resolvedDepth == path.size() - 1 && isPrimitive(obj->type) && std::holds_alternative<int>(path[resolvedDepth]))
+        {
+            throw std::runtime_error("Cannot call len() on primitive element");
+        }
         std::string lastPath = std::holds_alternative<int>(path[resolvedDepth]) ? std::to_string(std::get<int>(path[resolvedDepth])) : std::get<std::string>(path[resolvedDepth]);
         throw std::runtime_error("Cannot resolve " + lastPath + "on object" + ShmemObj::toString(obj));
     }
@@ -123,7 +123,7 @@ size_t ShmemAccessor::len() const
 }
 
 // __delitem__
-void ShmemAccessor::del(int index)
+void ShmemAccessor::del(KeyType index)
 {
     ShmemObj *obj, *prev;
     int resolvedDepth;
@@ -131,17 +131,29 @@ void ShmemAccessor::del(int index)
 
     if (resolvedDepth != path.size())
     {
-        throw std::runtime_error("Cannot resolve " + pathToString(path.data() + (resolvedDepth - 1), path.size() - (resolvedDepth - 1)) + " on object " + ShmemObj::toString(obj));
+        if (resolvedDepth == path.size() - 1 && isPrimitive(obj->type) && std::holds_alternative<int>(path[resolvedDepth]))
+        {
+            throw std::runtime_error("Cannot call del(index) on primitive element, please call it on the primitive array");
+        }
+        throw std::runtime_error("Cannot resolve " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + ShmemObj::toString(obj));
     }
 
     if (isPrimitive(obj->type))
     {
-        static_cast<ShmemPrimitive_ *>(obj)->del(index);
+        if (std::holds_alternative<std::string>(index))
+        {
+            throw std::runtime_error("Cannot use string as index on Primitive Object");
+        }
+        static_cast<ShmemPrimitive_ *>(obj)->del(std::get<int>(index));
         // throw std::runtime_error("Cannot delete from " + typeNames.at(obj->type) + " Primitive Object, as it's immutable");
     }
     else if (obj->type == List)
     {
-        static_cast<ShmemList *>(obj)->del(index, this->heapPtr);
+        if (std::holds_alternative<std::string>(index))
+        {
+            throw std::runtime_error("Cannot use string as index on List Object");
+        }
+        static_cast<ShmemList *>(obj)->del(std::get<int>(index), this->heapPtr);
     }
     else if (obj->type == Dict)
     {
@@ -150,31 +162,6 @@ void ShmemAccessor::del(int index)
     else
     {
         throw std::runtime_error("Cannot delete from " + typeNames.at(obj->type) + " Primitive Object, as it's immutable");
-    }
-}
-
-void ShmemAccessor::del(std::string key)
-{
-    ShmemObj *obj, *prev;
-    int resolvedDepth;
-    resolvePath(prev, obj, resolvedDepth);
-
-    if (isPrimitive(obj->type))
-    {
-        throw std::runtime_error("Cannot use string as index on from Primitive Object");
-        // throw std::runtime_error("Cannot delete from " + typeNames.at(obj->type) + " Primitive Object, as it's immutable");
-    }
-    else if (obj->type == List)
-    {
-        throw std::runtime_error("Cannot use string as index on from List Object");
-    }
-    else if (obj->type == Dict)
-    {
-        static_cast<ShmemDict *>(obj)->del(key, this->heapPtr);
-    }
-    else
-    {
-        throw std::runtime_error("Cannot delete from " + typeNames.at(obj->type) + " Object");
     }
 }
 
