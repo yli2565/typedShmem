@@ -10,6 +10,14 @@
 template <typename T>
 size_t ShmemObj::construct(const T &value, ShmemHeap *heapPtr)
 {
+    if constexpr (std::is_pointer_v<T> || std::is_same_v<T, std::nullptr_t>)
+    {
+        if (value == nullptr)
+        {
+            return NPtr;
+        }
+    }
+
     if constexpr (isPrimitive<T>())
     {
         return ShmemPrimitive_::construct(value, heapPtr);
@@ -32,53 +40,25 @@ size_t ShmemObj::construct(const T &value, ShmemHeap *heapPtr)
     }
 }
 
-// template <typename T>
-// size_t ShmemObj::construct(const std::initializer_list<T> &value, ShmemHeap *heapPtr)
-// {
-//     if constexpr (isVectorInitializerList<std::initializer_list<T>>())
-//     {
-//         if constexpr (isPrimitiveBaseCase<T>())
-//         {
-//             return ShmemPrimitive_::construct(value, heapPtr);
-//         }
-//         else
-//         {
-//             return ShmemList::construct(value, heapPtr);
-//         }
-//     }
-//     if constexpr (isMapInitializerList<std::initializer_list<T>>())
-//     {
-//         return ShmemDict::construct(value, heapPtr);
-//     }
-//     else
-//     {
-//         throw std::runtime_error("Cannot construct object of type " + typeName<T>());
-//     }
-// }
-
 // Converters
 template <typename T>
 ShmemObj::operator T() const
 {
-    if constexpr (isPrimitive<T>())
+    if (isPrimitive(this->type))
     {
-        return ShmemPrimitive_::operator T();
+        return reinterpret_cast<const ShmemPrimitive_ *>(this)->operator T();
     }
-    else if constexpr (isString<T>())
+    else if (this->type == List)
     {
-        return ShmemPrimitive_::operator T();
+        return reinterpret_cast<const ShmemList *>(this)->operator T();
     }
-    else if constexpr (isVector<T>::value)
+    else if (this->type == Dict)
     {
-        return ShmemList::operator T();
-    }
-    else if constexpr (isMap<T>::value)
-    {
-        return ShmemDict::operator T();
+        return reinterpret_cast<const ShmemDict *>(this)->operator T();
     }
     else
     {
-        throw std::runtime_error("Cannot convert " + typeNames.at(this->type) + " to type " + typeName<T>());
+        throw ConversionError("Cannot convert " + typeNames.at(this->type) + "[" + std::to_string(this->size) + "]" + " to " + typeName<T>());
     }
 }
 

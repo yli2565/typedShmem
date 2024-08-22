@@ -69,10 +69,65 @@ KeyType ShmemDict::key(const T &value) const
 template <typename T>
 ShmemDict::operator T() const
 {
-    if (isMap<T>::value){
+    if constexpr (isMap<T>::value)
+    {
         using mapDataType = typename unwrapMapType<T>::type;
-        
+        using keyDataType = typename unwrapMapType<T>::keyType;
+
+        bool allInt = true;
+        bool allString = true;
+        std::map<KeyType, mapDataType> tmpResult;
+        T result;
+        convertHelper(this->root, tmpResult, allInt, allString);
+        if constexpr (std::is_same_v<keyDataType, int>)
+        {
+            if (!allInt)
+                throw std::runtime_error("ShmemDict: All keys must be int");
+            for (auto &[key, val] : tmpResult)
+            {
+                result[std::get<int>(key)] = val;
+            }
+        }
+        else if constexpr (std::is_same_v<keyDataType, std::string>)
+        {
+            if (!allString)
+                throw std::runtime_error("ShmemDict: All keys must be string");
+            for (auto &[key, val] : tmpResult)
+            {
+                result[std::get<std::string>(key)] = val;
+            }
+        }
+        else if constexpr (std::is_same_v<keyDataType, KeyType>)
+        {
+            result = tmpResult;
+        }
+        else
+            throw std::runtime_error("ShmemDict: Unsupported key type");
+
+        return result;
     }
+    else
+    {
+        throw std::runtime_error("ShmemDict: Unsupported type conversion");
+    }
+}
+
+template <typename T>
+void ShmemDict::convertHelper(ShmemDictNode *node, std::map<KeyType, T> &result, bool &allInt, bool &allString) const
+{
+    if (node == this->NIL())
+        return;
+
+    convertHelper(node->left(), result, allInt, allString);
+
+    if (node->keyType() == Int)
+        allString = false;
+    else
+        allInt = false;
+
+    result[node->keyVal()] = node->data()->operator T();
+
+    convertHelper(node->right(), result, allInt, allString);
 }
 
 // __getitem__ alias

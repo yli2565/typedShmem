@@ -35,9 +35,6 @@ public:
     template <typename T>
     static size_t construct(const T &val, ShmemHeap *heapPtr);
 
-    template <typename T>
-    size_t construct(const std::initializer_list<T> &value, ShmemHeap *heapPtr);
-
     static size_t construct(const char *str, ShmemHeap *heapPtr);
 
     static size_t construct(const std::string str, ShmemHeap *heapPtr);

@@ -18,7 +18,7 @@ std::string ShmemPrimitive_::toString(int indent, int maxElements) const
 {
     maxElements = maxElements > 0 ? maxElements : this->size;
 
-    std::string result(" ", indent);
+    std::string result(indent, ' ');
     result.reserve(40);
     result.append("(P:").append(typeNames.at(this->type)).append(":").append(std::to_string(this->size)).append(")[");
 
@@ -26,7 +26,7 @@ std::string ShmemPrimitive_::toString(int indent, int maxElements) const
 
     if (this->type == Char)
     { // Handle char as a special case, as it's likely a character instead of a 1 byte integer
-        result.append(" ").append(reinterpret_cast<const char *>(this->getBytePtr()), maxElements);
+        result.append(reinterpret_cast<const char *>(this->getBytePtr()), maxElements);
         if (this->size - 1 > maxElements)
         {
             result += "...";
@@ -86,7 +86,8 @@ size_t ShmemPrimitive_::construct(const char *str, ShmemHeap *heapPtr)
 }
 
 // __len__
-size_t ShmemPrimitive_::len() const{
+size_t ShmemPrimitive_::len() const
+{
     return this->size;
 }
 

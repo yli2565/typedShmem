@@ -84,6 +84,8 @@ protected:
     template <typename T>
     ShmemDictNode *searchKeyHelper(ShmemDictNode *node, const T &value);
     void keysHelper(const ShmemDictNode *node, std::vector<KeyType> &result, bool &allInt, bool &allString) const;
+    template <typename T>
+    void convertHelper(ShmemDictNode *node, std::map<KeyType, T> &result, bool &allInt, bool &allString) const;
 
 public:
     static size_t construct(ShmemHeap *heapPtr);
@@ -96,24 +98,6 @@ public:
 
     template <typename T>
     static size_t construct(std::map<KeyType, T> map, ShmemHeap *heapPtr);
-
-    // template <typename T>
-    // static size_t construct(std::initializer_list<std::pair<int, T>> map, ShmemHeap *heapPtr)
-    // {
-    //     return ShmemDict::construct(std::map<int, T>(map), heapPtr);
-    // }
-
-    // template <typename T>
-    // static size_t construct(std::initializer_list<std::pair<std::string, T>> map, ShmemHeap *heapPtr)
-    // {
-    //     return ShmemDict::construct(std::map<std::string, T>(map), heapPtr);
-    // }
-
-    // template <typename T>
-    // static size_t construct(std::initializer_list<std::pair<KeyType, T>> map, ShmemHeap *heapPtr)
-    // {
-    //     return ShmemDict::construct(std::map<KeyType, T>(map), heapPtr);
-    // }
 
     static void deconstruct(size_t offset, ShmemHeap *heapPtr);
 

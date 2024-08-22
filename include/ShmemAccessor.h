@@ -91,56 +91,50 @@ public:
         {
             // There are some path not resolved
             // The only case allowed is that the last element is a primitive, and the last path is an index on the primitive array
-            if (resolvedDepth == path.size() - 1)
+            if (isPrimitive(obj->type))
             {
-                if (std::holds_alternative<int>(path[resolvedDepth]))
+                if (resolvedDepth == path.size() - 1)
                 {
-                    primitiveIndex = std::get<int>(path[resolvedDepth]);
-                    usePrimitiveIndex = true;
+                    if (std::holds_alternative<int>(path[resolvedDepth]))
+                    {
+                        primitiveIndex = std::get<int>(path[resolvedDepth]);
+                        usePrimitiveIndex = true;
+                    }
+                    else
+                    {
+                        throw std::runtime_error("Cannot index string: " + std::get<std::string>(path[resolvedDepth]) + " on primitive array");
+                    }
                 }
                 else
                 {
-                    throw std::runtime_error("Cannot index string: " + std::get<std::string>(path[resolvedDepth]) + " on primitive array");
+                    throw std::runtime_error("Cannot index " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on primitive object");
                 }
             }
             else
             {
-                throw std::runtime_error("Cannot index " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on primitive object");
+                throw std::runtime_error("Cannot index " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + obj->toString());
             }
         }
 
         // convert to target type
-        if constexpr (isPrimitive<T>())
+        if (isPrimitive(obj->type))
         {
-            // Based on the required return type, phrase the primitive object
-            if constexpr (isVector<T>::value)
-            {
-                using vecType = typename unwrapVectorType<T>::type;
-                return reinterpret_cast<ShmemPrimitive<vecType> *>(obj)->operator T();
-            }
+            if (usePrimitiveIndex)
+                return reinterpret_cast<ShmemPrimitive_ *>(obj)->operator[]<T>(primitiveIndex);
             else
-            {
-                if (usePrimitiveIndex)
-                    return reinterpret_cast<ShmemPrimitive_ *>(obj)->operator[]<T>(primitiveIndex);
-                else
-                    return reinterpret_cast<ShmemPrimitive_ *>(obj)->operator T();
-            }
+                return reinterpret_cast<ShmemPrimitive_ *>(obj)->operator T();
         }
-        else if constexpr (isString<T>())
-        {
-            return reinterpret_cast<ShmemPrimitive<char> *>(obj)->operator T();
-        }
-        else if constexpr (isVector<T>::value)
+        else if (obj->type == List)
         {
             return reinterpret_cast<ShmemList *>(obj)->operator T();
         }
-        else if constexpr (isMap<T>::value)
+        else if (obj->type == Dict)
         {
             return reinterpret_cast<ShmemDict *>(obj)->operator T();
         }
         else
         {
-            throw std::runtime_error("Cannot convert to this type (C++ doesn't support dynamic type)");
+            throw ConversionError("Cannot convert to this type (C++ doesn't support dynamic type)");
         }
     }
 
@@ -188,12 +182,12 @@ public:
                 }
                 else
                 {
-                    throw std::runtime_error("Cannot resolve " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on List object " + ShmemObj::toString(obj));
+                    throw std::runtime_error("Cannot resolve " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on List object " + obj->toString());
                 }
             }
             else
             {
-                throw std::runtime_error("Cannot resolve " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + ShmemObj::toString(obj));
+                throw std::runtime_error("Cannot resolve " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + obj->toString());
             }
         }
 
@@ -244,105 +238,6 @@ public:
         }
     }
 
-    // template <typename T>
-    // void set(const std::initializer_list<T> &val)
-    // {
-    //     ShmemObj *obj, *prev;
-    //     int resolvedDepth;
-    //     resolvePath(prev, obj, resolvedDepth);
-
-    //     bool partiallyResolved = resolvedDepth != path.size();
-
-    //     int primitiveIndex;
-    //     bool usePrimitiveIndex = false;
-    //     bool insertNewKey = false;
-
-    //     // Deal with unresolved path
-    //     if (partiallyResolved)
-    //     {
-    //         // Only one path element is unresolved
-    //         if (resolvedDepth == path.size() - 1)
-    //         {
-    //             // Two cases:
-    //             // 1. The object is a primitive, and the last path is an index on the primitive array
-    //             //    Replace case
-    //             // 2. The object is not a dict, the last path element is a new key
-    //             //    Create case
-    //             // Potential: index on a List that is < capacity > size, this is not implemented yet
-    //             if (isPrimitive(obj->type))
-    //             {
-    //                 if (std::holds_alternative<int>(path[resolvedDepth]))
-    //                 {
-    //                     primitiveIndex = std::get<int>(path[resolvedDepth]);
-    //                     usePrimitiveIndex = true;
-    //                 }
-    //                 else
-    //                 {
-    //                     throw std::runtime_error("Cannot use string as index on primitive array");
-    //                 }
-    //             }
-    //             else if (obj->type == Dict)
-    //             {
-    //                 insertNewKey = true;
-    //             }
-    //             else
-    //             {
-    //                 throw std::runtime_error("Cannot resolve " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on List object " + ShmemObj::toString(obj));
-    //             }
-    //         }
-    //         else
-    //         {
-    //             throw std::runtime_error("Cannot resolve " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + ShmemObj::toString(obj));
-    //         }
-    //     }
-
-    //     // Assign the value
-    //     if (partiallyResolved)
-    //     { // The obj ptr is the work target
-    //         if (usePrimitiveIndex)
-    //             static_cast<ShmemPrimitive_ *>(obj)->set(val, primitiveIndex);
-    //         else if (insertNewKey)
-    //         {
-    //             static_cast<ShmemDict *>(obj)->set(val, path[resolvedDepth], this->heapPtr);
-    //         }
-    //         else
-    //             throw std::runtime_error("Code should not reach here");
-    //     }
-    //     else
-    //     { // The prev ptr is the work target, as the obj ptr is the one get replaced
-    //         if (prev == nullptr)
-    //         {
-    //             if (obj != nullptr)
-    //             {
-    //                 ShmemObj::deconstruct(reinterpret_cast<Byte *>(obj) - this->heapPtr->heapHead(), this->heapPtr);
-    //             }
-    //             // The obj is the root object in the heap, update the entrance point
-    //             this->setEntrance(ShmemObj::construct(val, this->heapPtr));
-    //         }
-    //         else
-    //         {
-    //             int prevType = prev->type;
-    //             if (isPrimitive(prevType))
-    //             {
-    //                 // It is not possible for a primitive to have a child obj to set
-    //                 throw std::runtime_error("Code should not reach here");
-    //             }
-    //             else if (prevType == List)
-    //             {
-    //                 static_cast<ShmemList *>(prev)->set(val, std::get<int>(path.back()), this->heapPtr);
-    //             }
-    //             else if (prevType == Dict)
-    //             {
-    //                 static_cast<ShmemDict *>(prev)->set(val, path[resolvedDepth], this->heapPtr);
-    //             }
-    //             else
-    //             {
-    //                 throw std::runtime_error("Does not support this type yet");
-    //             }
-    //         }
-    //     }
-    // }
-
     // __delitem__
     void del(KeyType index); // For List/Dict
 
@@ -369,11 +264,15 @@ public:
         }
         else if (obj->type == Dict)
         {
-            return static_cast<ShmemDict *>(obj)->contains(value);
+            if constexpr (std::is_same_v<T, std::variant<int, std::string>> || isString<T>() || std::is_convertible_v<T, int>)
+            {
+                return static_cast<ShmemDict *>(obj)->contains(value);
+            }
+            return false;
         }
         else
         {
-            throw std::runtime_error("Unknown type");
+            throw std::runtime_error("Unknown obj type");
         }
     }
 
@@ -443,6 +342,66 @@ public:
     // __str__
     std::string toString(int maxElements = -1) const;
 
+    // Type specific methods
+    // Dict
+    template <typename T>
+    void add(const T &value, const KeyType &key)
+    {
+        ShmemObj *obj, *prev;
+        int resolvedDepth;
+        resolvePath(prev, obj, resolvedDepth);
+
+        if (resolvedDepth != path.size())
+        {
+            throw std::runtime_error("Path is not iterable: " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + obj->toString());
+        }
+
+        if (obj->type == Dict)
+            static_cast<ShmemDict *>(obj)->set(value, key, this->heapPtr);
+        else
+            throw std::runtime_error("Cannot add a key-value pair to a non-dict object");
+    }
+
+    template <typename T>
+    void add(const T &value) const
+    {
+        ShmemObj *obj, *prev;
+        int resolvedDepth;
+        resolvePath(prev, obj, resolvedDepth);
+
+        if (resolvedDepth != path.size())
+        {
+            throw std::runtime_error("Path is not iterable: " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + obj->toString());
+        }
+
+        if (obj->type == List)
+            static_cast<ShmemList *>(obj)->append(value, this->heapPtr);
+        else
+            throw std::runtime_error("Cannot add a single value to a non-list object");
+    }
+
+    // Quick add
+    void add(const std::initializer_list<int> &value) const
+    {
+        this->add(std::vector<int>(value));
+    }
+
+    void add(const std::initializer_list<float> &value) const
+    {
+        this->add(std::vector<float>(value));
+    }
+
+    void add(const std::initializer_list<const char *> &value) const
+    {
+        std::vector<std::string> stringVec;
+        for (const char *str : value)
+        {
+            stringVec.push_back(std::string(str));
+        }
+
+        this->add(stringVec);
+    }
+
     // Iterator related
     template <typename T>
     T operator*() const
@@ -451,8 +410,7 @@ public:
     }
 
     // __iter__
-    template <typename T>
-    T begin() const
+    ShmemAccessor begin() const
     {
         ShmemObj *obj, *prev;
         int resolvedDepth;
@@ -460,10 +418,24 @@ public:
 
         if (resolvedDepth != path.size())
         {
-            throw std::runtime_error("Path is not iterable: " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + ShmemObj::toString(obj));
+            throw std::runtime_error("Path is not iterable: " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + obj->toString());
         }
 
         return this->operator[](obj->beginIdx());
+    }
+
+    ShmemAccessor end() const
+    {
+        ShmemObj *obj, *prev;
+        int resolvedDepth;
+        resolvePath(prev, obj, resolvedDepth);
+
+        if (resolvedDepth != path.size())
+        {
+            throw std::runtime_error("Path is not iterable: " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + obj->toString());
+        }
+
+        return this->operator[](obj->endIdx());
     }
 
     // __next__
@@ -478,7 +450,7 @@ public:
 
         if (resolvedDepth != path.size())
         {
-            throw std::runtime_error("Path is not iterable: " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + ShmemObj::toString(obj));
+            throw std::runtime_error("Path is not iterable: " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + obj->toString());
         }
 
         KeyType newIdx = obj->nextIdx(lastPath);
@@ -520,12 +492,29 @@ public:
         return *this;
     }
 
-    // template <typename T>
-    // bool operator=(const std::initializer_list<T> &val) const
-    // {
-    //     this->set(val);
-    //     return *this;
-    // }
+    // Quick assignments
+    ShmemAccessor &operator=(const std::initializer_list<int> &val)
+    {
+        this->set(std::vector<int>(val));
+        return *this;
+    }
+
+    ShmemAccessor &operator=(const std::initializer_list<float> &val)
+    {
+        this->set(std::vector<float>(val));
+        return *this;
+    }
+    ShmemAccessor &operator=(const std::initializer_list<const char *> &val)
+    {
+        std::vector<std::string> stringVec;
+        for (const char *str : val)
+        {
+            stringVec.push_back(std::string(str));
+        }
+
+        this->set(stringVec);
+        return *this;
+    }
 
     template <typename T>
     bool operator==(const T &val) const
@@ -544,7 +533,7 @@ public:
             // The only case allowed is that the last element is a primitive, and the last path is an index on the primitive array
             if (resolvedDepth == path.size() - 1)
             {
-                if (std::holds_alternative<int>(path[resolvedDepth]))
+                if (isPrimitive(obj->type) && std::holds_alternative<int>(path[resolvedDepth]))
                 {
                     primitiveIndex = std::get<int>(path[resolvedDepth]);
                     usePrimitiveIndex = true;

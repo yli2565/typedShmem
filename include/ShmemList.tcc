@@ -91,9 +91,14 @@ bool ShmemList::contains(T value) const
         if (offset != NPtr)
         {
             ShmemObj *obj = const_cast<ShmemObj *>(reinterpret_cast<const ShmemObj *>(reinterpret_cast<const Byte *>(this) + offset));
-            if (obj->operator==(value))
+            try
             {
-                return true;
+                if (obj->operator==(value))
+                    return true;
+            }
+            catch (ConversionError &e)
+            {
+                continue;
             }
         }
     }
@@ -204,11 +209,10 @@ T ShmemList::pop(int index, ShmemHeap *heapPtr)
 template <typename T>
 ShmemList::operator T() const
 {
-    ptrdiff_t *basePtr = relativeOffsetPtr();
+    const ptrdiff_t *basePtr = relativeOffsetPtr();
     if constexpr (isPrimitive<T>())
     {
-        throw std::runtime_error("Cannot convert list to primitive");
-        // TODO: in special case this should be enabled, (all elements in the list have the same type and size=1)
+        throw ConversionError("Cannot convert list to primitive");
     }
     else if constexpr (isVector<T>::value)
     {
@@ -226,7 +230,7 @@ ShmemList::operator T() const
     }
     else
     {
-        throw std::runtime_error("Cannot convert the list to " + typeName<T>() + ". List: " + this->toString());
+        throw ConversionError("Cannot convert the list to " + typeName<T>() + ". List: " + this->toString());
     }
 }
 
@@ -253,7 +257,7 @@ bool ShmemList::operator==(const T &val) const
     }
     else if constexpr (isVector<T>::value)
     {
-        return this->operator T == val;
+        return this->operator T() == val;
     }
     else
     {

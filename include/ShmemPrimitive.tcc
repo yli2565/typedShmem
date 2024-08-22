@@ -18,6 +18,13 @@ inline size_t ShmemPrimitive_::makeSpace(size_t size, ShmemHeap *heapPtr)
 template <typename T>
 inline size_t ShmemPrimitive_::construct(const T &val, ShmemHeap *heapPtr)
 {
+    if constexpr (std::is_pointer_v<T> || std::is_same_v<T, std::nullptr_t>)
+    {
+        if (val == nullptr)
+        {
+            return NPtr;
+        }
+    }
     if constexpr (isPrimitive<T>())
     {
         if constexpr (isVector<T>::value)
@@ -45,18 +52,13 @@ inline size_t ShmemPrimitive_::construct(const T &val, ShmemHeap *heapPtr)
     }
     else if constexpr (isVector<T>::value)
     {
-        throw std::runtime_error("Code should not reach here Primitive object doesn't accept nested type");
+        throw std::runtime_error("Code should not reach here. Primitive object doesn't accept nested type");
     }
     else
     {
         throw std::runtime_error("Cannot convert non-primitive object to primitive");
     }
 }
-
-// template <typename T>
-// inline size_t ShmemPrimitive_::construct(const std::initializer_list<T> &value, ShmemHeap *heapPtr){
-//     return ShmemPrimitive_::construct(std::vector<T>(value), heapPtr);
-// }
 
 // Collection interface
 
@@ -100,7 +102,7 @@ inline T ShmemPrimitive_::get(int index) const
 
         if (this->type != Char)
         {
-            throw std::runtime_error("Cannot convert non-char type to a string type");
+            throw ConversionError("Cannot convert non-char type to a string");
         }
 
         if constexpr (std::is_same_v<T, std::string> || std::is_same_v<T, const std::string>)
@@ -109,7 +111,7 @@ inline T ShmemPrimitive_::get(int index) const
         }
         else if constexpr (std::is_same_v<T, char *> || std::is_same_v<T, const char *>)
         { // TODO: Should I just allocate some mem and return it?
-            throw std::runtime_error("Cannot return char* type yet");
+            throw ConversionError("Cannot return char* type yet");
         }
         else
         {
@@ -118,7 +120,7 @@ inline T ShmemPrimitive_::get(int index) const
     }
     else
     { // Cannot convert
-        throw std::runtime_error("Cannot convert");
+        throw ConversionError("Cannot convert");
     }
 }
 
@@ -163,7 +165,8 @@ inline void ShmemPrimitive_::del(int index)
     for (int i = index; i < this->size - 1; i++)                                 \
     {                                                                            \
         reinterpret_cast<TYPE *>(ptr)[i] = reinterpret_cast<TYPE *>(ptr)[i + 1]; \
-    }
+    }                                                                            \
+    reinterpret_cast<TYPE *>(ptr)[this->size - 1] = 0;
 
     SWITCH_PRIMITIVE_TYPES(this->type, SHMEM_DEL_PRIMITIVE)
 
@@ -176,7 +179,11 @@ inline void ShmemPrimitive_::del(int index)
 template <typename T>
 inline bool ShmemPrimitive_::contains(T value) const
 {
-    const Byte *ptr = this->getBytePtr();
+    if constexpr (!isPrimitiveBaseCase<T>())
+        return false;
+    else
+    {
+        const Byte *ptr = this->getBytePtr();
 #define SHMEM_PRIMITIVE_COMP(TYPE)                                                     \
     for (int i = 0; i < this->size; i++)                                               \
     {                                                                                  \
@@ -191,9 +198,10 @@ inline bool ShmemPrimitive_::contains(T value) const
         }                                                                              \
     }
 
-    SWITCH_PRIMITIVE_TYPES(this->type, SHMEM_PRIMITIVE_COMP)
+        SWITCH_PRIMITIVE_TYPES(this->type, SHMEM_PRIMITIVE_COMP)
 
 #undef SHMEM_PRIMITIVE_COMP
+    }
     return false;
 }
 
@@ -248,7 +256,7 @@ inline ShmemPrimitive_::operator T() const
     }
     else
     {
-        throw std::runtime_error("Cannot convert " + typeNames.at(this->type) + " to " + typeName<T>());
+        throw std::runtime_error("Cannot convert " + typeNames.at(this->type) + "[" + std::to_string(this->size) + "]" + " to " + typeName<T>());
     }
 }
 

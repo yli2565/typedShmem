@@ -123,6 +123,21 @@ DEFINE_TYPE_ENCODING(char *, String)
 DEFINE_TYPE_ENCODING(const char *, String)
 DEFINE_TYPE_ENCODING(std::string, String)
 DEFINE_TYPE_ENCODING(const std::string, String)
+template<std::size_t N>
+struct TypeEncoding<char[N]>
+{
+    static constexpr int value = String;
+};
+
+template <typename T>
+struct isCString : std::false_type
+{
+};
+
+template<std::size_t N>
+struct isCString<char[N]> : std::true_type
+{
+};
 
 template <typename T>
 struct isVector : std::false_type
@@ -180,12 +195,6 @@ struct unwrapMapType<std::map<Key, T>>
 template <typename T>
 struct unwrapInitializerListType
 {
-};
-
-template <typename T>
-struct unwrapInitializerListType<std::initializer_list<T>>
-{
-    using type = T;
 };
 
 template <typename T>
@@ -272,5 +281,6 @@ struct TypeEncoding<std::map<Key, T>>
 {
     static constexpr int value = Dict;
 };
+
 
 #endif // TYPEENCODINGS_H

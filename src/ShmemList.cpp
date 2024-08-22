@@ -39,11 +39,13 @@ size_t ShmemList::makeSpace(size_t listCapacity, ShmemHeap *heapPtr)
 }
 
 size_t ShmemList::makeListSpace(size_t listCapacity, ShmemHeap *heapPtr)
-{
+{ 
+    // Ensure listCapacity is at least 1
+    listCapacity = std::max(listCapacity, static_cast<size_t>(1));
+
     size_t listSpaceOffset = heapPtr->shmalloc(listCapacity * sizeof(ptrdiff_t));
     Byte *payloadPtr = heapPtr->heapHead() + listSpaceOffset;
     size_t payLoadSize = reinterpret_cast<ShmemHeap::BlockHeader *>(payloadPtr - sizeof(ShmemHeap::BlockHeader))->size() - sizeof(ShmemHeap::BlockHeader);
-
     // init the list space with NPtr (would be interpret as nullptr)
     size_t maxListCapacity = payLoadSize / sizeof(ptrdiff_t);
     std::fill(reinterpret_cast<ptrdiff_t *>(payloadPtr), reinterpret_cast<ptrdiff_t *>(payloadPtr) + maxListCapacity, NPtr);
@@ -64,7 +66,7 @@ void ShmemList::deconstruct(size_t offset, ShmemHeap *heapPtr)
 {
     Byte *heapHead = heapPtr->heapHead();
     ShmemList *ptr = reinterpret_cast<ShmemList *>(heapHead + offset);
-    for (int i = 0; i < ptr->size; i++)
+    for (int i = 0; i < ptr->listSize; i++)
     {
         ShmemObj *obj = ptr->getObj(i);
         ShmemObj::deconstruct(reinterpret_cast<Byte *>(obj) - heapHead, heapPtr);
@@ -112,7 +114,7 @@ std::string ShmemList::toString(int indent, int maxElements) const
     result += "[\n";
     for (int i = 0; i < std::min(static_cast<int>(this->listSize), maxElements); i++)
     {
-        result += ShmemObj::toString(this->getObj(i), indent + 1) + "\n";
+        result += this->getObj(i)->toString(indent + 1) + "\n";
     }
     if (this->listSize > maxElements)
     {

@@ -30,7 +30,11 @@ void ShmemAccessor::resolvePath(ShmemObj *&prevObj, ShmemObj *&obj, int &resolve
         KeyType pathElement = path[resolveDepth];
         try
         {
-            if (isPrimitive(current->type))
+            if (current == nullptr)
+            {
+                break;
+            }
+            else if (isPrimitive(current->type))
             { // This mean there's an additional index on a primitive
                 break;
             }
@@ -77,7 +81,7 @@ int ShmemAccessor::typeId() const
         { // Return the typeId of primitive element
             return obj->type;
         }
-        throw std::runtime_error("Cannot resolve " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + ShmemObj::toString(obj));
+        throw std::runtime_error("Cannot resolve " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + obj->toString());
     }
     return obj->type;
 }
@@ -101,7 +105,7 @@ size_t ShmemAccessor::len() const
             throw std::runtime_error("Cannot call len() on primitive element");
         }
         std::string lastPath = std::holds_alternative<int>(path[resolvedDepth]) ? std::to_string(std::get<int>(path[resolvedDepth])) : std::get<std::string>(path[resolvedDepth]);
-        throw std::runtime_error("Cannot resolve " + lastPath + "on object" + ShmemObj::toString(obj));
+        throw std::runtime_error("Cannot resolve " + lastPath + "on object" + obj->toString());
     }
 
     if (isPrimitive(obj->type))
@@ -135,7 +139,7 @@ void ShmemAccessor::del(KeyType index)
         {
             throw std::runtime_error("Cannot call del(index) on primitive element, please call it on the primitive array");
         }
-        throw std::runtime_error("Cannot resolve " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + ShmemObj::toString(obj));
+        throw std::runtime_error("Cannot resolve " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + obj->toString());
     }
 
     if (isPrimitive(obj->type))
@@ -179,14 +183,18 @@ std::string ShmemAccessor::toString(int maxElements) const
 
     if (partiallyResolved)
     {
-        if (resolvedDepth == path.size() - 1 && isPrimitive(obj->type) && std::holds_alternative<int>(path[resolvedDepth]))
+        if (obj == nullptr)
+        {
+            return "nullptr";
+        }
+        else if (resolvedDepth == path.size() - 1 && isPrimitive(obj->type) && std::holds_alternative<int>(path[resolvedDepth]))
         {
             primitiveIndex = std::get<int>(path[resolvedDepth]);
             usePrimitiveIndex = true;
         }
         else
         {
-            throw std::runtime_error("Cannot index <remaining index> on object" + ShmemObj::toString(obj));
+            throw std::runtime_error("Cannot index <remaining index> on object" + obj->toString());
         }
     }
 
@@ -195,7 +203,7 @@ std::string ShmemAccessor::toString(int maxElements) const
         return static_cast<ShmemPrimitive_ *>(obj)->elementToString(primitiveIndex);
     }
     else
-        return ShmemObj::toString(obj, 0, maxElements);
+        return obj->toString(0, maxElements);
 }
 
 std::ostream &operator<<(std::ostream &os, const ShmemAccessor &acc)
