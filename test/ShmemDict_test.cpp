@@ -40,8 +40,16 @@ protected:
 
 TEST_F(ShmemDictTest, BasicAssignmentAndMemoryUsage)
 {
-    std::map<int, int> m({{1, 2}, {3, 4}});
+    std::map<int, int> m({{9, 2}, {8, 4}});
+
     acc = m;
+
+    shmHeap.printShmHeap();
+    acc[8] = vector<vector<int>>({{1, 2, 3, 4, 5}, {6, 7, 8, 9, 10}});
+    shmHeap.printShmHeap();
+
+
+    std::cout << acc << std::endl;
 }
 
 // TEST_F(ShmemDictTest, TypeIdAndLen)

@@ -39,7 +39,7 @@ size_t ShmemList::makeSpace(size_t listCapacity, ShmemHeap *heapPtr)
 }
 
 size_t ShmemList::makeListSpace(size_t listCapacity, ShmemHeap *heapPtr)
-{ 
+{
     // Ensure listCapacity is at least 1
     listCapacity = std::max(listCapacity, static_cast<size_t>(1));
 
@@ -104,25 +104,26 @@ void ShmemList::del(int index, ShmemHeap *heapPtr)
 
 std::string ShmemList::toString(int indent, int maxElements) const
 {
-    std::string result;
-    std::string indentStr(indent, ' ');
+    std::ostringstream result;
+    std::string indentStr(indent + 1, ' ');
 
-    result.append(indentStr).append("(L:").append(std::to_string(this->listSize)).append(")");
+    result << "(L:" << this->listSize << ")" << "[\n";
 
     maxElements = maxElements > 0 ? maxElements : this->listSize;
 
-    result += "[\n";
     for (int i = 0; i < std::min(static_cast<int>(this->listSize), maxElements); i++)
     {
-        result += this->getObj(i)->toString(indent + 1) + "\n";
+        result << indentStr << this->getObj(i)->toString(indent + 1) << "\n";
     }
+
     if (this->listSize > maxElements)
     {
-        result += indentStr + "...\n";
+        result << indentStr << "...\n";
     }
-    result += indentStr + "]";
 
-    return result;
+    result << std::string(indent, ' ') << "]";
+
+    return result.str();
 }
 
 void ShmemList::resize(int newCapacity, ShmemHeap *heapPtr)

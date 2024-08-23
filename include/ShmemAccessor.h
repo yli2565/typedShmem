@@ -228,7 +228,7 @@ public:
                 }
                 else if (prevType == Dict)
                 {
-                    static_cast<ShmemDict *>(prev)->set(val, path[resolvedDepth], this->heapPtr);
+                    static_cast<ShmemDict *>(prev)->set(val, path.back(), this->heapPtr);
                 }
                 else
                 {

@@ -10,20 +10,34 @@ inline const ShmemDictNode *ShmemDict::search(KeyType key) const
 }
 
 // Macro to define the construct functions for different key types
-#define SHMEM_DICT_CONSTRUCT(keyType)                                                                  \
-    template <typename T>                                                                              \
-    size_t ShmemDict::construct(std::map<keyType, T> map, ShmemHeap *heapPtr)                          \
-    {                                                                                                  \
-        size_t dictOffset = ShmemDict::construct(heapPtr);                                             \
-        ShmemDict *dict = reinterpret_cast<ShmemDict *>(ShmemObj::resolveOffset(dictOffset, heapPtr)); \
-        for (auto &[key, val] : map)                                                                   \
-        {                                                                                              \
-            dict->insert(key, val, heapPtr);                                                           \
-        }                                                                                              \
-        return dictOffset;                                                                             \
+#define SHMEM_DICT_CONSTRUCT(keyType)                                                                                 \
+    template <typename T>                                                                                             \
+    size_t ShmemDict::construct(std::map<keyType, T> map, ShmemHeap *heapPtr)                                         \
+    {                                                                                                                 \
+        size_t dictOffset = ShmemDict::construct(heapPtr);                                                            \
+        ShmemDict *dict = reinterpret_cast<ShmemDict *>(ShmemObj::resolveOffset(dictOffset, heapPtr));                \
+        for (auto &[key, val] : map)                                                                                  \
+        {                                                                                                             \
+            ShmemObj *newObj = reinterpret_cast<ShmemObj *>(heapPtr->heapHead() + ShmemObj::construct(val, heapPtr)); \
+            dict->insert(key, newObj, heapPtr);                                                                       \
+        }                                                                                                             \
+        return dictOffset;                                                                                            \
     }
 
-SHMEM_DICT_CONSTRUCT(int)
+template <typename T>
+size_t ShmemDict::construct(std::map<int, T> map, ShmemHeap *heapPtr)
+{
+    size_t dictOffset = ShmemDict::construct(heapPtr);
+    ShmemDict *dict = reinterpret_cast<ShmemDict *>(ShmemObj::resolveOffset(dictOffset, heapPtr));
+    for (auto &[key, val] : map)
+    {
+        ShmemObj *newObj = reinterpret_cast<ShmemObj *>(heapPtr->heapHead() + ShmemObj::construct(val, heapPtr));
+        dict->insert(key, newObj, heapPtr);
+    }
+    return dictOffset;
+}
+
+// SHMEM_DICT_CONSTRUCT(int)
 SHMEM_DICT_CONSTRUCT(std::string)
 SHMEM_DICT_CONSTRUCT(KeyType)
 

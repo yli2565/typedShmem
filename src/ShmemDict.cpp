@@ -270,6 +270,7 @@ void ShmemDict::fixDelete(ShmemDictNode *nodeX)
 void ShmemDict::insert(KeyType key, ShmemObj *data, ShmemHeap *heapPtr)
 {
     int hashKey = hashIntOrString(key);
+    int k=std::get<int>(key);
 
     ShmemDictNode *parent = nullptr;
     ShmemDictNode *current = root();
@@ -282,7 +283,7 @@ void ShmemDict::insert(KeyType key, ShmemObj *data, ShmemHeap *heapPtr)
         else if (hashKey > current->hashedKey())
             current = current->right();
         else
-        { // repeated key, replace the old data
+        { // repeated key, replace the old data, don't increase the size
             ShmemObj::deconstruct(reinterpret_cast<Byte *>(current->data()) - heapPtr->heapHead(), heapPtr);
             current->setData(data);
             return;
@@ -307,6 +308,9 @@ void ShmemDict::insert(KeyType key, ShmemObj *data, ShmemHeap *heapPtr)
     {
         throw std::runtime_error("hashKey == parent->key, and code should not reach here");
     }
+
+    // Increase the size
+    this->size++;
 
     if (newNode->parent() == nullptr)
     {
@@ -336,23 +340,23 @@ void ShmemDict::toStringHelper(const ShmemDictNode *node, int indent, std::ostri
     if (node != this->NIL())
     {
         // Traverse left subtree
-        toStringHelper(node->left(), indent + 2, resultStream, currentElement, maxElements);
-
+        toStringHelper(node->left(), indent, resultStream, currentElement, maxElements);
+        std::cout <<node->keyToString()<<":"<< resultStream.str() << std::endl;
         // Append current node
-        if (currentElement >= maxElements)
-        {
-            resultStream << std::string(indent, ' ') << "..." << "\n";
-            return;
-        }
+        // if (currentElement >= maxElements)
+        // {
+        //     resultStream << std::string(indent, ' ') << "..." << "\n";
+        //     return;
+        // }
 
         resultStream << std::string(indent, ' ')
                      << node->keyToString() << ": "
-                     << std::to_string(node->data()->type) << "\n";
+                     << node->data()->toString(indent + 1) << "\n";
 
         currentElement++;
 
         // Traverse right subtree
-        toStringHelper(node->right(), indent + 2, resultStream, currentElement, maxElements);
+        toStringHelper(node->right(), indent, resultStream, currentElement, maxElements);
     }
 }
 
@@ -489,6 +493,9 @@ void ShmemDict::del(KeyType key, ShmemHeap *heapPtr)
     // Free memory used by the nodeToDelete
     ShmemDictNode::deconstruct(reinterpret_cast<Byte *>(nodeToDelete) - heapPtr->heapHead(), heapPtr);
 
+    // Decrease the size
+    this->size--;
+
     if (!originalColor)
     {
         fixDelete(nodeX);
@@ -508,16 +515,20 @@ bool ShmemDict::contains(KeyType key) const
 std::string ShmemDict::toString(int indent, int maxElements) const
 {
     std::ostringstream resultStream;
-    toStringHelper(this->root(), indent, resultStream, 0, maxElements);
 
-    if (resultStream.str().size() < 40)
+    maxElements = maxElements > 0 ? maxElements : this->size;
+
+    resultStream << "(D:" << std::to_string(this->size) << ")" << "{\n";
+
+    if (maxElements < 0)
     {
-        return "{\n" + resultStream.str() + "\n" + std::string(indent, ' ') + "}";
+        maxElements = this->len();
     }
-    else
-    {
-        return "{" + resultStream.str() + "}";
-    }
+    toStringHelper(this->root(), indent + 1, resultStream, 0, maxElements);
+
+    resultStream << std::string(indent, ' ') << "}";
+
+    return resultStream.str();
 }
 
 // __keys__
@@ -542,7 +553,8 @@ KeyType ShmemDict::beginIdx() const
     const ShmemDictNode *min = minimum(this->root());
     return min->keyVal(); // if NIL, it is the end() iterator, and the whole dict is empty
 }
-KeyType ShmemDict::endIdx() const{
+KeyType ShmemDict::endIdx() const
+{
     return this->NIL()->keyVal();
 }
 

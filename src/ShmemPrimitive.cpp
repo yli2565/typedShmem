@@ -18,7 +18,7 @@ std::string ShmemPrimitive_::toString(int indent, int maxElements) const
 {
     maxElements = maxElements > 0 ? maxElements : this->size;
 
-    std::string result(indent, ' ');
+    std::string result;
     result.reserve(40);
     result.append("(P:").append(typeNames.at(this->type)).append(":").append(std::to_string(this->size)).append(")[");
 
