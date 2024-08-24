@@ -26,7 +26,9 @@ void ShmemDictNode::deconstruct(size_t offset, ShmemHeap *heapPtr)
     Byte *heapHead = heapPtr->heapHead();
 
     ShmemObj::deconstruct(reinterpret_cast<const Byte *>(ptr->key()) - heapHead, heapPtr);
-    ShmemObj::deconstruct(reinterpret_cast<const Byte *>(ptr->data()) - heapHead, heapPtr);
+    ShmemObj *data = ptr->data();
+    if (data != nullptr)
+        ShmemObj::deconstruct(reinterpret_cast<const Byte *>(data) - heapHead, heapPtr);
     heapPtr->shfree(reinterpret_cast<Byte *>(ptr));
 }
 
@@ -116,7 +118,7 @@ const ShmemObj *ShmemDictNode::key() const
 KeyType ShmemDictNode::keyVal() const
 {
     int keyType = key()->type;
-    if (keyType == String)
+    if (keyType == Char)
         return reinterpret_cast<const ShmemPrimitive<char> *>(key())->operator std::string();
     else if (keyType == Int)
         return reinterpret_cast<const ShmemPrimitive<int> *>(key())->operator int();
@@ -152,7 +154,7 @@ int ShmemDictNode::dataType() const
 int ShmemDictNode::hashedKey() const
 {
     int keyType = key()->type;
-    if (keyType == String)
+    if (keyType == Char)
         return std::hash<std::string>{}(reinterpret_cast<const ShmemPrimitive<char> *>(key())->operator std::string());
     else if (keyType == Int)
         return std::hash<int>{}(reinterpret_cast<const ShmemPrimitive<int> *>(key())->operator int());
@@ -163,8 +165,8 @@ int ShmemDictNode::hashedKey() const
 std::string ShmemDictNode::keyToString() const
 {
     int keyType = key()->type;
-    if (keyType == String)
-        return reinterpret_cast<const ShmemPrimitive<char> *>(key())->operator std::string();
+    if (keyType == Char)
+        return "\"" + reinterpret_cast<const ShmemPrimitive<char> *>(key())->operator std::string() + "\"";
     else if (keyType == Int)
         return std::to_string(reinterpret_cast<const ShmemPrimitive<int> *>(key())->operator int());
     else

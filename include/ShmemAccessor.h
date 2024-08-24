@@ -62,7 +62,7 @@ public:
     template <typename... KeyTypes>
     ShmemAccessor operator[](KeyTypes... accessPath) const
     {
-        static_assert(((std::is_same<int, KeyTypes>::value || std::is_same<std::string, KeyTypes>::value || std::is_same<KeyType, KeyTypes>::value) && ...), "All arguments must be of type KeyType");
+        static_assert(((std::is_same_v<KeyTypes, int> || std::is_same_v<KeyTypes, std::variant<int, std::string>> || isString<KeyTypes>()) && ...), "All arguments must be of type KeyType");
         std::vector<KeyType> newPath(this->path);
         newPath.insert(newPath.end(), {accessPath...});
         return ShmemAccessor(this->heapPtr, newPath);
@@ -164,7 +164,12 @@ public:
                 // 2. The object is not a dict, the last path element is a new key
                 //    Create case
                 // Potential: index on a List that is < capacity > size, this is not implemented yet
-                if (isPrimitive(obj->type))
+                if (obj == nullptr)
+                {
+                    // We want to add something to nullptr, which is impossible
+                    throw std::runtime_error("Cannot resolve " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on null object");
+                }
+                else if (isPrimitive(obj->type))
                 {
                     if (std::holds_alternative<int>(path[resolvedDepth]))
                     {
@@ -264,7 +269,7 @@ public:
         }
         else if (obj->type == Dict)
         {
-            if constexpr (std::is_same_v<T, std::variant<int, std::string>> || isString<T>() || std::is_convertible_v<T, int>)
+            if constexpr (std::is_same_v<T, int> || std::is_same_v<T, std::variant<int, std::string>> || isString<T>())
             {
                 return static_cast<ShmemDict *>(obj)->contains(value);
             }

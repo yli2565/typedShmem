@@ -86,11 +86,15 @@ ShmemHeap::BlockHeader *ShmemHeap::BlockHeader::getFooterPtr() const
 
 ShmemHeap::BlockHeader *ShmemHeap::BlockHeader::getFwdPtr() const
 {
+    if (this->A())
+        throw std::runtime_error("Allocated block. We should not call getFwdPtr");
     return reinterpret_cast<BlockHeader *>(reinterpret_cast<uintptr_t>(this) + reinterpret_cast<const intptr_t *>(this)[1]);
 }
 
 ShmemHeap::BlockHeader *ShmemHeap::BlockHeader::getBckPtr() const
 {
+    if (this->A())
+        throw std::runtime_error("Allocated block. We should not call getBckPtr");
     return reinterpret_cast<BlockHeader *>(reinterpret_cast<uintptr_t>(this) + reinterpret_cast<const intptr_t *>(this)[2]);
 }
 
@@ -118,6 +122,7 @@ void ShmemHeap::BlockHeader::remove()
     BlockHeader *fwdBlockHeader = this->getFwdPtr();
     fwdBlockHeader->bckOffset() = fwdBlockHeader->offset(bckBlockHeader);
     bckBlockHeader->fwdOffset() = bckBlockHeader->offset(fwdBlockHeader);
+    return;
 }
 
 void ShmemHeap::BlockHeader::insert(BlockHeader *prevBlock)

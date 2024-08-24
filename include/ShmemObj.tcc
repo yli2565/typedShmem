@@ -66,7 +66,11 @@ ShmemObj::operator T() const
 template <typename T>
 bool ShmemObj::operator==(const T &val) const
 {
-    if constexpr (isObjPtr<T>::value)
+    if constexpr (std::is_same_v<T, nullptr_t>)
+    {
+        return this == nullptr;
+    }
+    else if constexpr (isObjPtr<T>::value)
     {
         if (isPrimitive(this->type) && isPrimitive(val->type))
             return reinterpret_cast<const ShmemPrimitive_ *>(this)->operator==(val);

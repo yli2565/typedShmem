@@ -43,7 +43,11 @@ TEST_F(ShmemPrimitiveTest, BasicAssignmentAndMemoryUsage)
     acc = 1;
     expectedMemSize = 24; // min payload is 24
     EXPECT_EQ(shmHeap.briefLayout(), std::vector<size_t>({expectedMemSize, 4096 - expectedMemSize - unitSize * 2}));
-    EXPECT_EQ(acc.toString(20), "(P:int:1)[1]");
+    EXPECT_EQ(acc.toString(), "(P:int:1)[1]");
+
+    acc = nullptr;
+    EXPECT_EQ(shmHeap.briefLayout(), std::vector<size_t>({4096 - unitSize}));
+    EXPECT_EQ(acc.toString(), "nullptr");
 
     acc = std::vector<float>(10, 1);
     expectedMemSize = 8 + 40; // ShmemPrimitive header 8 bytes + 4*10 + 0 padding
@@ -52,19 +56,20 @@ TEST_F(ShmemPrimitiveTest, BasicAssignmentAndMemoryUsage)
     acc = std::vector<int>(10, 1);
     expectedMemSize = 8 + 40; // ShmemPrimitive header 8 bytes + 4*10 + 0 padding
     EXPECT_EQ(shmHeap.briefLayout(), std::vector<size_t>({expectedMemSize, 4096 - expectedMemSize - unitSize * 2}));
-    EXPECT_EQ(acc.toString(20), "(P:int:10)[1, 1, 1, 1, 1, 1, 1, 1, 1, 1]");
+    EXPECT_EQ(acc.toString(), "(P:int:10)[1, 1, 1, 1, 1, 1, 1, 1, 1, 1]");
 
     acc = std::vector<size_t>(10, 1);
     expectedMemSize = 8 + 8 * 10; // ShmemPrimitive header 8 bytes + 8*10 + 0 padding
     EXPECT_EQ(shmHeap.briefLayout(), std::vector<size_t>({expectedMemSize, 4096 - expectedMemSize - unitSize * 2}));
-    EXPECT_EQ(acc.toString(20), "(P:unsigned long:10)[1, 1, 1, 1, 1, 1, 1, 1, 1, 1]");
+    EXPECT_EQ(acc.toString(), "(P:unsigned long:10)[1, 1, 1, 1, 1, 1, 1, 1, 1, 1]");
     EXPECT_EQ(acc.toString(4), "(P:unsigned long:10)[1, 1, 1, 1, ...]");
 
     // shmHeap.printShmHeap();
     // std::cout << acc.toString(10) << std::endl;
 }
 
-TEST_F(ShmemPrimitiveTest, TypeIdAndLen){
+TEST_F(ShmemPrimitiveTest, TypeIdAndLen)
+{
     // Single Primitive
     acc = double(7);
     EXPECT_EQ(acc.len(), 1);
@@ -77,24 +82,27 @@ TEST_F(ShmemPrimitiveTest, TypeIdAndLen){
 
     // String
     acc = "string";
-    EXPECT_EQ(acc.len(), 6+1);
+    EXPECT_EQ(acc.len(), 6 + 1);
     EXPECT_EQ(acc.typeId(), Char);
 }
-
 
 TEST_F(ShmemPrimitiveTest, SetAndGetElement)
 {
     // Single Primitive
     acc = double(7);
     EXPECT_EQ(acc, 7);
-    EXPECT_EQ(acc,std::vector<int>({7}));
+    EXPECT_EQ(acc, std::vector<int>({7}));
+
+    acc=nullptr;
+    EXPECT_EQ(acc, nullptr);
+    EXPECT_ANY_THROW(acc[0]=1);
 
     // Vector
     acc = std::vector<float>(10, 1);
 
     int a;
     // Assign a multiple element array to a single primitive is not allowed
-    EXPECT_ANY_THROW(a=acc); 
+    EXPECT_ANY_THROW(a = acc);
 
     acc[0] = 's';
     EXPECT_EQ(acc[0], 's');
@@ -113,7 +121,7 @@ TEST_F(ShmemPrimitiveTest, SetAndGetElement)
     acc = "string";
     // shmHeap.printShmHeap();
     EXPECT_EQ(acc, "string");
-    EXPECT_EQ(acc.len(), 6+1);
+    EXPECT_EQ(acc.len(), 6 + 1);
     EXPECT_EQ(acc.typeId(), Char);
 }
 

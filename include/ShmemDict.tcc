@@ -24,22 +24,52 @@ inline const ShmemDictNode *ShmemDict::search(KeyType key) const
         return dictOffset;                                                                                            \
     }
 
-template <typename T>
-size_t ShmemDict::construct(std::map<int, T> map, ShmemHeap *heapPtr)
+template <typename keyType, typename T>
+size_t ShmemDict::construct(std::map<keyType, T> map, ShmemHeap *heapPtr)
 {
-    size_t dictOffset = ShmemDict::construct(heapPtr);
-    ShmemDict *dict = reinterpret_cast<ShmemDict *>(ShmemObj::resolveOffset(dictOffset, heapPtr));
-    for (auto &[key, val] : map)
+    if constexpr (std::is_same_v<keyType, int> || std::is_same_v<keyType, std::variant<int, std::string>>)
     {
-        ShmemObj *newObj = reinterpret_cast<ShmemObj *>(heapPtr->heapHead() + ShmemObj::construct(val, heapPtr));
-        dict->insert(key, newObj, heapPtr);
+        size_t dictOffset = ShmemDict::construct(heapPtr);
+        ShmemDict *dict = reinterpret_cast<ShmemDict *>(ShmemObj::resolveOffset(dictOffset, heapPtr));
+        for (auto &[key, val] : map)
+        {
+            ShmemObj *newObj = reinterpret_cast<ShmemObj *>(heapPtr->heapHead() + ShmemObj::construct(val, heapPtr));
+            dict->insert(key, newObj, heapPtr);
+        }
+        return dictOffset;
     }
-    return dictOffset;
+    else if (isString<keyType>())
+    {
+        size_t dictOffset = ShmemDict::construct(heapPtr);
+        ShmemDict *dict = reinterpret_cast<ShmemDict *>(ShmemObj::resolveOffset(dictOffset, heapPtr));
+        for (auto &[key, val] : map)
+        {
+            ShmemObj *newObj = reinterpret_cast<ShmemObj *>(heapPtr->heapHead() + ShmemObj::construct(val, heapPtr));
+            dict->insert(std::string(key), newObj, heapPtr);
+        }
+        return dictOffset;
+    }
+    else
+    {
+        throw std::runtime_error("Unsupported key type");
+    }
 }
+// template <typename T>
+// size_t ShmemDict::construct(std::map<int, T> map, ShmemHeap *heapPtr)
+// {
+//     size_t dictOffset = ShmemDict::construct(heapPtr);
+//     ShmemDict *dict = reinterpret_cast<ShmemDict *>(ShmemObj::resolveOffset(dictOffset, heapPtr));
+//     for (auto &[key, val] : map)
+//     {
+//         ShmemObj *newObj = reinterpret_cast<ShmemObj *>(heapPtr->heapHead() + ShmemObj::construct(val, heapPtr));
+//         dict->insert(key, newObj, heapPtr);
+//     }
+//     return dictOffset;
+// }
 
 // SHMEM_DICT_CONSTRUCT(int)
-SHMEM_DICT_CONSTRUCT(std::string)
-SHMEM_DICT_CONSTRUCT(KeyType)
+// SHMEM_DICT_CONSTRUCT(std::string)
+// SHMEM_DICT_CONSTRUCT(KeyType)
 
 #undef SHMEM_DICT_CONSTRUCT
 
@@ -93,13 +123,13 @@ ShmemDict::operator T() const
         std::map<KeyType, mapDataType> tmpResult;
         T result;
         convertHelper(this->root, tmpResult, allInt, allString);
-        if constexpr (std::is_same_v<keyDataType, int>)
+        if constexpr (std::is_convertible_v<keyDataType, int>)
         {
             if (!allInt)
                 throw std::runtime_error("ShmemDict: All keys must be int");
             for (auto &[key, val] : tmpResult)
             {
-                result[std::get<int>(key)] = val;
+                result[static_cast<keyDataType>(std::get<int>(key))] = val;
             }
         }
         else if constexpr (std::is_same_v<keyDataType, std::string>)

@@ -37,6 +37,7 @@ void ShmemDict::setNIL(ShmemDictNode *node)
 void ShmemDict::leftRotate(ShmemDictNode *nodeX)
 {
     ShmemDictNode *nodeY = nodeX->right();
+    nodeX->setRight(nodeY->left());
     if (nodeY->left() != this->NIL())
     {
         nodeY->left()->setParent(nodeX);
@@ -270,7 +271,6 @@ void ShmemDict::fixDelete(ShmemDictNode *nodeX)
 void ShmemDict::insert(KeyType key, ShmemObj *data, ShmemHeap *heapPtr)
 {
     int hashKey = hashIntOrString(key);
-    int k=std::get<int>(key);
 
     ShmemDictNode *parent = nullptr;
     ShmemDictNode *current = root();
@@ -291,7 +291,7 @@ void ShmemDict::insert(KeyType key, ShmemObj *data, ShmemHeap *heapPtr)
     }
 
     // We find a place for the new key, create a new node
-    size_t newNodeOffset = ShmemDictNode::construct(hashKey, heapPtr);
+    size_t newNodeOffset = ShmemDictNode::construct(key, heapPtr);
     ShmemDictNode *newNode = static_cast<ShmemDictNode *>(resolveOffset(newNodeOffset, heapPtr));
     newNode->setData(data);
     newNode->setLeft(NIL());
@@ -341,17 +341,17 @@ void ShmemDict::toStringHelper(const ShmemDictNode *node, int indent, std::ostri
     {
         // Traverse left subtree
         toStringHelper(node->left(), indent, resultStream, currentElement, maxElements);
-        std::cout <<node->keyToString()<<":"<< resultStream.str() << std::endl;
+
         // Append current node
-        // if (currentElement >= maxElements)
-        // {
-        //     resultStream << std::string(indent, ' ') << "..." << "\n";
-        //     return;
-        // }
+        if (currentElement >= maxElements)
+        {
+            resultStream << std::string(indent, ' ') << "..." << "\n";
+            return;
+        }
 
         resultStream << std::string(indent, ' ')
                      << node->keyToString() << ": "
-                     << node->data()->toString(indent + 1) << "\n";
+                     << node->data()->toString(indent ) << "\n";
 
         currentElement++;
 
@@ -399,10 +399,10 @@ void ShmemDict::keysHelper(const ShmemDictNode *node, std::vector<KeyType> &resu
 
 size_t ShmemDict::construct(ShmemHeap *heapPtr)
 {
-    size_t NILOffset = ShmemDictNode::construct(NILKey, heapPtr);
-    ShmemDictNode *NILPtr = reinterpret_cast<ShmemDictNode *>(resolveOffset(NILOffset, heapPtr));
-
     size_t dictOffset = heapPtr->shmalloc(sizeof(ShmemDict));
+    size_t NILOffset = ShmemDictNode::construct(NILKey, heapPtr);
+
+    ShmemDictNode *NILPtr = reinterpret_cast<ShmemDictNode *>(resolveOffset(NILOffset, heapPtr));
     ShmemDict *dictPtr = reinterpret_cast<ShmemDict *>(resolveOffset(dictOffset, heapPtr));
 
     NILPtr->colorBlack();
@@ -520,10 +520,6 @@ std::string ShmemDict::toString(int indent, int maxElements) const
 
     resultStream << "(D:" << std::to_string(this->size) << ")" << "{\n";
 
-    if (maxElements < 0)
-    {
-        maxElements = this->len();
-    }
     toStringHelper(this->root(), indent + 1, resultStream, 0, maxElements);
 
     resultStream << std::string(indent, ' ') << "}";

@@ -90,14 +90,17 @@ protected:
 public:
     static size_t construct(ShmemHeap *heapPtr);
 
-    template <typename T>
-    static size_t construct(std::map<int, T> map, ShmemHeap *heapPtr);
+    // template <typename T>
+    // static size_t construct(std::map<int, T> map, ShmemHeap *heapPtr);
 
-    template <typename T>
-    static size_t construct(std::map<std::string, T> map, ShmemHeap *heapPtr);
+    // template <typename T>
+    // static size_t construct(std::map<std::string, T> map, ShmemHeap *heapPtr);
 
-    template <typename T>
-    static size_t construct(std::map<KeyType, T> map, ShmemHeap *heapPtr);
+    // template <typename T>
+    // static size_t construct(std::map<KeyType, T> map, ShmemHeap *heapPtr);
+
+    template <typename keyType, typename T>
+    static size_t construct(std::map<keyType, T> map, ShmemHeap *heapPtr);
 
     static void deconstruct(size_t offset, ShmemHeap *heapPtr);
 

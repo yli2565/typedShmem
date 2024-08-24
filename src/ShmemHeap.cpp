@@ -410,7 +410,7 @@ void ShmemHeap::printShmHeap()
     this->logger->info("********************************* Static Space ****************************");
     this->logger->info("Static Space Capacity: {}", staticCapacity);
     this->logger->info("Heap Capacity: {}", heapCapacity);
-    this->logger->info("Free block list offset: {}", firstFreeBlockOffset);
+    this->logger->info("Free block list offset: {}", firstFreeBlockOffset == NPtr ? "NPtr" : std::to_string(firstFreeBlockOffset));
     this->logger->info("Entrance offset: {}", entranceOffset == NPtr ? "null" : std::to_string(entranceOffset));
     this->logger->info("********************************** Block List *****************************");
     // this->logger->info("Offset\tStatus\tPrev\tBusy\tt_Begin\tt_End\tt_Size");

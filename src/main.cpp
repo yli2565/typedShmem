@@ -22,6 +22,5 @@ int main(int argc, char **argv)
     // {
     //     std::cout << "std::vector<int> is equal to std::vector<int>(10, 1)" << std::endl;
     // }
-    std::cout << sizeof(ShmemList) << std::endl;
     return 0;
 }
