@@ -72,11 +72,38 @@ TEST_F(ShmemDictTest, BasicAssignmentAndMemoryUsage)
     EXPECT_EQ(acc.toString(), "(D:0){\n}");
 
     // More test required
-    
+
     acc[2].set(m1);
     acc[2].del("9");
 
     std::cout << acc << std::endl;
+}
+
+TEST_F(ShmemDictTest, QuickAssign)
+{
+    map<int, int> m1 = {{1, 11}, {2, 22}, {3, 33}, {4, 44}};
+    acc = {{1, 11}, {2, 22}, {3, 33}, {4, 44}};
+    EXPECT_EQ(acc, m1);
+
+    map<string, int> m2 = {{"A", 1}, {"BB", 11}, {"CCC", 111}, {"DDDD", 1111}, {"EEEEE", 11111}};
+    acc = {{"A", 1}, {"BB", 11}, {"CCC", 111}, {"DDDD", 1111}, {"EEEEE", 11111}};
+    EXPECT_EQ(acc, m2);
+
+    map<int, float> m3 = {{1, 11.0}, {2, 22.0}, {3, 33.0}, {4, 44.0}};
+    acc = {{1, 11.0}, {2, 22.0}, {3, 33.0}, {4, 44.0}};
+    EXPECT_EQ(acc, m3);
+
+    map<string, float> m4 = {{"A", 1.0}, {"BB", 11.0}, {"CCC", 111.0}, {"DDDD", 1111.0}, {"EEEEE", 11111.0}};
+    acc = {{"A", 1.0}, {"BB", 11.0}, {"CCC", 111.0}, {"DDDD", 1111.0}, {"EEEEE", 11111.0}};
+    EXPECT_EQ(acc, m4);
+
+    map<string, string> m5 = {{"A", "1"}, {"BB", "11"}, {"CCC", "111"}, {"DDDD", "1111"}, {"EEEEE", "11111"}};
+    acc = {{"A", "1"}, {"BB", "11"}, {"CCC", "111"}, {"DDDD", "1111"}, {"EEEEE", "11111"}};
+    EXPECT_EQ(acc, m5);
+
+    map<string, int> m6 = {{"A", 1}, {"BB", 11}, {"CCC", 111}, {"DDDD", 1111}, {"EEEEE", 11111}};
+    acc = {{"A", 1}, {"BB", 11}, {"CCC", 111}, {"DDDD", 1111}, {"EEEEE", 11111}};
+    EXPECT_EQ(acc, m6);
 }
 
 // TEST_F(ShmemDictTest, TypeIdAndLen)

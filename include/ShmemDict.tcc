@@ -122,7 +122,7 @@ ShmemDict::operator T() const
         bool allString = true;
         std::map<KeyType, mapDataType> tmpResult;
         T result;
-        convertHelper(this->root, tmpResult, allInt, allString);
+        convertHelper(this->root(), tmpResult, allInt, allString);
         if constexpr (std::is_convertible_v<keyDataType, int>)
         {
             if (!allInt)
@@ -197,7 +197,7 @@ bool ShmemDict::operator==(const T &val) const
     }
     else if constexpr (isMap<T>::value)
     {
-        return this->operator T == val;
+        return this->operator T() == val;
     }
     else
     {

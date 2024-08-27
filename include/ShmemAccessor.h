@@ -498,12 +498,7 @@ public:
     }
 
     // Quick assignments
-    ShmemAccessor &operator=(const std::initializer_list<int> &val)
-    {
-        this->set(std::vector<int>(val));
-        return *this;
-    }
-
+    // Assign vector
     ShmemAccessor &operator=(const std::initializer_list<float> &val)
     {
         this->set(std::vector<float>(val));
@@ -518,6 +513,52 @@ public:
         }
 
         this->set(stringVec);
+        return *this;
+    }
+
+    // Assign map
+    ShmemAccessor &operator=(const std::initializer_list<std::pair<const std::string, float>> &val)
+    {
+        std::map<std::string, float> mapVal;
+        for (const auto &pair : val)
+        {
+            mapVal[pair.first] = pair.second;
+        }
+
+        this->set(mapVal);
+        return *this;
+    }
+    ShmemAccessor &operator=(const std::initializer_list<std::pair<const int, float>> &val)
+    {
+        std::map<int, float> mapVal;
+        for (const auto &pair : val)
+        {
+            mapVal[pair.first] = pair.second;
+        }
+
+        this->set(mapVal);
+        return *this;
+    }
+    ShmemAccessor &operator=(const std::initializer_list<std::pair<const std::string, const char *>> &val)
+    {
+        std::map<std::string, std::string> mapVal;
+        for (const auto &pair : val)
+        {
+            mapVal[pair.first] = std::string(pair.second);
+        }
+
+        this->set(mapVal);
+        return *this;
+    }
+    ShmemAccessor &operator=(const std::initializer_list<std::pair<const int, const char *>> &val)
+    {
+        std::map<int, std::string> mapVal;
+        for (const auto &pair : val)
+        {
+            mapVal[pair.first] = std::string(pair.second);
+        }
+
+        this->set(mapVal);
         return *this;
     }
 
