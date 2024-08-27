@@ -45,6 +45,8 @@ protected:
     bool isBusy() const;
     void setBusy(bool b = true);
     int wait(int timeout = -1) const;
+    void acquire(int timeout = -1);
+    void release();
     ShmemHeap::BlockHeader *getHeader() const;
 
     static ShmemObj *resolveOffset(size_t offset, ShmemHeap *heapPtr);

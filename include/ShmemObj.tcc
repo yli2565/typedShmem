@@ -125,6 +125,17 @@ inline int ShmemObj::wait(int timeout) const
     return this->getHeader()->wait(timeout);
 }
 
+inline void ShmemObj::acquire(int timeout)
+{
+    this->wait(timeout);
+    this->setBusy(true);
+}
+
+inline void ShmemObj::release()
+{
+    this->setBusy(false);
+}
+
 inline ShmemHeap::BlockHeader *ShmemObj::getHeader() const
 {
     return reinterpret_cast<ShmemHeap::BlockHeader *>(reinterpret_cast<uintptr_t>(this) - sizeof(ShmemHeap::BlockHeader));

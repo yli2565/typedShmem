@@ -310,6 +310,11 @@ size_t ShmemHeap::shrealloc(size_t offset, size_t size)
         return this->shmalloc(size);
 
     BlockHeader *header = reinterpret_cast<BlockHeader *>(this->heapHead_unsafe() + offset) - 1;
+
+    // Set Busy bit
+    header->wait();
+    header->setB(true);
+
     // TODO: check if it is a valid header
 
     // Header + size + Padding
@@ -324,6 +329,8 @@ size_t ShmemHeap::shrealloc(size_t offset, size_t size)
     if (oldSize == requiredSize)
     {
         this->logger->debug("shrealloc(offset={}, size={}) succeeded. Current block size: {} already satisfied the requirement", offset, size, oldSize);
+        
+        header->setB(false);
         return offset;
     }
     else if (oldSize > requiredSize)
@@ -354,6 +361,8 @@ size_t ShmemHeap::shrealloc(size_t offset, size_t size)
 
             this->logger->debug("shrealloc(offset={}, size={}) shrink current block from: {}A->{}A+{}E", offset, size, oldSize, requiredSize, oldSize - requiredSize);
         }
+
+        header->setB(false);
         return offset;
     }
     else
@@ -364,6 +373,7 @@ size_t ShmemHeap::shrealloc(size_t offset, size_t size)
         // Copy the payload
         std::memcpy(tempPayload, this->heapHead_unsafe() + offset, oldPayloadSize);
 
+        header->setB(false); // shrealloc is done with the current block
         // Free the old payload
         this->shfree(offset);
 
@@ -375,6 +385,7 @@ size_t ShmemHeap::shrealloc(size_t offset, size_t size)
         delete[] tempPayload;
 
         this->logger->debug("shrealloc(offset={}, size={}) move payload offset: {}->{}, block size: {}->{}", offset, size, offset, newPayloadOffset, oldSize, requiredSize);
+
 
         return newPayloadOffset;
     }

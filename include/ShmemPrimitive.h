@@ -42,7 +42,8 @@ public:
     // Destructors
     static inline void deconstruct(size_t offset, ShmemHeap *heapPtr)
     {
-        heapPtr->shfree(heapPtr->heapHead() + offset);
+        ShmemPrimitive_ *target = static_cast<ShmemPrimitive_ *>(resolveOffset(offset, heapPtr));
+        heapPtr->shfree(target);
     }
 
     // __len__

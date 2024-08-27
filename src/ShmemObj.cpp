@@ -18,7 +18,8 @@ std::string ShmemObj::typeStr() const
 
 void ShmemObj::deconstruct(size_t offset, ShmemHeap *heapPtr)
 {
-    int type = resolveOffset(offset, heapPtr)->type;
+    ShmemObj *target = resolveOffset(offset, heapPtr);
+    int type = target->type;
     if (isPrimitive(type))
     {
         ShmemPrimitive_::deconstruct(offset, heapPtr);
