@@ -123,10 +123,12 @@ public:
 
     // Iterator related
     int nextIdx(int index) const;
-    
+
     // Converters
     template <typename T>
     operator T() const;
+
+    operator pybind11::list() const;
 
     // Aliases
     template <typename T>

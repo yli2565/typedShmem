@@ -114,7 +114,27 @@ KeyType ShmemObj::nextIdx(KeyType index) const
     }
 }
 
-// Convertors implemented in .tcc
+// C++ Convertors implemented in .tcc
+
+ShmemObj::operator pybind11::object() const
+{
+    if (isPrimitive(this->type))
+    {
+        return static_cast<const ShmemPrimitive_ *>(this)->operator pybind11::object();
+    }
+    else if (this->type == List)
+    {
+        return static_cast<const ShmemList *>(this)->operator pybind11::list();
+    }
+    else if (this->type == Dict)
+    {
+        return static_cast<const ShmemDict *>(this)->operator pybind11::dict();
+    }
+    else
+    {
+        throw std::runtime_error("Unknown type");
+    }
+}
 
 // Arithmetic operators
 bool ShmemObj::operator==(const char *val) const

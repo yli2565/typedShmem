@@ -5,6 +5,8 @@
             "includePath": [
                 "${workspaceFolder}/include/**",
                 "${workspaceFolder}/lib/**/include",
+                "${workspaceFolder}/lib/pybind11/include",
+                "/usr/include/python3.10", // Adjust according to your Python version
                 // "${workspaceFolder}/build/_deps/googletest-src/googletest/include"
             ],
             "defines": [],

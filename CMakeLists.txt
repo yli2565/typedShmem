@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.0)
 
 # Set the project name and specify the language as C/C++
-project("C/C++ Project" LANGUAGES C CXX)
+project("TypedShmem" LANGUAGES C CXX)
 
 set(CMAKE_C_COMPILER "/usr/bin/gcc-12")
 set(CMAKE_CXX_COMPILER "/usr/bin/g++-12")
@@ -56,6 +56,7 @@ file(GLOB SUBDIRS "${CMAKE_CURRENT_SOURCE_DIR}/${LIB_DIR}/*")
 foreach(SUBDIR ${SUBDIRS})
     if(IS_DIRECTORY ${SUBDIR})
         add_subdirectory(${SUBDIR})
+        message(STATUS "Added ${SUBDIR} as subdirectory")
     endif()
 endforeach()
 # Uncomment the following line if you want to add external libraries
@@ -64,13 +65,17 @@ endforeach()
 set(LIBRARIES_TO_LINK)
 
 # List of libraries to link against
-file(GLOB SUBDIRS "${CMAKE_CURRENT_SOURCE_DIR}/${LIB_DIR}/*")
-foreach(SUBDIR ${SUBDIRS})
-    if(IS_DIRECTORY ${SUBDIR})
-        get_filename_component(SUBDIR_STEM ${SUBDIR} NAME)
-        list(APPEND LIBRARIES_TO_LINK ${SUBDIR_STEM})
-    endif()
-endforeach()
+
+# Build pybind11 as an interface library
+add_library(pybind11 INTERFACE)
+target_include_directories(pybind11 INTERFACE lib/pybind11/include)
+
+# Include spdlog
+list(APPEND LIBRARIES_TO_LINK spdlog::spdlog $<$<BOOL:${MINGW}>:ws2_32>)
+# Include pybind11
+list(APPEND LIBRARIES_TO_LINK "pybind11")
+
+# pybind11_add_module(TypedShmem src/ShmemAccessorPybind11.cpp)
 
 # Attempt to find GTest system-wide
 find_package(GTest)
@@ -94,8 +99,11 @@ else()
     list(APPEND LIBRARIES_TO_LINK gtest_main pthread)
 endif()
 
-# Include spdlog
-list(APPEND LIBRARIES_TO_LINK spdlog::spdlog $<$<BOOL:${MINGW}>:ws2_32>)
+
+# Find Python-dev
+find_package(Python3 REQUIRED COMPONENTS Development)
+include_directories(${Python3_INCLUDE_DIRS})
+list (APPEND LIBRARIES_TO_LINK ${Python3_LIBRARIES})
 
 # Link the executables with the specified libraries.
 # Modern CMake will handle the inclusion of header files if properly set up.

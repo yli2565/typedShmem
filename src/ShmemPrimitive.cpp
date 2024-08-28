@@ -60,7 +60,7 @@ std::string ShmemPrimitive_::toString(int indent, int maxElements) const
 std::string ShmemPrimitive_::elementToString(int index) const
 {
 #define ELEMENT_TO_STRING(TYPE) \
-    return std::to_string(reinterpret_cast<const TYPE *>(this->getBytePtr())[index]);
+    return std::to_string(reinterpret_cast<const TYPE *>(this->getBytePtr())[this->resolveIndex(index)]);
 
     SWITCH_PRIMITIVE_TYPES(this->type, ELEMENT_TO_STRING)
 
@@ -100,4 +100,25 @@ int ShmemPrimitive_::nextIdx(int index) const
         throw StopIteration("Primitive array index out of bounds");
     }
     return resolvedIndex + 1;
+}
+
+// Converters
+
+// C++ convertors implemented in .tcc
+ShmemPrimitive_::operator pybind11::object() const
+{
+#define PRIMITIVE_TO_PYTHON_OBJECT(TYPE, PY_TYPE) \
+    return PY_TYPE(this->operator TYPE());
+
+    SWITCH_PRIMITIVE_TYPES_TO_PY(this->type, PRIMITIVE_TO_PYTHON_OBJECT)
+#undef PRIMITIVE_TO_PYTHON_OBJECT
+}
+
+pybind11::object ShmemPrimitive_::elementToPyObject(int index) const
+{
+#define PRIMITIVE_ELEMENT_TO_PYTHON_OBJECT(TYPE, PY_TYPE) \
+    return PY_TYPE(this->operator[]<TYPE>(this->resolveIndex(index)));
+
+    SWITCH_PRIMITIVE_TYPES_TO_PY(this->type, PRIMITIVE_ELEMENT_TO_PYTHON_OBJECT)
+#undef PRIMITIVE_ELEMENT_TO_PYTHON_OBJECT
 }

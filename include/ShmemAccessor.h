@@ -6,11 +6,10 @@
 
 class ShmemAccessor
 {
-private:
+protected:
     static std::string pathToString(const KeyType *path, int size);
     std::string pathToString() const;
 
-protected:
     /**
      * @brief Get offset of the entrance point to the data structure on the heap
      *
@@ -386,11 +385,6 @@ public:
     }
 
     // Quick add
-    void add(const std::initializer_list<int> &value) const
-    {
-        this->add(std::vector<int>(value));
-    }
-
     void add(const std::initializer_list<float> &value) const
     {
         this->add(std::vector<float>(value));
@@ -405,6 +399,36 @@ public:
         }
 
         this->add(stringVec);
+    }
+
+    void add(const std::initializer_list<std::pair<const int, float>> &value) const
+    {
+        this->add(std::map<int, float>(value));
+    }
+
+    void add(const std::initializer_list<std::pair<const std::string, float>> &value) const
+    {
+        this->add(std::map<std::string, float>(value));
+    }
+
+    void add(const std::initializer_list<std::pair<const int, const char *>> &value) const
+    {
+        std::map<int, std::string> stringMap;
+        for (const auto &pair : value)
+        {
+            stringMap.insert({pair.first, std::string(pair.second)});
+        }
+        this->add(stringMap);
+    }
+
+    void add(const std::initializer_list<std::pair<const std::string, const char *>> &value) const
+    {
+        std::map<std::string, std::string> stringMap;
+        for (const auto &pair : value)
+        {
+            stringMap.insert({pair.first, std::string(pair.second)});
+        }
+        this->add(stringMap);
     }
 
     // Iterator related

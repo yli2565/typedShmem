@@ -177,3 +177,16 @@ ShmemList *ShmemList::clear(ShmemHeap *heapPtr)
 
     return this;
 }
+
+// Converters
+
+// C++ convertors implemented in .tcc
+ShmemList::operator pybind11::list() const
+{
+    pybind11::list result(this->listSize);
+    for (size_t i = 0; i < this->listSize; i++)
+    {
+        result[i] = this->getObj(i)->operator pybind11::object();
+    }
+    return result;
+}

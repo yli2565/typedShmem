@@ -87,6 +87,8 @@ protected:
     template <typename T>
     void convertHelper(ShmemDictNode *node, std::map<KeyType, T> &result, bool &allInt, bool &allString) const;
 
+    void toPyObjectHelper(ShmemDictNode *node, pybind11::dict &result) const;
+
 public:
     static size_t construct(ShmemHeap *heapPtr);
 
@@ -143,6 +145,8 @@ public:
     // Converters
     template <typename T>
     operator T() const;
+
+    operator pybind11::dict() const;
 
     // Aliases
     template <typename T>

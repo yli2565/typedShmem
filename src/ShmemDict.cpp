@@ -351,7 +351,7 @@ void ShmemDict::toStringHelper(const ShmemDictNode *node, int indent, std::ostri
 
         resultStream << std::string(indent, ' ')
                      << node->keyToString() << ": "
-                     << node->data()->toString(indent ) << "\n";
+                     << node->data()->toString(indent) << "\n";
 
         currentElement++;
 
@@ -395,6 +395,18 @@ void ShmemDict::keysHelper(const ShmemDictNode *node, std::vector<KeyType> &resu
     result.push_back(node->keyVal());
 
     keysHelper(node->right(), result, allInt, allString);
+}
+
+void ShmemDict::toPyObjectHelper(ShmemDictNode *node, pybind11::dict &result) const
+{
+    if (node != this->NIL())
+    {
+        toPyObjectHelper(node->left(), result);
+
+        result[node->key()->operator pybind11::object()] = node->data()->operator pybind11::object();
+
+        toPyObjectHelper(node->right(), result);
+    }
 }
 
 size_t ShmemDict::construct(ShmemHeap *heapPtr)
@@ -563,4 +575,12 @@ KeyType ShmemDict::nextIdx(KeyType index) const
     if (successor == nullptr)
         throw StopIteration("End of dict");
     return successor->keyVal();
+}
+
+// Converter
+ShmemDict::operator pybind11::dict() const
+{
+    pybind11::dict result;
+    toPyObjectHelper(this->root(), result);
+    return result;
 }

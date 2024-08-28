@@ -78,6 +78,8 @@ public:
     template <typename T>
     operator T() const;
 
+    operator pybind11::object() const;
+
     // Arithmetic
     template <typename T>
     bool operator==(const T &val) const;

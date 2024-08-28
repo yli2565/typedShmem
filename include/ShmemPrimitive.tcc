@@ -54,6 +54,71 @@ inline size_t ShmemPrimitive_::construct(const T &val, ShmemHeap *heapPtr)
     {
         throw std::runtime_error("Code should not reach here. Primitive object doesn't accept nested type");
     }
+    else if constexpr (std::is_same_v<T, pybind11::object>)
+    {
+        if (pybind11::isinstance<pybind11::bool_>(val))
+        {
+            return ShmemPrimitive_::construct(pybind11::cast<bool>(val), heapPtr);
+        }
+        else if (pybind11::isinstance<pybind11::int_>(val))
+        {
+            return ShmemPrimitive_::construct(pybind11::cast<int>(val), heapPtr);
+        }
+        else if (pybind11::isinstance<pybind11::float_>(val))
+        {
+            return ShmemPrimitive_::construct(pybind11::cast<float>(val), heapPtr);
+        }
+        else if (pybind11::isinstance<pybind11::str>(val))
+        {
+            return ShmemPrimitive_::construct(pybind11::cast<std::string>(val), heapPtr);
+        }
+        else if (pybind11::isinstance<pybind11::bytes>(val))
+        {
+            std::string cpp_string = pybind11::cast<std::string>(val);
+            return ShmemPrimitive_::construct(std::vector<unsigned char>(cpp_string.begin(), cpp_string.end()), heapPtr);
+        }
+        else if (pybind11::isinstance<pybind11::list>(val))
+        {
+            bool allInt = true;
+            bool allFloat = true;
+            bool allBool = true;
+            for (const auto &item : pybind11::cast<pybind11::list>(val))
+            {
+                if (!pybind11::isinstance<pybind11::int_>(item))
+                {
+                    allInt = false;
+                }
+                if (!pybind11::isinstance<pybind11::float_>(item))
+                {
+                    allFloat = false;
+                }
+                if (!pybind11::isinstance<pybind11::bool_>(item))
+                {
+                    allBool = false;
+                }
+            }
+            if (allInt)
+            {
+                return ShmemPrimitive_::construct(pybind11::cast<std::vector<int>>(val), heapPtr);
+            }
+            else if (allFloat)
+            {
+                return ShmemPrimitive_::construct(pybind11::cast<std::vector<float>>(val), heapPtr);
+            }
+            else if (allBool)
+            {
+                return ShmemPrimitive_::construct(pybind11::cast<std::vector<bool>>(val), heapPtr);
+            }
+            else
+            {
+                throw std::runtime_error("Cannot convert pybind11 list to primitive array");
+            }
+        }
+        else
+        {
+            throw std::runtime_error("Cannot convert pybind11 object to primitive");
+        }
+    }
     else
     {
         throw std::runtime_error("Cannot convert non-primitive object to primitive");
@@ -118,6 +183,27 @@ inline T ShmemPrimitive_::get(int index) const
             throw std::runtime_error("Code should not reach here");
         }
     }
+    if constexpr (std::is_same_v<T, pybind11::list>)
+    {
+#define SHMEM_PRIMITIVE_CONVERT_PY_LIST(TYPE) \
+    return pybind11::cast<pybind11::list>(this->get<std::vector<TYPE>>(index));
+
+        SWITCH_PRIMITIVE_TYPES(this->type, SHMEM_PRIMITIVE_CONVERT_PY_LIST)
+
+#undef SHMEM_PRIMITIVE_CONVERT_PY_LIST
+    }
+    if constexpr (std::is_same_v<T, pybind11::int_>)
+    {
+        return pybind11::cast<pybind11::int_>(this->get<int>(index));
+    }
+    else if constexpr (std::is_same_v<T, pybind11::float_>)
+    {
+        return pybind11::cast<pybind11::float_>(this->get<float>(index));
+    }
+    else if constexpr (std::is_same_v<T, pybind11::bool_>)
+    {
+        return pybind11::cast<pybind11::bool_>(this->get<bool>(index));
+    }
     else
     { // Cannot convert
         throw ConversionError("Cannot convert");
@@ -139,6 +225,37 @@ inline void ShmemPrimitive_::set(const T &value, int index)
         if constexpr (isVector<T>::value)
         {
             throw std::runtime_error("Setting " + typeNames.at(this->type) + " with " + typeName<T>() + " is not allowed");
+        }
+        if constexpr (std::is_same_v<T, pybind11::object>)
+        {
+            if (pybind11::isinstance<pybind11::str>(value))
+            {
+                std::string cpp_string = value; // Convert py::str to std::string
+                if (cpp_string.length() != 1)
+                {
+                    throw std::runtime_error("Python string must contain exactly one character to be converted to " + typeName<T>());
+                }
+                else
+                {
+                    reinterpret_cast<T *>(this->getBytePtr())[this->resolveIndex(index)] = cpp_string[0];
+                }
+            }
+            else
+            {
+                try
+                {
+#define SHMEM_CONVERT_PY_PRIMITIVE(TYPE) \
+    reinterpret_cast<TYPE *>(this->getBytePtr())[this->resolveIndex(index)] = obj.cast<TYPE>();
+
+                    SWITCH_PRIMITIVE_TYPES(this->type, SHMEM_CONVERT_PY_PRIMITIVE)
+
+#undef SHMEM_CONVERT_PY_PRIMITIVE
+                }
+                catch (pybind11::cast_error &e)
+                {
+                    throw ConversionError("Cannot convert pybind11 object to " + typeName<T>());
+                }
+            }
         }
         else
         {
@@ -179,9 +296,7 @@ inline void ShmemPrimitive_::del(int index)
 template <typename T>
 inline bool ShmemPrimitive_::contains(T value) const
 {
-    if constexpr (!isPrimitiveBaseCase<T>())
-        return false;
-    else
+    if constexpr (isPrimitiveBaseCase<T>())
     {
         const Byte *ptr = this->getBytePtr();
 #define SHMEM_PRIMITIVE_COMP(TYPE)                                                     \
@@ -201,7 +316,20 @@ inline bool ShmemPrimitive_::contains(T value) const
         SWITCH_PRIMITIVE_TYPES(this->type, SHMEM_PRIMITIVE_COMP)
 
 #undef SHMEM_PRIMITIVE_COMP
+    }else if constexpr(std::is_same_v<T, pybind11::object>){
+        if(pybind11::isinstance<pybind11::str>(value)){
+            std::string cpp_string = value; // Convert py::str to std::string
+            if (cpp_string.length() != 1)
+            {
+                return false;
+            }
+            else
+            {
+                return this->get<char>(0) == cpp_string[0];
+            }
+        }
     }
+
     return false;
 }
 

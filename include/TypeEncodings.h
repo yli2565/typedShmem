@@ -10,6 +10,8 @@
 #include <unordered_map>
 #include <cxxabi.h>
 #include <variant>
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 
 // Macro for simplicity
 #define SWITCH_PRIMITIVE_TYPES(SWITCH_TARGET, OPERATION_FUNC) \
@@ -57,6 +59,53 @@
     default:                                                  \
         throw std::runtime_error("Unknown type");             \
         break;                                                \
+    }
+
+#define SWITCH_PRIMITIVE_TYPES_TO_PY(SWITCH_TARGET, OPERATION_FUNC) \
+    switch (SWITCH_TARGET)                                          \
+    {                                                               \
+    case Bool:                                                      \
+        OPERATION_FUNC(bool, pybind11::bool_)                       \
+        break;                                                      \
+    case Char:                                                      \
+        OPERATION_FUNC(std::string, pybind11::str)                  \
+        break;                                                      \
+    case UChar:                                                     \
+        OPERATION_FUNC(unsigned char, pybind11::int_)               \
+        break;                                                      \
+    case Short:                                                     \
+        OPERATION_FUNC(short, pybind11::int_)                       \
+        break;                                                      \
+    case UShort:                                                    \
+        OPERATION_FUNC(unsigned short, pybind11::int_)              \
+        break;                                                      \
+    case Int:                                                       \
+        OPERATION_FUNC(int, pybind11::int_)                         \
+        break;                                                      \
+    case UInt:                                                      \
+        OPERATION_FUNC(unsigned int, pybind11::int_)                \
+        break;                                                      \
+    case Long:                                                      \
+        OPERATION_FUNC(long, pybind11::int_)                        \
+        break;                                                      \
+    case ULong:                                                     \
+        OPERATION_FUNC(unsigned long, pybind11::int_)               \
+        break;                                                      \
+    case LongLong:                                                  \
+        OPERATION_FUNC(long long, pybind11::int_)                   \
+        break;                                                      \
+    case ULongLong:                                                 \
+        OPERATION_FUNC(unsigned long long, pybind11::int_)          \
+        break;                                                      \
+    case Float:                                                     \
+        OPERATION_FUNC(float, pybind11::float_)                     \
+        break;                                                      \
+    case Double:                                                    \
+        OPERATION_FUNC(double, pybind11::float_)                    \
+        break;                                                      \
+    default:                                                        \
+        throw std::runtime_error("Unknown type");                   \
+        break;                                                      \
     }
 
 // Constants
@@ -123,7 +172,7 @@ DEFINE_TYPE_ENCODING(char *, String)
 DEFINE_TYPE_ENCODING(const char *, String)
 DEFINE_TYPE_ENCODING(std::string, String)
 DEFINE_TYPE_ENCODING(const std::string, String)
-template<std::size_t N>
+template <std::size_t N>
 struct TypeEncoding<char[N]>
 {
     static constexpr int value = String;
@@ -134,7 +183,7 @@ struct isCString : std::false_type
 {
 };
 
-template<std::size_t N>
+template <std::size_t N>
 struct isCString<char[N]> : std::true_type
 {
 };
@@ -281,6 +330,21 @@ struct TypeEncoding<std::map<Key, T>>
 {
     static constexpr int value = Dict;
 };
+
+template <typename T>
+T convertPy2Cpp(pybind11::object obj)
+{
+    if constexpr (std::is_same_v<T, char>)
+    {
+        return obj.cast<std::string>()[0];
+    }
+    else
+    {
+        return obj.cast<T>();
+    }
+}
+
+
 
 
 #endif // TYPEENCODINGS_H
