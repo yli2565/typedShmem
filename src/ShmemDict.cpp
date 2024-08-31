@@ -430,6 +430,30 @@ size_t ShmemDict::construct(ShmemHeap *heapPtr)
     return dictOffset;
 }
 
+size_t ShmemDict::construct(pybind11::dict map, ShmemHeap *heapPtr)
+{
+    size_t dictOffset = ShmemDict::construct(heapPtr);
+    ShmemDict *dict = reinterpret_cast<ShmemDict *>(heapPtr->heapHead() + dictOffset);
+
+    for (auto &[key, val] : map)
+    {
+        ShmemObj *newObj = reinterpret_cast<ShmemObj *>(heapPtr->heapHead() + ShmemObj::construct(val, heapPtr));
+        if (pybind11::isinstance<pybind11::str>(key) || pybind11::isinstance<pybind11::bytes>(key))
+        {
+            dict->insert(key.cast<std::string>(), newObj, heapPtr);
+        }
+        else if (pybind11::isinstance<pybind11::int_>(key))
+        {
+            dict->insert(key.cast<int>(), newObj, heapPtr);
+        }
+        else
+        {
+            throw std::runtime_error("Unsupported key type");
+        }
+    }
+    return dictOffset;
+}
+
 void ShmemDict::deconstruct(size_t offset, ShmemHeap *heapPtr)
 {
     // Do post-order traversal and remove all nodes

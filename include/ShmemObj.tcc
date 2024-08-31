@@ -34,6 +34,70 @@ size_t ShmemObj::construct(const T &value, ShmemHeap *heapPtr)
     {
         return ShmemDict::construct(value, heapPtr);
     }
+    else if constexpr (std::is_same_v<T, pybind11::int_> || std::is_same_v<T, pybind11::float_> || std::is_same_v<T, pybind11::bool_> || std::is_same_v<T, pybind11::str> || std::is_same_v<T, pybind11::bytes>)
+    {
+        return ShmemPrimitive_::construct(value, heapPtr);
+    }
+    else if constexpr (std::is_same_v<T, pybind11::list>)
+    {   // There are two cases: pure int/float/bool, or mixed/nested
+        // Case 1: construct Primitive
+        // Case 2: construct List
+        bool allInt = true;
+        bool allFloat = true;
+        bool allBool = true;
+        for (const auto &item : value)
+        {
+            if (!pybind11::isinstance<pybind11::int_>(item))
+            {
+                allInt = false;
+            }
+            if (!pybind11::isinstance<pybind11::float_>(item))
+            {
+                allFloat = false;
+            }
+            if (!pybind11::isinstance<pybind11::bool_>(item))
+            {
+                allBool = false;
+            }
+            if (!(allInt || allFloat || allBool))
+            {
+                break;
+            }
+        }
+        if (allInt || allFloat || allBool)
+        {
+            return ShmemPrimitive_::construct(value, heapPtr);
+        }
+        else
+        {
+            return ShmemList::construct(value, heapPtr);
+        }
+    }
+    else if constexpr (std::is_same_v<T, pybind11::object>)
+    { // Check underlying type
+        try
+        {
+#define CONSTRUCT_WITH_UNDERLYING_TYPE(TYPE, VALUE) \
+    return construct(VALUE, heapPtr);
+            SWITCH_PYTHON_OBJECT_TO_PRIMITIVE(value, CONSTRUCT_WITH_UNDERLYING_TYPE);
+#undef CONSTRUCT_WITH_UNDERLYING_TYPE
+        }
+        catch (std::runtime_error &e)
+        { // Cannot construct to Primitive, fall back to list/dict
+            if (pybind11::isinstance<pybind11::list>(value))
+            {
+                return ShmemList::construct(value, heapPtr);
+            }
+            else if (pybind11::isinstance<pybind11::dict>(value))
+            {
+                return ShmemDict::construct(value, heapPtr);
+            }
+            else
+            {
+                throw std::runtime_error("Cannot construct object of type " + typeName<T>());
+            }
+        }
+    }
     else
     {
         throw std::runtime_error("Cannot construct object of type " + typeName<T>());

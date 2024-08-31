@@ -58,6 +58,8 @@ public:
     template <typename T>
     static size_t construct(std::vector<T> vec, ShmemHeap *heapPtr);
 
+    static size_t construct(pybind11::list pyList, ShmemHeap *heapPtr);
+
     /**
      * @brief Empty constructor for ShmemList
      *

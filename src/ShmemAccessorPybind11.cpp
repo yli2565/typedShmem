@@ -9,17 +9,17 @@
 namespace py = pybind11;
 
 // Wrapper class for ShmemAccessor that handles specific types
-class ShmemAccessorWrapper : ShmemAccessor
+class ShmemAccessorWrapper : public ShmemAccessor
 {
 public:
     ShmemAccessorWrapper(ShmemHeap *heap) : ShmemAccessor(heap) {}
     ShmemAccessorWrapper(ShmemHeap *heap, std::vector<KeyType> keys) : ShmemAccessor(heap, keys) {}
 
     // __getitem__
-    ShmemAccessorWrapper operator[](const py::args &args) const
+    ShmemAccessorWrapper __getitem__(const py::object &keys) const
     {
         std::vector<KeyType> accessPath(this->path);
-        for (auto arg : args)
+        for (auto arg : keys)
         {
             if (py::isinstance<py::int_>(arg))
             {
@@ -35,6 +35,10 @@ public:
             }
         }
         return ShmemAccessorWrapper(this->heapPtr, accessPath);
+    }
+    ShmemAccessorWrapper operator[](const py::args &keys) const
+    {
+        return this->__getitem__(keys);
     }
 
     void __setitem__(const KeyType &key, const py::object &value) const
@@ -125,23 +129,23 @@ PYBIND11_MODULE(TypedShmem, m)
         .def(py::init<ShmemHeap *>())
         .def(py::init<ShmemHeap *, std::vector<KeyType>>())
         .def("__getitem__", &ShmemAccessorWrapper::operator[], py::is_operator())
-        .def("__setitem__", &ShmemAccessor::set<int>)
-        .def("__delitem__", &ShmemAccessor::del)
-        .def("__contains__", &ShmemAccessor::contains<int>)
-        .def("__len__", &ShmemAccessor::len)
-        .def("__str__", &ShmemAccessor::toString)
-        .def("typeId", &ShmemAccessor::typeId)
-        .def("typeStr", &ShmemAccessor::typeStr)
-        .def("get", &ShmemAccessor::get<int>)
-        .def("set", &ShmemAccessor::set<int>)
-        .def("add", py::overload_cast<const int &>(&ShmemAccessor::add<int>))
-        .def("begin", &ShmemAccessor::begin)
-        .def("end", &ShmemAccessor::end)
-        .def("operator++", &ShmemAccessor::operator++)
-        .def("operator==", py::overload_cast<const ShmemAccessor &>(&ShmemAccessor::operator==))
-        .def("operator!=", py::overload_cast<const ShmemAccessor &>(&ShmemAccessor::operator!=))
-        .def("__repr__", [](const ShmemAccessor &a)
-             { return "<ShmemAccessor>"; })
-        .def("__iter__", [](ShmemAccessor &a)
-             { return py::make_iterator(a.begin(), a.end()); }, py::keep_alive<0, 1>());
+        // .def("__setitem__", &ShmemAccessorWrapper::set<int>)
+        .def("__delitem__", &ShmemAccessorWrapper::del)
+        // .def("__contains__", &ShmemAccessorWrapper::contains<int>)
+        .def("__len__", &ShmemAccessorWrapper::len)
+        .def("__str__", &ShmemAccessorWrapper::toString)
+        .def("typeId", &ShmemAccessorWrapper::typeId)
+        .def("typeStr", &ShmemAccessorWrapper::typeStr)
+        // .def("get", &ShmemAccessorWrapper::get<int>)
+        // .def("set", &ShmemAccessorWrapper::set<int>)
+        // .def("add", py::overload_cast<const int &>(&ShmemAccessorWrapper::add<int>))
+        .def("begin", &ShmemAccessorWrapper::begin)
+        .def("end", &ShmemAccessorWrapper::end)
+        .def("operator++", &ShmemAccessorWrapper::operator++)
+        // .def("operator==", py::overload_cast<const ShmemAccessorWrapper &>(&ShmemAccessorWrapper::operator==))
+        // .def("operator!=", py::overload_cast<const ShmemAccessorWrapper &>(&ShmemAccessorWrapper::operator!=))
+        .def("__repr__", [](const ShmemAccessorWrapper &a)
+             { return "<ShmemAccessor>"; });
+    // .def("__iter__", [](ShmemAccessorWrapper &a)
+    //      { return py::make_iterator(a.begin(), a.end()); }, py::keep_alive<0, 1>());
 }

@@ -2,9 +2,11 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <cstring>
-
+#include <iostream>
 #include "ShmemPrimitive.h"
 #include "ShmemAccessor.h"
+using namespace std;
+namespace py = pybind11;
 
 class ShmemPrimitiveTest : public ::testing::Test
 {
@@ -20,7 +22,7 @@ protected:
         shmHeap.getLogger()->sinks().push_back(console_sink);
         // Initialize necessary objects/resources
         shmHeap.create();
-
+        Py_Initialize();
         // Set spdlog sink to a file
     }
 
@@ -93,9 +95,9 @@ TEST_F(ShmemPrimitiveTest, SetAndGetElement)
     EXPECT_EQ(acc, 7);
     EXPECT_EQ(acc, std::vector<int>({7}));
 
-    acc=nullptr;
+    acc = nullptr;
     EXPECT_EQ(acc, nullptr);
-    EXPECT_ANY_THROW(acc[0]=1);
+    EXPECT_ANY_THROW(acc[0] = 1);
 
     // Vector
     acc = std::vector<float>(10, 1);
@@ -134,4 +136,50 @@ TEST_F(ShmemPrimitiveTest, Contains)
     EXPECT_EQ(acc.contains('s'), true);
     EXPECT_EQ(acc.contains('a'), true);
     EXPECT_EQ(acc.contains('b'), false);
+}
+
+TEST_F(ShmemPrimitiveTest, ConvertToPythonObject)
+{
+    acc = 1;
+    EXPECT_EQ(acc.operator py::int_(), 1);
+    EXPECT_EQ(acc.operator py::int_(), 1);
+
+    acc = 3.14f;
+    EXPECT_FLOAT_EQ(acc.operator py::float_().cast<float>(), 3.14f);
+
+    acc = double(12345678.9123456);
+    double val = acc.operator py::float_().cast<double>();
+    EXPECT_DOUBLE_EQ(acc.operator py::float_().cast<double>(), 12345678.9123456);
+    
+    acc = std::vector<float>(10, 1);
+    EXPECT_EQ(py::cast<std::string>(py::str(acc.operator py::object())), "[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]");
+    acc = std::vector<int>(10, 1);
+    EXPECT_EQ(py::cast<std::string>(py::str(acc.operator py::object())), "[1, 1, 1, 1, 1, 1, 1, 1, 1, 1]");
+    acc = std::vector<bool>(10, 1);
+    EXPECT_EQ(py::cast<std::string>(py::str(acc.operator py::object())), "[True, True, True, True, True, True, True, True, True, True]");
+
+    EXPECT_ANY_THROW(acc.operator py::int_());
+    EXPECT_ANY_THROW(acc.operator py::float_());
+    EXPECT_ANY_THROW(acc.operator py::bool_());
+    EXPECT_ANY_THROW(acc.operator py::str());
+    EXPECT_ANY_THROW(acc.operator py::bytes());
+
+    acc = std::vector<char>(10, 115);
+    EXPECT_EQ(py::cast<std::string>(acc.operator py::str()), "sssssssss");
+    EXPECT_ANY_THROW(acc.operator py::bytes());
+
+    acc = std::vector<unsigned char>(10, 115);
+    EXPECT_EQ(py::cast<std::string>(acc.operator py::bytes()), "ssssssssss");
+    EXPECT_ANY_THROW(acc.operator py::str());
+}
+
+TEST_F(ShmemPrimitiveTest, AssignWithPythonObject)
+{
+    py::list l;
+    for (int i = 0; i < 10; i++)
+    {
+        l.append(i);
+    }
+    acc = l;
+    EXPECT_EQ(py::cast<std::string>(py::str(acc.operator py::object())), "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]");
 }

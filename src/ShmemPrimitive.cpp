@@ -105,14 +105,14 @@ int ShmemPrimitive_::nextIdx(int index) const
 // Converters
 
 // C++ convertors implemented in .tcc
-ShmemPrimitive_::operator pybind11::object() const
-{
-#define PRIMITIVE_TO_PYTHON_OBJECT(TYPE, PY_TYPE) \
-    return PY_TYPE(this->operator TYPE());
+// ShmemPrimitive_::operator pybind11::object() const
+// {
+// #define PRIMITIVE_TO_PYTHON_OBJECT(TYPE, PY_TYPE) \
+//     return PY_TYPE(this->operator TYPE());
 
-    SWITCH_PRIMITIVE_TYPES_TO_PY(this->type, PRIMITIVE_TO_PYTHON_OBJECT)
-#undef PRIMITIVE_TO_PYTHON_OBJECT
-}
+//     SWITCH_PRIMITIVE_TYPES_TO_PY(this->type, PRIMITIVE_TO_PYTHON_OBJECT)
+// #undef PRIMITIVE_TO_PYTHON_OBJECT
+// }
 
 pybind11::object ShmemPrimitive_::elementToPyObject(int index) const
 {
@@ -122,3 +122,61 @@ pybind11::object ShmemPrimitive_::elementToPyObject(int index) const
     SWITCH_PRIMITIVE_TYPES_TO_PY(this->type, PRIMITIVE_ELEMENT_TO_PYTHON_OBJECT)
 #undef PRIMITIVE_ELEMENT_TO_PYTHON_OBJECT
 }
+
+// Helper functions
+
+bool isConversableToShmemPrimitive(const pybind11::object &obj)
+{
+    if (pybind11::isinstance<pybind11::bool_>(obj))
+    {
+        return true;
+    }
+    else if (pybind11::isinstance<pybind11::int_>(obj))
+    {
+        return true;
+    }
+    else if (pybind11::isinstance<pybind11::float_>(obj))
+    {
+        return true;
+    }
+    else if (pybind11::isinstance<pybind11::list>(obj))
+    {
+
+        bool allInt = true;
+        bool allFloat = true;
+        bool allBool = true;
+        for (const auto &item : pybind11::cast<pybind11::list>(obj))
+        {
+            if (!pybind11::isinstance<pybind11::int_>(item))
+            {
+                allInt = false;
+            }
+            if (!pybind11::isinstance<pybind11::float_>(item))
+            {
+                allFloat = false;
+            }
+            if (!pybind11::isinstance<pybind11::bool_>(item))
+            {
+                allBool = false;
+            }
+        }
+        if (allInt || allFloat || allBool)
+        {
+            return true;
+        }
+        return false;
+    }
+    if (pybind11::isinstance<pybind11::str>(obj))
+    {
+        return true;
+    }
+    else if (pybind11::isinstance<pybind11::bytes>(obj))
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
