@@ -39,7 +39,7 @@ size_t ShmemObj::construct(const T &value, ShmemHeap *heapPtr)
         return ShmemPrimitive_::construct(value, heapPtr);
     }
     else if constexpr (std::is_same_v<T, pybind11::list>)
-    {   // There are two cases: pure int/float/bool, or mixed/nested
+    { // There are two cases: pure int/float/bool, or mixed/nested
         // Case 1: construct Primitive
         // Case 2: construct List
         bool allInt = true;
@@ -72,6 +72,11 @@ size_t ShmemObj::construct(const T &value, ShmemHeap *heapPtr)
         {
             return ShmemList::construct(value, heapPtr);
         }
+    }
+    else if constexpr (isPythonAccessor<T>::value)
+    {
+        pybind11::object obj = pybind11::reinterpret_borrow<pybind11::object>(value);
+        return ShmemObj::construct(obj, heapPtr);
     }
     else if constexpr (std::is_same_v<T, pybind11::object>)
     { // Check underlying type

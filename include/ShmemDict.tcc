@@ -54,24 +54,6 @@ size_t ShmemDict::construct(std::map<keyType, T> map, ShmemHeap *heapPtr)
         throw std::runtime_error("Unsupported key type");
     }
 }
-// template <typename T>
-// size_t ShmemDict::construct(std::map<int, T> map, ShmemHeap *heapPtr)
-// {
-//     size_t dictOffset = ShmemDict::construct(heapPtr);
-//     ShmemDict *dict = reinterpret_cast<ShmemDict *>(ShmemObj::resolveOffset(dictOffset, heapPtr));
-//     for (auto &[key, val] : map)
-//     {
-//         ShmemObj *newObj = reinterpret_cast<ShmemObj *>(heapPtr->heapHead() + ShmemObj::construct(val, heapPtr));
-//         dict->insert(key, newObj, heapPtr);
-//     }
-//     return dictOffset;
-// }
-
-// SHMEM_DICT_CONSTRUCT(int)
-// SHMEM_DICT_CONSTRUCT(std::string)
-// SHMEM_DICT_CONSTRUCT(KeyType)
-
-#undef SHMEM_DICT_CONSTRUCT
 
 // __setitem__
 template <typename T>
@@ -148,6 +130,12 @@ ShmemDict::operator T() const
         else
             throw std::runtime_error("ShmemDict: Unsupported key type");
 
+        return result;
+    }
+    else if constexpr (std::is_same_v<T, pybind11::dict> || std::is_same_v<T, pybind11::object>)
+    {
+        pybind11::dict result;
+        toPyObjectHelper(this->root(), result);
         return result;
     }
     else

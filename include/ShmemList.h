@@ -4,6 +4,7 @@
 #ifndef SHMEM_LIST_H
 #define SHMEM_LIST_H
 
+#include "TypeEncodings.h"
 #include "ShmemHeap.h"
 #include <vector>
 #include <stdexcept>
@@ -129,8 +130,6 @@ public:
     // Converters
     template <typename T>
     operator T() const;
-
-    operator pybind11::list() const;
 
     // Aliases
     template <typename T>

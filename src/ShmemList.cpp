@@ -71,6 +71,7 @@ size_t ShmemList::construct(pybind11::list pyList, ShmemHeap *heapPtr)
     for (int i = 0; i < static_cast<int>(pyList.size()); i++)
     {
         basePtr[i] = ShmemObj::construct(pyList[i], heapPtr) - listOffset;
+        list->listSize++;
     }
     return listOffset;
 }
@@ -194,12 +195,3 @@ ShmemList *ShmemList::clear(ShmemHeap *heapPtr)
 // Converters
 
 // C++ convertors implemented in .tcc
-ShmemList::operator pybind11::list() const
-{
-    pybind11::list result(this->listSize);
-    for (size_t i = 0; i < this->listSize; i++)
-    {
-        result[i] = this->getObj(i)->operator pybind11::object();
-    }
-    return result;
-}

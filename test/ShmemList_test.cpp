@@ -7,6 +7,8 @@
 #include "ShmemAccessor.h"
 
 using namespace std;
+namespace py = pybind11;
+
 class ShmemListTest : public ::testing::Test
 {
 protected:
@@ -21,6 +23,7 @@ protected:
         shmHeap.getLogger()->sinks().push_back(console_sink);
         // Initialize necessary objects/resources
         shmHeap.create();
+        Py_Initialize();
 
         // Set spdlog sink to a file
     }
@@ -198,7 +201,7 @@ TEST_F(ShmemListTest, Del)
     // TODO: Move this to primitive test
     acc[4][3].del(2);
     EXPECT_EQ(acc[4][3], "ttt");
-    EXPECT_EQ(acc[4][3].len(), 3+1);
+    EXPECT_EQ(acc[4][3].len(), 3 + 1);
 
     std::cout << acc[4][3] << std::endl;
 }
@@ -222,3 +225,27 @@ TEST_F(ShmemListTest, Contains)
     EXPECT_TRUE(acc[4][4].contains(vector<vector<float>>({{6}, {66}, {666}, {6666}, {66666}})));
     // std::cout << acc[4][4] << std::endl;
 }
+
+TEST_F(ShmemListTest, ConvertToPythonObject)
+{
+    acc = std::vector<float>(10, 1);
+    EXPECT_EQ(py::cast<std::string>(py::str(acc.operator py::list())), "[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]");
+    acc = std::vector<int>(10, 1);
+    EXPECT_EQ(py::cast<std::string>(py::str(acc.operator py::list())), "[1, 1, 1, 1, 1, 1, 1, 1, 1, 1]");
+    acc = std::vector<bool>(10, 1);
+    EXPECT_EQ(py::cast<std::string>(py::str(acc.operator py::list())), "[True, True, True, True, True, True, True, True, True, True]");
+
+    acc = std::vector<char>(1, 's');
+    EXPECT_EQ(py::cast<std::string>(acc.operator py::str()), "s");
+
+    acc = vector<vector<float>>({{1}, {11}, {111}, {1111}, {11111}});
+    acc[0] = vector<vector<int>>({{2}, {22}, {222}, {2222}, {22222}});
+    acc[0][0] = std::vector<bool>(10, true);
+
+    EXPECT_EQ(py::cast<std::string>(py::str(acc.operator py::list())), "[[[True, True, True, True, True, True, True, True, True, True], [22], [222], [2222], [22222]], [11.0], [111.0], [1111.0], [11111.0]]");
+    // acc[1]=true;
+    // acc[0][1] = {{1,2}};
+    std::cout << acc << std::endl;
+}
+
+// TEST_F(ShmemListTest, AssignWithPythonObject)

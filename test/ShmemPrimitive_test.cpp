@@ -12,7 +12,7 @@ class ShmemPrimitiveTest : public ::testing::Test
 {
 protected:
     // Setup code (called before each test)
-    ShmemPrimitiveTest() : shmHeap("test_shm_heap", 80, 1024), acc(&shmHeap){};
+    ShmemPrimitiveTest() : shmHeap("test_shm_heap", 80, 1024), acc(&shmHeap) {};
 
     void SetUp() override
     {
@@ -150,13 +150,14 @@ TEST_F(ShmemPrimitiveTest, ConvertToPythonObject)
     acc = double(12345678.9123456);
     double val = acc.operator py::float_().cast<double>();
     EXPECT_DOUBLE_EQ(acc.operator py::float_().cast<double>(), 12345678.9123456);
-    
+
     acc = std::vector<float>(10, 1);
     EXPECT_EQ(py::cast<std::string>(py::str(acc.operator py::object())), "[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]");
     acc = std::vector<int>(10, 1);
     EXPECT_EQ(py::cast<std::string>(py::str(acc.operator py::object())), "[1, 1, 1, 1, 1, 1, 1, 1, 1, 1]");
     acc = std::vector<bool>(10, 1);
     EXPECT_EQ(py::cast<std::string>(py::str(acc.operator py::object())), "[True, True, True, True, True, True, True, True, True, True]");
+    EXPECT_EQ(py::cast<std::string>(py::str(acc.operator py::list())), "[True, True, True, True, True, True, True, True, True, True]");
 
     EXPECT_ANY_THROW(acc.operator py::int_());
     EXPECT_ANY_THROW(acc.operator py::float_());
@@ -166,10 +167,12 @@ TEST_F(ShmemPrimitiveTest, ConvertToPythonObject)
 
     acc = std::vector<char>(10, 115);
     EXPECT_EQ(py::cast<std::string>(acc.operator py::str()), "sssssssss");
+    EXPECT_EQ(py::cast<std::string>(py::str(acc.operator py::list())), "[115, 115, 115, 115, 115, 115, 115, 115, 115, 115]");
     EXPECT_ANY_THROW(acc.operator py::bytes());
 
     acc = std::vector<unsigned char>(10, 115);
     EXPECT_EQ(py::cast<std::string>(acc.operator py::bytes()), "ssssssssss");
+    EXPECT_EQ(py::cast<std::string>(py::str(acc.operator py::list())), "[115, 115, 115, 115, 115, 115, 115, 115, 115, 115]");
     EXPECT_ANY_THROW(acc.operator py::str());
 }
 
@@ -182,4 +185,34 @@ TEST_F(ShmemPrimitiveTest, AssignWithPythonObject)
     }
     acc = l;
     EXPECT_EQ(py::cast<std::string>(py::str(acc.operator py::object())), "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]");
+
+    l[5] = 100;
+    acc = l;
+    EXPECT_EQ(py::cast<std::string>(py::str(acc.operator py::object())), "[0, 1, 2, 3, 4, 100, 6, 7, 8, 9]");
+
+    py::bool_ b = true;
+    acc = b;
+    EXPECT_EQ(acc.operator bool(), true);
+
+    py::int_ i = 3;
+    acc = i;
+    EXPECT_EQ(acc.operator int(), 3);
+
+    py::float_ f = 3.14f;
+    acc = f;
+    EXPECT_FLOAT_EQ(acc.operator float(), 3.14f);
+
+    py::str s = "sample";
+    acc = s;
+    EXPECT_EQ(acc.operator std::string(), "sample");
+
+    py::bytes bts = "sample";
+    acc = bts;
+    EXPECT_ANY_THROW(acc.operator std::string());
+    vector<unsigned char> v_uchar;
+    v_uchar = acc.operator std::vector<unsigned char>();
+    EXPECT_EQ(v_uchar, vector<unsigned char>({'s', 'a', 'm', 'p', 'l', 'e'}));
+    // acc[5]=3.14f;
+
+    std::cout << acc << std::endl;
 }

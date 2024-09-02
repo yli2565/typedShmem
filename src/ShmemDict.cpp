@@ -454,6 +454,18 @@ size_t ShmemDict::construct(pybind11::dict map, ShmemHeap *heapPtr)
     return dictOffset;
 }
 
+size_t ShmemDict::construct(pybind11::object pythonObj, ShmemHeap *heapPtr)
+{
+    if (pybind11::isinstance<pybind11::dict>(pythonObj))
+    {
+        return construct(pythonObj, heapPtr);
+    }
+    else
+    {
+        throw std::runtime_error("Cannot use normal python object to construct ShmemDict");
+    }
+}
+
 void ShmemDict::deconstruct(size_t offset, ShmemHeap *heapPtr)
 {
     // Do post-order traversal and remove all nodes
@@ -603,6 +615,13 @@ KeyType ShmemDict::nextIdx(KeyType index) const
 
 // Converter
 ShmemDict::operator pybind11::dict() const
+{
+    pybind11::dict result;
+    toPyObjectHelper(this->root(), result);
+    return result;
+}
+
+ShmemDict::operator pybind11::object() const
 {
     pybind11::dict result;
     toPyObjectHelper(this->root(), result);

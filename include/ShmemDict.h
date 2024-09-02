@@ -86,7 +86,6 @@ protected:
     void keysHelper(const ShmemDictNode *node, std::vector<KeyType> &result, bool &allInt, bool &allString) const;
     template <typename T>
     void convertHelper(ShmemDictNode *node, std::map<KeyType, T> &result, bool &allInt, bool &allString) const;
-
     void toPyObjectHelper(ShmemDictNode *node, pybind11::dict &result) const;
 
 public:
@@ -95,7 +94,8 @@ public:
     template <typename keyType, typename T>
     static size_t construct(std::map<keyType, T> map, ShmemHeap *heapPtr);
 
-    static size_t construct(pybind11::dict map, ShmemHeap *heapPtr);
+    static size_t construct(pybind11::dict pythonDict, ShmemHeap *heapPtr);
+    static size_t construct(pybind11::object pythonObj, ShmemHeap *heapPtr);
 
     static void deconstruct(size_t offset, ShmemHeap *heapPtr);
 
@@ -140,6 +140,7 @@ public:
     operator T() const;
 
     operator pybind11::dict() const;
+    operator pybind11::object() const;
 
     // Aliases
     template <typename T>

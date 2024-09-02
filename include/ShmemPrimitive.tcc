@@ -109,53 +109,7 @@ inline T ShmemPrimitive_::get(int index) const
 #define SHMEM_PRIMITIVE_CONVERT(TYPE) \
     return static_cast<T>(reinterpret_cast<const TYPE *>(this->getBytePtr())[this->resolveIndex(index)]);
 
-            // SWITCH_PRIMITIVE_TYPES(this->type, SHMEM_PRIMITIVE_CONVERT)
-
-            switch (this->type)
-            {
-            case Bool:
-                return static_cast<T>(reinterpret_cast<const bool *>(this->getBytePtr())[this->resolveIndex(index)]);
-                break;
-            case Char:
-                return static_cast<T>(reinterpret_cast<const char *>(this->getBytePtr())[this->resolveIndex(index)]);
-                break;
-            case UChar:
-                return static_cast<T>(reinterpret_cast<const unsigned char *>(this->getBytePtr())[this->resolveIndex(index)]);
-                break;
-            case Short:
-                return static_cast<T>(reinterpret_cast<const short *>(this->getBytePtr())[this->resolveIndex(index)]);
-                break;
-            case UShort:
-                return static_cast<T>(reinterpret_cast<const unsigned short *>(this->getBytePtr())[this->resolveIndex(index)]);
-                break;
-            case Int:
-                return static_cast<T>(reinterpret_cast<const int *>(this->getBytePtr())[this->resolveIndex(index)]);
-                break;
-            case UInt:
-                return static_cast<T>(reinterpret_cast<const unsigned int *>(this->getBytePtr())[this->resolveIndex(index)]);
-                break;
-            case Long:
-                return static_cast<T>(reinterpret_cast<const long *>(this->getBytePtr())[this->resolveIndex(index)]);
-                break;
-            case ULong:
-                return static_cast<T>(reinterpret_cast<const unsigned long *>(this->getBytePtr())[this->resolveIndex(index)]);
-                break;
-            case LongLong:
-                return static_cast<T>(reinterpret_cast<const long long *>(this->getBytePtr())[this->resolveIndex(index)]);
-                break;
-            case ULongLong:
-                return static_cast<T>(reinterpret_cast<const unsigned long long *>(this->getBytePtr())[this->resolveIndex(index)]);
-                break;
-            case Float:
-                return static_cast<T>(reinterpret_cast<const float *>(this->getBytePtr())[this->resolveIndex(index)]);
-                break;
-            case Double:
-                return static_cast<T>(reinterpret_cast<const double *>(this->getBytePtr())[this->resolveIndex(index)]);
-                break;
-            default:
-                throw std::runtime_error("Unknown type");
-                break;
-            }
+            SWITCH_PRIMITIVE_TYPES(this->type, SHMEM_PRIMITIVE_CONVERT)
 
 #undef SHMEM_PRIMITIVE_CONVERT
         }
@@ -172,7 +126,11 @@ inline T ShmemPrimitive_::get(int index) const
 
         if constexpr (std::is_same_v<T, std::string> || std::is_same_v<T, const std::string>)
         {
-            return std::string(reinterpret_cast<const char *>(this->getBytePtr()), this->size - 1);
+            size_t endPoint = this->index('\0');
+            if (endPoint == -1)
+                return std::string(reinterpret_cast<const char *>(this->getBytePtr()), this->size);
+            else
+                return std::string(reinterpret_cast<const char *>(this->getBytePtr()), endPoint);
         }
         else if constexpr (std::is_same_v<T, char *> || std::is_same_v<T, const char *>)
         { // TODO: Should I just allocate some mem and return it?
@@ -183,31 +141,97 @@ inline T ShmemPrimitive_::get(int index) const
             throw std::runtime_error("Code should not reach here");
         }
     }
-    if constexpr (std::is_same_v<T, pybind11::list>)
+    // Based on the type asked for
+    else if constexpr (std::is_same_v<T, pybind11::str>)
     {
-#define SHMEM_PRIMITIVE_CONVERT_PY_LIST(TYPE) \
-    return pybind11::list(this->get<std::vector<TYPE>>(index));
-
-        SWITCH_PRIMITIVE_TYPES(this->type, SHMEM_PRIMITIVE_CONVERT_PY_LIST)
-
-#undef SHMEM_PRIMITIVE_CONVERT_PY_LIST
+        if (this->type == Char)
+        {
+            return pybind11::str(this->operator std::string());
+        }
     }
-    if constexpr (std::is_same_v<T, pybind11::int_>)
+    else if constexpr (std::is_same_v<T, pybind11::bytes>)
     {
-        return pybind11::int_(this->get<int>(index));
+        if (this->type == UChar)
+        {
+            std::vector<unsigned char> vec = this->operator std::vector<unsigned char>();
+            return pybind11::bytes(reinterpret_cast<char *>(vec.data()), vec.size());
+        }
     }
-    else if constexpr (std::is_same_v<T, pybind11::float_>)
+    else if constexpr (std::is_same_v<T, pybind11::list>)
     {
-        return pybind11::float_(this->get<float>(index));
+        const Byte *ptr = this->getBytePtr();
+        size_t i = 0;
+        pybind11::list result;
+#define PRIMITIVE_TO_PYTHON_LIST(TYPE, PY_TYPE)                                             \
+    for (; i < this->size; i++)                                                             \
+    {                                                                                       \
+        if constexpr (std::is_same_v<TYPE, std::string>)                                    \
+        {                                                                                   \
+            result.append(pybind11::int_(reinterpret_cast<const char *>(ptr)[i]));          \
+        }                                                                                   \
+        else if constexpr (std::is_same_v<TYPE, unsigned char>)                             \
+        {                                                                                   \
+            result.append(pybind11::int_(reinterpret_cast<const unsigned char *>(ptr)[i])); \
+        }                                                                                   \
+        else                                                                                \
+            result.append(PY_TYPE(reinterpret_cast<const TYPE *>(ptr)[i]));                 \
+    }
+
+        SWITCH_PRIMITIVE_TYPES_TO_PY(this->type, PRIMITIVE_TO_PYTHON_LIST);
+        return result;
+
+#undef PRIMITIVE_TO_PYTHON_LIST
     }
     else if constexpr (std::is_same_v<T, pybind11::bool_>)
     {
-        return pybind11::bool_(this->get<bool>(index));
+        return pybind11::bool_(this->operator bool());
     }
-    else
-    { // Cannot convert
-        throw ConversionError("Cannot convert");
+    else if constexpr (std::is_same_v<T, pybind11::int_>)
+    {
+        return pybind11::int_(this->operator int());
     }
+    else if constexpr (std::is_same_v<T, pybind11::float_>)
+    {
+        return pybind11::float_(this->operator double());
+    }
+    else if constexpr (std::is_same_v<T, pybind11::object>)
+    { // Base on the inner type
+        if (this->size == 1)
+        {
+#define PRIMITIVE_TO_PYTHON_OBJECT(TYPE, PY_TYPE) \
+    return PY_TYPE(this->operator TYPE());
+
+            SWITCH_PRIMITIVE_TYPES_TO_PY(this->type, PRIMITIVE_TO_PYTHON_OBJECT);
+
+#undef PRIMITIVE_TO_PYTHON_OBJECT
+        }
+        else
+        {
+            const Byte *ptr = this->getBytePtr();
+            size_t i = 0;
+
+            pybind11::list result;
+#define PRIMITIVE_TO_PYTHON_LIST(TYPE, PY_TYPE)                                             \
+    for (; i < this->size; i++)                                                             \
+    {                                                                                       \
+        if constexpr (std::is_same_v<TYPE, std::string>)                                    \
+        {                                                                                   \
+            result.append(pybind11::int_(reinterpret_cast<const char *>(ptr)[i]));          \
+        }                                                                                   \
+        else if constexpr (std::is_same_v<TYPE, unsigned char>)                             \
+        {                                                                                   \
+            result.append(pybind11::int_(reinterpret_cast<const unsigned char *>(ptr)[i])); \
+        }                                                                                   \
+        else                                                                                \
+            result.append(PY_TYPE(reinterpret_cast<const TYPE *>(ptr)[i]));                 \
+    }
+
+            SWITCH_PRIMITIVE_TYPES_TO_PY(this->type, PRIMITIVE_TO_PYTHON_LIST);
+            return result;
+#undef PRIMITIVE_TO_PYTHON_LIST
+        }
+    }
+    throw ConversionError("Cannot convert");
 }
 
 template <typename T>
@@ -307,13 +331,13 @@ inline int ShmemPrimitive_::index(T value) const
 {
     if constexpr (isPrimitiveBaseCase<T>())
     {
-        Byte *ptr = this->getBytePtr();
+        const Byte *ptr = this->getBytePtr();
 #define SHMEM_PRIMITIVE_COMP(TYPE)                                         \
     for (int i = 0; i < this->size; i++)                                   \
     {                                                                      \
         try                                                                \
         {                                                                  \
-            if (static_cast<T>(reinterpret_cast<TYPE *>(ptr)[i]) == value) \
+            if (static_cast<T>(reinterpret_cast<const TYPE *>(ptr)[i]) == value) \
                 return i;                                                  \
         }                                                                  \
         catch (std::bad_cast & e)                                          \
@@ -363,117 +387,9 @@ inline ShmemPrimitive_::operator T() const
     {
         return this->ShmemPrimitive_::get<T>(0);
     }
-    // If explicitly
-    else if constexpr (std::is_same_v<T, pybind11::str>)
-    {
-        if (this->type == Char)
-        {
-            return pybind11::str(this->operator std::string());
-        }
-    }
-    else if constexpr (std::is_same_v<T, pybind11::bytes>)
-    {
-        if (this->type == UChar)
-        {
-            std::vector<unsigned char> vec = this->operator std::vector<unsigned char>();
-            return pybind11::bytes(reinterpret_cast<char *>(vec.data()), vec.size());
-        }
-    }
-    else if constexpr (std::is_same_v<T, pybind11::list>)
-    {
-#define PRIMITIVE_TO_PYTHON_LIST(TYPE, PY_TYPE) \
-    return PY_TYPE(this->operator std::vector<TYPE>());
-
-        // SWITCH_PRIMITIVE_TYPES_TO_PY(this->type, PRIMITIVE_TO_PYTHON_LIST);
-
-        switch (this->type)
-        {
-        case Bool:
-            return pybind11::bool_(this->operator std::vector<bool>());
-            break;
-        case Char:
-            return pybind11::str(this->operator std::vector<std::string>());
-            break;
-        case UChar:
-            return pybind11::int_(this->operator std::vector<unsigned char>());
-            break;
-        case Short:
-            return pybind11::int_(this->operator std::vector<short>());
-            break;
-        case UShort:
-            return pybind11::int_(this->operator std::vector<unsigned short>());
-            break;
-        case Int:
-            return pybind11::int_(this->operator std::vector<int>());
-            break;
-        case UInt:
-            return pybind11::int_(this->operator std::vector<unsigned int>());
-            break;
-        case Long:
-            return pybind11::int_(this->operator std::vector<long>());
-            break;
-        case ULong:
-            return pybind11::int_(this->operator std::vector<unsigned long>());
-            break;
-        case LongLong:
-            return pybind11::int_(this->operator std::vector<long long>());
-            break;
-        case ULongLong:
-            return pybind11::int_(this->operator std::vector<unsigned long long>());
-            break;
-        case Float:
-            return pybind11::float_(this->operator std::vector<float>());
-            break;
-        case Double:
-            return pybind11::float_(this->operator std::vector<double>());
-            break;
-        default:
-            throw std::runtime_error("Unknown type");
-            break;
-        }
-#undef PRIMITIVE_TO_PYTHON_LIST
-    }
-    else if constexpr (std::is_same_v<T, pybind11::bool_>)
-    {
-        return pybind11::bool_(this->operator bool());
-    }
-    else if constexpr (std::is_same_v<T, pybind11::int_>)
-    {
-        return pybind11::int_(this->operator int());
-    }
-    else if constexpr (std::is_same_v<T, pybind11::float_>)
-    {
-        return pybind11::float_(this->operator double());
-    }
-    else if constexpr (std::is_same_v<T, pybind11::object>)
-    { // Base on the inner type
-        if (this->size == 1)
-        {
-#define PRIMITIVE_TO_PYTHON_OBJECT(TYPE, PY_TYPE) \
-    return PY_TYPE(this->operator TYPE());
-
-            SWITCH_PRIMITIVE_TYPES_TO_PY(this->type, PRIMITIVE_TO_PYTHON_OBJECT);
-#undef PRIMITIVE_TO_PYTHON_OBJECT
-        }
-        else
-        {
-            const Byte *ptr = this->getBytePtr();
-            size_t i = 0;
-
-            pybind11::list result;
-#define PRIMITIVE_TO_PYTHON_LIST(TYPE, PY_TYPE)                \
-    for (i = 0; i < this->size; i++)                           \
-    {                                                          \
-        result.append(reinterpret_cast<const TYPE *>(ptr)[i]); \
-    }                                                          \
-    return result;
-
-            SWITCH_PRIMITIVE_TYPES_TO_PY(this->type, PRIMITIVE_TO_PYTHON_LIST);
-#undef PRIMITIVE_TO_PYTHON_LIST
-        }
-    }
-
-    throw std::runtime_error("Cannot convert " + typeNames.at(this->type) + "[" + std::to_string(this->size) + "]" + " to " + typeName<T>());
+    // Based on the type asked for
+    else
+        return this->ShmemPrimitive_::get<T>(0);
 }
 
 // Arithmetic Interface

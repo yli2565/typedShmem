@@ -119,7 +119,7 @@ int ShmemList::index(T value, int start, int end) const
         if (offset != NPtr)
         {
             ShmemObj *obj = const_cast<ShmemObj *>(reinterpret_cast<const ShmemObj *>(reinterpret_cast<const Byte *>(this) + offset));
-            if (obj == value)
+            if (obj->operator==(value))
             {
                 return i;
             }
@@ -228,6 +228,16 @@ ShmemList::operator T() const
 
         return result;
     }
+    if constexpr (std::is_same_v<T, pybind11::list>)
+    {
+        pybind11::list result;
+        for (int i = 0; i < this->listSize; i++)
+        {
+            ShmemObj *target = const_cast<ShmemObj *>(reinterpret_cast<const ShmemObj *>(reinterpret_cast<const Byte *>(this) + basePtr[i]));
+            result.append(target->operator pybind11::list());
+        }
+        return result;
+    }
     else
     {
         throw ConversionError("Cannot convert the list to " + typeName<T>() + ". List: " + this->toString());
@@ -258,6 +268,10 @@ bool ShmemList::operator==(const T &val) const
     else if constexpr (isVector<T>::value)
     {
         return this->operator T() == val;
+    }
+    else if constexpr (std::is_same_v<T, pybind11::list>)
+    {
+        return this->operator pybind11::list() == val;
     }
     else
     {

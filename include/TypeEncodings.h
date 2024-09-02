@@ -148,12 +148,12 @@
 #define SWITCH_PYTHON_OBJECT_TO_PRIMITIVE(SWITCH_TARGET, OPERATION_FUNC)                                                           \
     if (pybind11::isinstance<pybind11::str>(SWITCH_TARGET))                                                                        \
     {                                                                                                                              \
-        std::string cpp_string = pybind11::cast<pybind11::str>(SWITCH_TARGET);                                                     \
+        std::string cpp_string = pybind11::cast<std::string>(SWITCH_TARGET);                                                     \
         OPERATION_FUNC(char, cpp_string);                                                                                          \
     }                                                                                                                              \
     else if (pybind11::isinstance<pybind11::bytes>(SWITCH_TARGET))                                                                 \
     {                                                                                                                              \
-        std::string cpp_string = pybind11::cast<pybind11::str>(SWITCH_TARGET);                                                     \
+        std::string cpp_string = pybind11::cast<std::string>(SWITCH_TARGET);                                                     \
         std::vector<unsigned char> vec(cpp_string.begin(), cpp_string.end());                                                      \
         OPERATION_FUNC(unsigned char, vec);                                                                                        \
     }                                                                                                                              \
@@ -321,6 +321,16 @@ struct isPair : std::false_type
 
 template <typename Key, typename T>
 struct isPair<std::pair<Key, T>> : std::true_type
+{
+};
+
+template <typename T>
+struct isPythonAccessor : std::false_type
+{
+};
+
+template <typename policy>
+struct isPythonAccessor<pybind11::detail::accessor<policy>> : std::true_type
 {
 };
 
