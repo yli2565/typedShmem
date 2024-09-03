@@ -403,7 +403,12 @@ void ShmemDict::toPyObjectHelper(ShmemDictNode *node, pybind11::dict &result) co
     {
         toPyObjectHelper(node->left(), result);
 
-        result[node->key()->operator pybind11::object()] = node->data()->operator pybind11::object();
+        const ShmemObj *key = node->key();
+        const ShmemObj *data = node->data();
+        pybind11::object pyKey = key->operator pybind11::object();
+        pybind11::object pyData = data->operator pybind11::object();
+        // std::cout << pyKey << " " << pyData << std::endl;
+        result[pyKey] = pyData;
 
         toPyObjectHelper(node->right(), result);
     }
@@ -604,12 +609,15 @@ KeyType ShmemDict::endIdx() const
 
 KeyType ShmemDict::nextIdx(KeyType index) const
 {
+    if (index == this->NIL()->keyVal())
+        throw StopIteration("Dict index out of bounds");
+        
     const ShmemDictNode *node = search(index);
     if (node == nullptr)
         throw IndexError("Cannot get next index of a non-existent key");
     const ShmemDictNode *successor = findSuccessor(node);
     if (successor == nullptr)
-        throw StopIteration("End of dict");
+        return this->NIL()->keyVal();
     return successor->keyVal();
 }
 

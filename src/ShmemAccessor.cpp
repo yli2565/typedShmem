@@ -91,6 +91,11 @@ std::string ShmemAccessor::typeStr() const
     return typeNames.at(this->typeId());
 }
 
+std::string ShmemAccessor::pathString() const
+{
+    return pathToString(path.data(), path.size());
+}
+
 // __len__ implementation
 size_t ShmemAccessor::len() const
 {

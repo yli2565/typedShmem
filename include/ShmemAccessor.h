@@ -70,6 +70,7 @@ public:
     // Type (Special interface)
     int typeId() const;
     std::string typeStr() const;
+    std::string pathString() const;
 
     // __len__
     size_t len() const;
@@ -90,7 +91,7 @@ public:
         {
             // There are some path not resolved
             // The only case allowed is that the last element is a primitive, and the last path is an index on the primitive array
-            if (isPrimitive(obj->type))
+            if (obj != nullptr && isPrimitive(obj->type))
             {
                 if (resolvedDepth == path.size() - 1)
                 {
@@ -101,18 +102,23 @@ public:
                     }
                     else
                     {
-                        throw std::runtime_error("Cannot index string: " + std::get<std::string>(path[resolvedDepth]) + " on primitive array");
+                        throw IndexError("Cannot index string: " + std::get<std::string>(path[resolvedDepth]) + " on primitive array");
                     }
                 }
                 else
                 {
-                    throw std::runtime_error("Cannot index " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on primitive object");
+                    throw IndexError("Cannot index " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on primitive object");
                 }
             }
             else
             {
-                throw std::runtime_error("Cannot index " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + obj->toString());
+                throw IndexError("Cannot index " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + obj->toString());
             }
+        }
+
+        if (obj == nullptr)
+        {
+            throw IndexError("Cannot index " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + prev->toString());
         }
 
         // convert to target type
@@ -133,7 +139,7 @@ public:
         }
         else
         {
-            throw ConversionError("Cannot convert to this type (C++ doesn't support dynamic type)");
+            throw std::runtime_error("Unknown type");
         }
     }
 
@@ -271,6 +277,19 @@ public:
             if constexpr (std::is_same_v<T, int> || std::is_same_v<T, std::variant<int, std::string>> || isString<T>())
             {
                 return static_cast<ShmemDict *>(obj)->contains(value);
+            }
+            else if constexpr (std::is_base_of_v<pybind11::object, T>)
+            {
+                if (pybind11::isinstance<pybind11::str>(value))
+                    return static_cast<ShmemDict *>(obj)->contains(pybind11::cast<std::string>(value));
+                else if (pybind11::isinstance<pybind11::int_>(value))
+                {
+                    return static_cast<ShmemDict *>(obj)->contains(pybind11::cast<int>(value));
+                }
+                else
+                {
+                    return false;
+                }
             }
             return false;
         }
@@ -432,10 +451,14 @@ public:
     }
 
     // Iterator related
-    template <typename T>
-    T operator*() const
+    // template <typename T>
+    // T operator*() const
+    // {
+    //     return this->get<T>();
+    // }
+    ShmemAccessor operator*() const
     {
-        return this->get<T>();
+        return *this;
     }
 
     // __iter__
@@ -479,12 +502,19 @@ public:
 
         if (resolvedDepth != path.size())
         {
-            throw std::runtime_error("Path is not iterable: " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + obj->toString());
+            throw StopIteration("Path is not iterable: " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + obj->toString());
         }
 
         KeyType newIdx = obj->nextIdx(lastPath);
         this->path.push_back(newIdx);
         return *this;
+    }
+
+    ShmemAccessor operator++(int)
+    {
+        ShmemAccessor temp = *this;
+        ++(*this);
+        return temp;
     }
 
     // Iterator compare

@@ -196,7 +196,11 @@ inline T ShmemPrimitive_::get(int index) const
     }
     else if constexpr (std::is_same_v<T, pybind11::object>)
     { // Base on the inner type
-        if (this->size == 1)
+        if (this->type == Char)
+        {
+            return pybind11::str(this->operator std::string());
+        }
+        else if (this->size == 1)
         {
 #define PRIMITIVE_TO_PYTHON_OBJECT(TYPE, PY_TYPE) \
     return PY_TYPE(this->operator TYPE());
@@ -332,18 +336,18 @@ inline int ShmemPrimitive_::index(T value) const
     if constexpr (isPrimitiveBaseCase<T>())
     {
         const Byte *ptr = this->getBytePtr();
-#define SHMEM_PRIMITIVE_COMP(TYPE)                                         \
-    for (int i = 0; i < this->size; i++)                                   \
-    {                                                                      \
-        try                                                                \
-        {                                                                  \
+#define SHMEM_PRIMITIVE_COMP(TYPE)                                               \
+    for (int i = 0; i < this->size; i++)                                         \
+    {                                                                            \
+        try                                                                      \
+        {                                                                        \
             if (static_cast<T>(reinterpret_cast<const TYPE *>(ptr)[i]) == value) \
-                return i;                                                  \
-        }                                                                  \
-        catch (std::bad_cast & e)                                          \
-        {                                                                  \
-            continue;                                                      \
-        }                                                                  \
+                return i;                                                        \
+        }                                                                        \
+        catch (std::bad_cast & e)                                                \
+        {                                                                        \
+            continue;                                                            \
+        }                                                                        \
     }
 
         SWITCH_PRIMITIVE_TYPES(this->type, SHMEM_PRIMITIVE_COMP)
