@@ -215,6 +215,9 @@ public:
 
 PYBIND11_MODULE(TypedShmem, m)
 {
+    py::class_<ShmemHeap>(m, "ShmemHeap")
+        .def(py::init<>());
+
     py::class_<ShmemAccessorWrapper>(m, "ShmemAccessor")
         .def(py::init<ShmemHeap *>())
         .def(py::init<ShmemHeap *, std::vector<KeyType>>())
