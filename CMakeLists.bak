@@ -62,9 +62,6 @@ endforeach()
 # Uncomment the following line if you want to add external libraries
 # add_subdirectory(lib/<lib_folder_name>)
 
-# As we are compiling a shared library, we need to set the -fPIC
-set_target_properties(spdlog PROPERTIES POSITION_INDEPENDENT_CODE ON)
-
 set(LIBRARIES_TO_LINK)
 
 # List of libraries to link against
@@ -77,6 +74,8 @@ target_include_directories(pybind11 INTERFACE lib/pybind11/include)
 list(APPEND LIBRARIES_TO_LINK spdlog::spdlog $<$<BOOL:${MINGW}>:ws2_32>)
 # Include pybind11
 list(APPEND LIBRARIES_TO_LINK "pybind11")
+
+# pybind11_add_module(TypedShmem src/ShmemAccessorPybind11.cpp)
 
 # Attempt to find GTest system-wide
 find_package(GTest)
@@ -105,16 +104,6 @@ endif()
 find_package(Python3 REQUIRED COMPONENTS Development)
 include_directories(${Python3_INCLUDE_DIRS})
 list (APPEND LIBRARIES_TO_LINK ${Python3_LIBRARIES})
-
-# Add the Python module build process using pybind11
-# Define the source files for the Python module
-set(PYTHON_MODULE_NAME "TypedShmem")  # Name of the Python module
-
-# Create the Python module as a shared library
-pybind11_add_module(${PYTHON_MODULE_NAME} MODULE ${MAIN_SRC_FILES})
-target_link_libraries(${PYTHON_MODULE_NAME} PRIVATE pybind11::module ${LIBRARIES_TO_LINK})
-# install(TARGETS ${PYTHON_MODULE_NAME} DESTINATION ./python)
-
 
 # Link the executables with the specified libraries.
 # Modern CMake will handle the inclusion of header files if properly set up.

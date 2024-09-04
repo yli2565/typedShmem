@@ -112,6 +112,6 @@ TEST_F(ShmemDictTest, ConvertToPythonObject)
     acc = {{"A", 1}, {"BB", 11}, {"CCC", 111}, {"DDDD", 1111}, {"EEEEE", 11111}};
     acc["A"]=vector<vector<int>>({{2,3,4},{5,6,7},{8,9,10},{11,12,13},{14,15,16}});
     acc=nullptr;
-    pybind11::dict obj = acc.operator pybind11::dict();
+    pybind11::object obj = acc.operator pybind11::object();
     std::cout << obj << std::endl;
 }

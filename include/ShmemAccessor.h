@@ -118,6 +118,13 @@ public:
 
         if (obj == nullptr)
         {
+            if constexpr (std::is_base_of_v<pybind11::object, T>)
+            {
+                if (!usePrimitiveIndex)
+                {
+                    return pybind11::none();
+                }
+            }
             throw IndexError("Cannot index " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + prev->toString());
         }
 
