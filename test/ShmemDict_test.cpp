@@ -38,6 +38,17 @@ protected:
 };
 
 // Core tests
+
+
+TEST_F(ShmemDictTest, CreateEmptyDict)
+{
+    acc = SDict();
+    EXPECT_EQ(acc.len(), 0);
+    EXPECT_EQ(acc.typeId(), Dict);
+    EXPECT_EQ(acc.toString(),"(D:0){\n}");
+    std::cout << acc << std::endl;
+}
+
 TEST_F(ShmemDictTest, BasicAssignmentAndMemoryUsage)
 {
     std::map<std::string, int> m1({{"9", 2}});

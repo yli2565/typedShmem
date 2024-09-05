@@ -12,6 +12,8 @@ class ShmemAccessorWrapper : public ShmemAccessor
 public:
     ShmemAccessorWrapper(ShmemHeap *heap);
     ShmemAccessorWrapper(ShmemHeap *heap, std::vector<KeyType> keys);
+    ShmemAccessorWrapper(ShmemHeap &heap);
+    ShmemAccessorWrapper(ShmemHeap &heap, py::list keys);
 
     ShmemAccessorWrapper __getitem__(const py::object &keys) const;
     ShmemAccessorWrapper operator[](const py::args &keys) const;

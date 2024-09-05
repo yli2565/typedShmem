@@ -40,6 +40,9 @@ int main(int argc, char **argv)
         std::cout << std::endl;
     }
     acc = nullptr;
+    std::map<int, std::string> myMap;
+
+    acc = std::map<int, std::string>({});
     // pybind11::dict obj = acc.operator pybind11::dict();
     std::cout << acc << std::endl;
     return 0;

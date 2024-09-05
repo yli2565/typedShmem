@@ -166,7 +166,7 @@ TEST_F(ShmemPrimitiveTest, ConvertToPythonObject)
     EXPECT_ANY_THROW(acc.operator py::bytes());
 
     acc = std::vector<char>(10, 115);
-    EXPECT_EQ(py::cast<std::string>(acc.operator py::str()), "sssssssss");
+    EXPECT_EQ(py::cast<std::string>(acc.operator py::str()), "ssssssssss");
     EXPECT_EQ(py::cast<std::string>(py::str(acc.operator py::list())), "[115, 115, 115, 115, 115, 115, 115, 115, 115, 115]");
     EXPECT_ANY_THROW(acc.operator py::bytes());
 

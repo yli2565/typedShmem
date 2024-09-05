@@ -4,6 +4,18 @@
 #include <iostream>
 #include "ShmemObj.h"
 
+class ShmemInitializer
+{
+public:
+    const int typeId;
+
+    ShmemInitializer(int typeId) : typeId(typeId){};
+};
+
+ShmemInitializer SList();
+
+ShmemInitializer SDict();
+
 class ShmemAccessor
 {
 protected:
@@ -558,7 +570,26 @@ public:
         return *this;
     }
 
+    ShmemAccessor &operator=(const ShmemInitializer &initializer)
+    {
+        if (initializer.typeId == List)
+        {
+            this->set(std::vector<std::vector<int>>{});
+        }
+        else if (initializer.typeId == Dict)
+        {
+            this->set(std::map<int, std::string>({}));
+        }
+        else
+        {
+            throw std::runtime_error("Unsupported initializer type: " + std::to_string(initializer.typeId));
+        }
+
+        return *this;
+    }
+
     // Quick assignments
+
     // Assign vector
     ShmemAccessor &operator=(const std::initializer_list<float> &val)
     {

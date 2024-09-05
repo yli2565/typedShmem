@@ -80,6 +80,15 @@ TEST_F(ShmemListTest, TypeIdAndLen)
     std::cout << acc << std::endl;
 }
 
+TEST_F(ShmemListTest, CreateEmptyList)
+{
+    acc = SList();
+    EXPECT_EQ(acc.len(), 0);
+    EXPECT_EQ(acc.typeId(), List);
+    EXPECT_EQ(acc.toString(),"(L:0)[\n]");
+    std::cout << acc << std::endl;
+}
+
 TEST_F(ShmemListTest, SetAndGetAndAddElement)
 {
     // basic get and set

@@ -11,7 +11,7 @@ int main(int argc, char **argv)
     printf("Running main() from %s\n", __FILE__);
     ::testing::InitGoogleTest(&argc, argv);
 
-    ::testing::GTEST_FLAG(filter) = "ShmemDictTest.ConvertToPythonObject";
+    // ::testing::GTEST_FLAG(filter) = "ShmemDictTest.ConvertToPythonObject";
 
     return RUN_ALL_TESTS();
 }

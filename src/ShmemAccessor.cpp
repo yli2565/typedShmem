@@ -1,5 +1,15 @@
 #include "ShmemAccessor.h"
 
+ShmemInitializer SList()
+{
+    return ShmemInitializer(List);
+}
+
+ShmemInitializer SDict()
+{
+    return ShmemInitializer(Dict);
+}
+
 // ShmemAccessor constructors
 ShmemAccessor::ShmemAccessor(ShmemHeap *heapPtr) : heapPtr(heapPtr), path({}) {}
 
