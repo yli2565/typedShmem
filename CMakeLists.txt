@@ -1,11 +1,9 @@
 # Minimum required version of CMake
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.15...3.27)
 
 # Set the project name and specify the language as C/C++
 project("TypedShmem" LANGUAGES C CXX)
 
-set(CMAKE_C_COMPILER "/usr/bin/gcc-12")
-set(CMAKE_CXX_COMPILER "/usr/bin/g++-12")
 
 # Set and enforce the C++11 standard
 set(CMAKE_C_STANDARD 11)

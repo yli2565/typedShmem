@@ -141,6 +141,15 @@ void ShmemHeap::resize(size_t staticSpaceSize, size_t heapSize)
     delete[] tempHeap;
 }
 
+size_t ShmemHeap::getHCap()
+{
+    return this->HCap;
+}
+size_t ShmemHeap::getSCap()
+{
+    return this->SCap;
+}
+
 size_t &ShmemHeap::staticCapacity()
 {
     checkConnection();
@@ -329,7 +338,7 @@ size_t ShmemHeap::shrealloc(size_t offset, size_t size)
     if (oldSize == requiredSize)
     {
         this->logger->debug("shrealloc(offset={}, size={}) succeeded. Current block size: {} already satisfied the requirement", offset, size, oldSize);
-        
+
         header->setB(false);
         return offset;
     }
@@ -385,7 +394,6 @@ size_t ShmemHeap::shrealloc(size_t offset, size_t size)
         delete[] tempPayload;
 
         this->logger->debug("shrealloc(offset={}, size={}) move payload offset: {}->{}, block size: {}->{}", offset, size, offset, newPayloadOffset, oldSize, requiredSize);
-
 
         return newPayloadOffset;
     }
