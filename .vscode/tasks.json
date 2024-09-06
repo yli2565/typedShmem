@@ -82,6 +82,21 @@
         "kind": "build",
         "isDefault": false
       }
-    }
+    },
+    {
+      "label": "Build - Pybind11",
+      "type": "shell" ,
+      "command": "\"${workspaceFolder}/tools/build_pybind11.sh\"",
+      "dependsOn": [
+        "CMake",
+      ],
+      "args": [
+        "3.12"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      }
+    },
   ]
 }
