@@ -2,8 +2,12 @@
 cmake_minimum_required(VERSION 3.15...3.27)
 
 # Set the project name and specify the language as C/C++
-project("TypedShmem" LANGUAGES C CXX)
+project(
+  ${SKBUILD_PROJECT_NAME}
+  VERSION ${SKBUILD_PROJECT_VERSION}
+  LANGUAGES CXX)
 
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath,/lib:/usr/lib")
 
 # Set and enforce the C++11 standard
 set(CMAKE_C_STANDARD 11)
@@ -19,8 +23,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(BUILD_TESTS "Build the test suite" ON)
 
 # Flags to generate intermediate files
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -save-temps")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -save-temps")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
 # Debug and release optimization flags
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DDEBUG")
@@ -75,6 +79,8 @@ target_include_directories(pybind11 INTERFACE lib/pybind11/include)
 list(APPEND LIBRARIES_TO_LINK spdlog::spdlog $<$<BOOL:${MINGW}>:ws2_32>)
 # Include pybind11
 list(APPEND LIBRARIES_TO_LINK "pybind11")
+# Include pthread
+list(APPEND LIBRARIES_TO_LINK "rt" "pthread")
 
 # Attempt to find GTest system-wide
 find_package(GTest)
@@ -100,7 +106,8 @@ endif()
 
 
 # Find Python-dev
-find_package(Python3 REQUIRED COMPONENTS Development)
+find_package(Python COMPONENTS Interpreter Development REQUIRED)
+find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
 include_directories(${Python3_INCLUDE_DIRS})
 list (APPEND LIBRARIES_TO_LINK ${Python3_LIBRARIES})
 
@@ -109,8 +116,11 @@ list (APPEND LIBRARIES_TO_LINK ${Python3_LIBRARIES})
 set(PYTHON_MODULE_NAME "TypedShmem")  # Name of the Python module
 
 # Create the Python module as a shared library
-pybind11_add_module(${PYTHON_MODULE_NAME} MODULE ${MAIN_SRC_FILES})
-target_link_libraries(${PYTHON_MODULE_NAME} PRIVATE pybind11::module ${LIBRARIES_TO_LINK})
+Python_add_library(${PYTHON_MODULE_NAME} MODULE ${MAIN_SRC_FILES} WITH_SOABI)
+target_link_libraries(${PYTHON_MODULE_NAME} PRIVATE pybind11::headers ${LIBRARIES_TO_LINK})
+target_compile_definitions(${PYTHON_MODULE_NAME} PRIVATE VERSION_INFO=${PROJECT_VERSION})
+install(TARGETS ${PYTHON_MODULE_NAME} DESTINATION ${PYTHON_MODULE_NAME})
+
 # install(TARGETS ${PYTHON_MODULE_NAME} DESTINATION ./python)
 
 

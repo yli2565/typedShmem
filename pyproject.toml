@@ -4,12 +4,10 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "TypedShmem"
-version = "0.1.0"
+version = "0.0.1"
 description = "Python bindings for TypedShmem using pybind11"
 readme = "README.md"
-authors = [
-  { name = "Yuhao Li", email = "yli2565@wisc.edu" },
-]
+authors = [{ name = "Yuhao Li", email = "yli2565@wisc.edu" }]
 requires-python = ">=3.9"
 classifiers = [
   "Development Status :: 4 - Beta",
@@ -18,6 +16,7 @@ classifiers = [
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
 ]
 
 [project.optional-dependencies]
@@ -25,3 +24,4 @@ test = ["pytest"]
 
 [tool.scikit-build]
 wheel.expand-macos-universal-tags = true
+sdist.exclude = [".txt", "ref/*", "testenv/*"]

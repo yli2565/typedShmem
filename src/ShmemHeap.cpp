@@ -12,6 +12,7 @@ ShmemHeap::ShmemHeap(const std::string &name, size_t staticSpaceSize, size_t hea
     this->logger = spdlog::default_logger()->clone("ShmHeap:" + name);
     std::string pattern = "[" + std::to_string(getpid()) + "] [%n] %v";
     this->logger->set_pattern(pattern);
+    this->logger->set_level(spdlog::level::err);
 
     this->setSCap(staticSpaceSize);
     this->setHCap(heapSize);
