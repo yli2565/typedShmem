@@ -257,7 +257,7 @@ inline void ShmemPrimitive_::set(const T &value, int index)
 
 #undef SHMEM_CONVERT_PRIMITIVE
     }
-    else if constexpr (std::is_same_v<T, pybind11::object>)
+    else if constexpr (std::is_base_of_v<pybind11::object,T>)
     {
 #define SET_PYTHON_OBJECT(TYPE, VALUE) \
     this->set(VALUE, index)

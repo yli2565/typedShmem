@@ -2,6 +2,7 @@ build/*
 dist/*
 !build/.gitkeep
 !dist/.gitkeep
+__pycache__/
 *.log
 all/*
 testenv/*

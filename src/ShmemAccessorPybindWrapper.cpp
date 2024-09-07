@@ -30,7 +30,7 @@ ShmemAccessorWrapper::ShmemAccessorWrapper(ShmemHeap &heap, py::list keys) : Shm
 }
 
 // Method implementations
-ShmemAccessorWrapper ShmemAccessorWrapper::__getitem__(const py::object &keys) const
+ShmemAccessorWrapper ShmemAccessorWrapper::__getitem__(const py::args &keys) const
 {
     std::vector<KeyType> accessPath(this->path);
     for (auto arg : keys)
@@ -137,7 +137,7 @@ py::bool_ ShmemAccessorWrapper::__eq__(const py::object &other) const
     }
 }
 
-void ShmemAccessorWrapper::insert(const py::object &value, const py::object &key)
+void ShmemAccessorWrapper::insert(const py::object &key, const py::object &value)
 {
     if (py::isinstance<py::str>(key))
     {

@@ -108,5 +108,10 @@
     "environment": "${envObjArray}",
     "sourceFileMap": "${sourceFileMapObj}",
     "preLaunchTask": "Make - Test" // Task to execute before launching the debugger
-  }
+  },
+  "python.testing.pytestArgs": [
+    "test"
+  ],
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true
 }

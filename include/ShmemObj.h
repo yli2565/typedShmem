@@ -36,6 +36,14 @@ public:
     explicit StopIteration(const std::string &message) : std::runtime_error(message){};
 };
 
+class ShmemObjInitializer
+{
+public:
+    const int typeId;
+
+    ShmemObjInitializer(int typeId) : typeId(typeId) {};
+};
+
 class ShmemObj
 {
     friend class ShmemAccessor;

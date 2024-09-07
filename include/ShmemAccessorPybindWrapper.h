@@ -3,7 +3,9 @@
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-#include "ShmemAccessor.h" 
+#include <spdlog/sinks/basic_file_sink.h>
+
+#include "ShmemAccessor.h"
 
 namespace py = pybind11;
 
@@ -15,7 +17,7 @@ public:
     ShmemAccessorWrapper(ShmemHeap &heap);
     ShmemAccessorWrapper(ShmemHeap &heap, py::list keys);
 
-    ShmemAccessorWrapper __getitem__(const py::object &keys) const;
+    ShmemAccessorWrapper __getitem__(const py::args &keys) const;
     ShmemAccessorWrapper operator[](const py::args &keys) const;
     void __setitem__(const py::object &indexOrKey, const py::object &value) const;
     void __delitem__(const py::object &indexOrKey);
@@ -26,7 +28,7 @@ public:
     py::object __next__();
     py::bool_ __eq__(const py::object &other) const;
 
-    void insert(const py::object &value, const py::object &key);
+    void insert(const py::object &key, const py::object &value);
     void add(const py::object &value);
     py::object fetch() const;
 };

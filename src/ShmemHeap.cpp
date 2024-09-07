@@ -6,7 +6,8 @@ ShmemHeap::ShmemHeap(const std::string &name, size_t staticSpaceSize, size_t hea
     : ShmemBase(name)
 {
     // Disable the ShmemBase logger
-    this->ShmemBase::getLogger()->set_level(spdlog::level::err);
+    this->ShmemBase::getLogger()->set_level(spdlog::level::off);
+    ShmemUtils::getLogger()->set_level(spdlog::level::off);
 
     // init logger
     this->logger = spdlog::default_logger()->clone("ShmHeap:" + name);
@@ -16,7 +17,7 @@ ShmemHeap::ShmemHeap(const std::string &name, size_t staticSpaceSize, size_t hea
 
     this->setSCap(staticSpaceSize);
     this->setHCap(heapSize);
-    this->logger->info("Initialized to: Static space capacity: {} heap capacity: {}", this->SCap, this->HCap);
+    // this->logger->info("Initialized to: Static space capacity: {} heap capacity: {}", this->SCap, this->HCap);
 
     this->setCapacity(this->SCap + this->HCap);
 }

@@ -4,13 +4,19 @@
 #include <pybind11/embed.h>
 #include <pybind11/functional.h>
 
+#include "ShmemObj.h"
 #include "ShmemAccessorPybindWrapper.h"
 PYBIND11_MODULE(TypedShmem, m)
 {
+    m.doc() = "TypedShmem is interthread communication module for C++/Python.";
+
     py::class_<ShmemHeap>(m, "ShmemHeap")
         .def(py::init<const std::string &, size_t, size_t>(),
              py::arg("name"), py::arg("staticSpaceSize") = DSCap, py::arg("heapSize") = DHCap)
         .def("create", &ShmemHeap::create)
+        .def("connect", &ShmemHeap::connect)
+        .def("close", &ShmemHeap::close)
+        .def("unlink", &ShmemHeap::unlink)
         .def("resize", py::overload_cast<size_t>(&ShmemHeap::resize))
         .def("resize", py::overload_cast<size_t, size_t>(&ShmemHeap::resize))
         .def("shmalloc", &ShmemHeap::shmalloc)
@@ -29,10 +35,26 @@ PYBIND11_MODULE(TypedShmem, m)
         .def("freeBlockList", &ShmemHeap::freeBlockList, py::return_value_policy::reference)
         .def("setHCap", &ShmemHeap::setHCap)
         .def("setSCap", &ShmemHeap::setSCap)
-        .def("getLogger", &ShmemHeap::getLogger)
+        // spdlog is not usable in python, so we don't expose the instance, instead, we set some common attribute functions
+        // .def("getLogger", &ShmemHeap::getLogger)
+        .def("setLogLevel", [](ShmemHeap *heap, int level)
+             { heap->getLogger()->set_level(spdlog::level::level_enum(level)); })
+        .def("setLogPattern", [](ShmemHeap *heap, const std::string &pattern)
+             { heap->getLogger()->set_pattern(pattern); })
+
         .def("printShmHeap", &ShmemHeap::printShmHeap)
         .def("briefLayout", &ShmemHeap::briefLayout)
         .def("briefLayoutStr", &ShmemHeap::briefLayoutStr);
+
+    // Initializers
+    py::class_<ShmemObjInitializer>(m, "ShmemObjInitializer")
+        .def(py::init<int>(), py::arg("typeId"));
+
+    m.def("SDict", &SDict);
+    m.def("SList", &SList);
+
+    m.def("setShmemUtilLogLevel", [](int level)
+          { ShmemUtils::getLogger()->set_level(spdlog::level::level_enum(level)); });
 
     py::class_<ShmemAccessorWrapper>(m, "ShmemAccessor")
         .def(py::init<ShmemHeap &>(), py::arg("heap"))
@@ -50,8 +72,6 @@ PYBIND11_MODULE(TypedShmem, m)
         .def("set", &ShmemAccessorWrapper::set<py::object>)
         .def("add", &ShmemAccessorWrapper::add)
         .def("insert", &ShmemAccessorWrapper::insert)
-        // .def("operator++", &ShmemAccessorWrapper::operator++)
-        // .def("operator!=", py::overload_cast<const ShmemAccessorWrapper &>(&ShmemAccessorWrapper::operator!=))
         .def("__repr__", [](const ShmemAccessorWrapper &a)
              { return "<ShmemAccessor>"; })
         // Iterator related

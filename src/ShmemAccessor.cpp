@@ -1,13 +1,13 @@
 #include "ShmemAccessor.h"
 
-ShmemInitializer SList()
+ShmemObjInitializer SList()
 {
-    return ShmemInitializer(List);
+    return ShmemObjInitializer(List);
 }
 
-ShmemInitializer SDict()
+ShmemObjInitializer SDict()
 {
-    return ShmemInitializer(Dict);
+    return ShmemObjInitializer(Dict);
 }
 
 // ShmemAccessor constructors

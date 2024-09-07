@@ -39,7 +39,7 @@ ShmemBase::ShmemBase(const std::string &name, size_t capacity)
     std::string pattern = "[" + std::to_string(getpid()) + "] [%n] %v";
     this->logger->set_pattern(pattern);
 
-    this->logger->info("Initialized shared memory base object {}", this->name);
+    // this->logger->info("Initialized shared memory base object {}", this->name);
 
     // DEBUG
     this->writeRecord = {};

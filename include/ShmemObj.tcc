@@ -97,11 +97,29 @@ size_t ShmemObj::construct(const T &value, ShmemHeap *heapPtr)
             {
                 return ShmemDict::construct(value, heapPtr);
             }
+            else if (pybind11::isinstance<ShmemObjInitializer>(value))
+            {
+                ShmemObjInitializer initializer = pybind11::cast<ShmemObjInitializer>(value);
+                return ShmemObj::construct(initializer, heapPtr);
+            }
             else
             {
                 throw std::runtime_error("Cannot construct object of type " + typeName<T>());
             }
         }
+    }
+    else if constexpr (std::is_same_v<T, ShmemObjInitializer>)
+    {
+        if (value.typeId == List)
+        {
+            return ShmemList::construct(std::vector<std::vector<int>>(), heapPtr);
+        }
+        else if (value.typeId == Dict)
+        {
+            return ShmemDict::construct(heapPtr);
+        }
+
+        throw std::runtime_error("Unrecognized ShmemObjInitializer typeId " + std::to_string(value.typeId));
     }
     else
     {

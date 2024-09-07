@@ -4,17 +4,9 @@
 #include <iostream>
 #include "ShmemObj.h"
 
-class ShmemInitializer
-{
-public:
-    const int typeId;
+ShmemObjInitializer SList();
 
-    ShmemInitializer(int typeId) : typeId(typeId){};
-};
-
-ShmemInitializer SList();
-
-ShmemInitializer SDict();
+ShmemObjInitializer SDict();
 
 class ShmemAccessor
 {
@@ -567,24 +559,6 @@ public:
     ShmemAccessor &operator=(const T &val)
     {
         this->set(val);
-        return *this;
-    }
-
-    ShmemAccessor &operator=(const ShmemInitializer &initializer)
-    {
-        if (initializer.typeId == List)
-        {
-            this->set(std::vector<std::vector<int>>{});
-        }
-        else if (initializer.typeId == Dict)
-        {
-            this->set(std::map<int, std::string>({}));
-        }
-        else
-        {
-            throw std::runtime_error("Unsupported initializer type: " + std::to_string(initializer.typeId));
-        }
-
         return *this;
     }
 
