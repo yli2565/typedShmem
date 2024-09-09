@@ -25,3 +25,9 @@ test = ["pytest"]
 [tool.scikit-build]
 wheel.expand-macos-universal-tags = true
 sdist.exclude = [".txt", "ref/*", "testenv/*"]
+build.targets = ["TypedShmem"]
+build.verbose = true
+build-dir = "build" # relative to the project root, when you specify this, all intermediate files will be cached and greatly speed up the compile process
+cmake.build-type = "Debug" # Specify the CMake build type
+install.strip = false # Very important for compiling binary with debug symbols, if not specified, it will remove all debug symbols when "install" to the wheel
+

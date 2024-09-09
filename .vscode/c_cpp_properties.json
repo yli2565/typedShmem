@@ -6,8 +6,8 @@
                 "${workspaceFolder}/include/**",
                 "${workspaceFolder}/lib/**/include",
                 "${workspaceFolder}/lib/pybind11/include",
-                "/usr/include/python3.10", // Adjust according to your Python version
-                "${workspaceFolder}/build/_deps/googletest-src/googletest/include"
+                "${workspaceFolder}/lib/googletest/googletest/include",
+                "/home/Shared/conda_envs/TypedShmemTest/include/python3.9", // Adjust according to your Python version
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc-12",

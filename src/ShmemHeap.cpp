@@ -32,6 +32,8 @@ void ShmemHeap::create()
             this->logger->error("HCap is too small. HCap: {}", this->HCap);
         throw std::runtime_error("Capacity is too small to hold static space or heap space");
     }
+    this->setCapacity(this->SCap + this->HCap);
+    
     ShmemBase::create();
 
     // Init the static information
@@ -51,16 +53,16 @@ void ShmemHeap::create()
     this->logger->info("Shared memory heap created. Static space capacity: {} heap capacity: {}", this->SCap, this->HCap);
 }
 
-void ShmemHeap::resize(size_t heapSize)
+void ShmemHeap::resize(int heapSize)
 {
     this->checkConnection();
     this->resize(this->staticCapacity_unsafe(), heapSize);
 }
 
-void ShmemHeap::resize(size_t staticSpaceSize, size_t heapSize)
+void ShmemHeap::resize(int staticSpaceSize, int heapSize)
 {
     this->checkConnection();
-    if (staticSpaceSize == static_cast<size_t>(-1))
+    if (staticSpaceSize == -1)
     { // Don't change static space capacity
         this->setSCap(this->staticCapacity_unsafe());
     }
@@ -68,7 +70,7 @@ void ShmemHeap::resize(size_t staticSpaceSize, size_t heapSize)
     {
         this->setSCap(staticSpaceSize);
     }
-    if (heapSize == static_cast<size_t>(-1))
+    if (heapSize == -1)
     { // Don't change heap capacity
         this->setHCap(this->heapCapacity_unsafe());
     }

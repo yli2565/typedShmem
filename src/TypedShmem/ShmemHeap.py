@@ -1,4 +1,5 @@
 from .TypedShmem import ShmemHeap as ShmemHeap_pybind11
+from typing import List, Optional, Union
 
 DHCap = 0x1000
 DSCap = 0x8
@@ -6,11 +7,11 @@ DSCap = 0x8
 
 class ShmemHeap(ShmemHeap_pybind11):
     """
-    A Python wrapper for the ShmemHeap class from pybind11 with added documentation 
+    A Python wrapper for the ShmemHeap class from pybind11 with added documentation
     based on the original C++ class.
     """
 
-    def __init__(self, name, staticSpaceSize=DSCap, heapSize=DHCap):
+    def __init__(self, name, staticSpaceSize: int = DSCap, heapSize: int = DHCap):
         """
         Constructor for ShmemHeap.
 
@@ -23,9 +24,9 @@ class ShmemHeap(ShmemHeap_pybind11):
     def create(self):
         """
         Create a basic shared memory and set up the heap on it.
-        
-        Note: The static space and heap capacity can be set with setSCap() and 
-        setHCap() before calling create(). After that, setting HCap and SCap 
+
+        Note: The static space and heap capacity can be set with setSCap() and
+        setHCap() before calling create(). After that, setting HCap and SCap
         will have no effect.
         """
         super().create()
@@ -48,17 +49,23 @@ class ShmemHeap(ShmemHeap_pybind11):
         """
         super().unlink()
 
-    def resize(self, staticSpaceSize=-1, heapSize=-1):
+    def resize(self, arg1: int = -1, arg2: Optional[int] = None):
         """
         Resize both static and heap space.
 
-        :param staticSpaceSize: New size for static space, padded to unit size. 
+        :param staticSpaceSize: New size for static space, padded to unit size.
                                 -1 means not changed.
         :param heapSize: New size for the heap, padded to page size. -1 means not changed.
         """
+        if arg2 is None:
+            heapSize = arg1
+            staticSpaceSize = -1
+        else:
+            heapSize = arg2
+            staticSpaceSize = arg1
         super().resize(staticSpaceSize, heapSize)
 
-    def shmalloc(self, size):
+    def shmalloc(self, size: int) -> int:
         """
         Allocate a block in the heap.
 
@@ -67,7 +74,7 @@ class ShmemHeap(ShmemHeap_pybind11):
         """
         return super().shmalloc(size)
 
-    def shrealloc(self, offset, size):
+    def shrealloc(self, offset: int, size: int) -> int:
         """
         Reallocate a block in the heap, keeping the content.
 
@@ -77,7 +84,7 @@ class ShmemHeap(ShmemHeap_pybind11):
         """
         return super().shrealloc(offset, size)
 
-    def shfree(self, offset):
+    def shfree(self, offset: int) -> int:
         """
         Free a block in the heap.
 
@@ -86,7 +93,7 @@ class ShmemHeap(ShmemHeap_pybind11):
         """
         return super().shfree(offset)
 
-    def getHCap(self):
+    def getHCap(self) -> int:
         """
         Check the current purposed heap capacity.
 
@@ -94,7 +101,7 @@ class ShmemHeap(ShmemHeap_pybind11):
         """
         return super().getHCap()
 
-    def getSCap(self):
+    def getSCap(self) -> int:
         """
         Check the current purposed static space capacity.
 
@@ -102,7 +109,7 @@ class ShmemHeap(ShmemHeap_pybind11):
         """
         return super().getSCap()
 
-    def staticCapacity(self):
+    def staticCapacity(self) -> int:
         """
         Get the size of the static space recorded in the first size_t(8 bytes) of the heap.
 
@@ -110,7 +117,7 @@ class ShmemHeap(ShmemHeap_pybind11):
         """
         return super().staticCapacity()
 
-    def heapCapacity(self):
+    def heapCapacity(self) -> int:
         """
         Get the size of the heap recorded in the second size_t(8 bytes) of the heap.
 
@@ -118,7 +125,7 @@ class ShmemHeap(ShmemHeap_pybind11):
         """
         return super().heapCapacity()
 
-    def freeBlockListOffset(self):
+    def freeBlockListOffset(self) -> int:
         """
         Get the offset of the free block list, recorded in the third size_t(8 bytes) of the heap.
 
@@ -126,7 +133,7 @@ class ShmemHeap(ShmemHeap_pybind11):
         """
         return super().freeBlockListOffset()
 
-    def entranceOffset(self):
+    def entranceOffset(self) -> int:
         """
         Get the offset of the entrance, recorded in the fourth size_t(8 bytes) of the heap.
 
@@ -134,7 +141,7 @@ class ShmemHeap(ShmemHeap_pybind11):
         """
         return super().entranceOffset()
 
-    def staticSpaceHead(self):
+    def staticSpaceHead(self) -> int:
         """
         Get the head pointer of the static space. Check connection before using.
 
@@ -142,7 +149,7 @@ class ShmemHeap(ShmemHeap_pybind11):
         """
         return super().staticSpaceHead()
 
-    def entrance(self):
+    def entrance(self) -> int:
         """
         Entrance point of the underlying data structure.
 
@@ -150,7 +157,7 @@ class ShmemHeap(ShmemHeap_pybind11):
         """
         return super().entrance()
 
-    def heapHead(self):
+    def heapHead(self) -> int:
         """
         Get the head pointer of the heap. Check connection before using.
 
@@ -158,7 +165,7 @@ class ShmemHeap(ShmemHeap_pybind11):
         """
         return super().heapHead()
 
-    def heapTail(self):
+    def heapTail(self) -> int:
         """
         Get the tail pointer of the heap. Check connection before using.
 
@@ -166,7 +173,7 @@ class ShmemHeap(ShmemHeap_pybind11):
         """
         return super().heapTail()
 
-    def freeBlockList(self):
+    def freeBlockList(self) -> int:
         """
         Get the head pointer of the free block list. Check connection before using.
 
@@ -174,7 +181,7 @@ class ShmemHeap(ShmemHeap_pybind11):
         """
         return super().freeBlockList()
 
-    def setHCap(self, size):
+    def setHCap(self, size: int):
         """
         Repurpose the heap capacity.
 
@@ -182,7 +189,7 @@ class ShmemHeap(ShmemHeap_pybind11):
         """
         super().setHCap(size)
 
-    def setSCap(self, size):
+    def setSCap(self, size: int):
         """
         Repurpose the static space capacity.
 
@@ -190,7 +197,7 @@ class ShmemHeap(ShmemHeap_pybind11):
         """
         super().setSCap(size)
 
-    def setLogLevel(self, level):
+    def setLogLevel(self, level: int):
         """
         Set the logger level.
 
@@ -198,7 +205,7 @@ class ShmemHeap(ShmemHeap_pybind11):
         """
         super().setLogLevel(level)
 
-    def setLogPattern(self, pattern):
+    def setLogPattern(self, pattern: str):
         """
         Set the logger pattern (spdlog format string).
         It's very alike to python format string, but please check specific placeholders used by spdlog.
@@ -207,21 +214,13 @@ class ShmemHeap(ShmemHeap_pybind11):
         """
         super().setLogPattern(pattern)
 
-    def getLogger(self):
-        """
-        Get the logger associated with the shared memory heap.
-
-        :return: Shared logger instance.
-        """
-        return super().getLogger()
-
-    def printShmHeap(self):
+    def printShmHeap(self) -> None:
         """
         Print the layout of the heap in detail.
         """
         super().printShmHeap()
 
-    def briefLayout(self):
+    def briefLayout(self) -> List[int]:
         """
         Get sizes of all blocks in the heap without state information.
 
@@ -229,7 +228,7 @@ class ShmemHeap(ShmemHeap_pybind11):
         """
         return super().briefLayout()
 
-    def briefLayoutStr(self):
+    def briefLayoutStr(self) -> str:
         """
         Get a string representation of the payload sizes and allocation status of all blocks in the heap.
 

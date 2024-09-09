@@ -40,6 +40,14 @@
         }
       ],
       "preLaunchTask": "Build - Test" // Task to execute before launching the debugger
+    },
+    {
+      "name": "Python: Current File",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "justMyCode": false
     }
   ]
 }

@@ -20,15 +20,16 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-option(BUILD_TESTS "Build the test suite" ON)
-
 # Flags to generate intermediate files
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+# set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0")
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O0")
 
 # Debug and release optimization flags
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DDEBUG")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -DDEBUG -g -O0")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Ofast")
+
+# set(CMAKE_BUILD_TYPE Debug)
+message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 
 # Include the /include directory for header files
 include_directories(include)
@@ -81,29 +82,8 @@ list(APPEND LIBRARIES_TO_LINK spdlog::spdlog $<$<BOOL:${MINGW}>:ws2_32>)
 list(APPEND LIBRARIES_TO_LINK "pybind11")
 # Include pthread
 list(APPEND LIBRARIES_TO_LINK "rt" "pthread")
-
-# Attempt to find GTest system-wide
-find_package(GTest)
-if(GTEST_FOUND)
-    # GTest found system-wide, use the found package
-    message(STATUS "Using system-wide GoogleTest")
-    list(APPEND LIBRARIES_TO_LINK ${GTEST_LIBRARIES} pthread)
-else()
-    # GTest not found, fetch and compile it
-    message(STATUS "GoogleTest not found system-wide, fetching from GitHub")
-    include(FetchContent)
-    FetchContent_Declare(
-        googletest
-        URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
-    )
-    # For Windows: Prevent overriding the parent project's compiler/linker settings
-    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-    FetchContent_MakeAvailable(googletest)
-    
-    # Since GTest is being fetched and compiled, add it to the libraries to link
-    list(APPEND LIBRARIES_TO_LINK gtest_main pthread)
-endif()
-
+# Include GTest
+list(APPEND LIBRARIES_TO_LINK "gmock" "gmock_main" "gtest" "gtest_main")
 
 # Find Python-dev
 find_package(Python COMPONENTS Interpreter Development REQUIRED)
