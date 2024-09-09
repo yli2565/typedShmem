@@ -251,7 +251,7 @@ TEST_F(ShmemListTest, ConvertToPythonObject)
     acc[0] = vector<vector<int>>({{2}, {22}, {222}, {2222}, {22222}});
     acc[0][0] = std::vector<bool>(10, true);
 
-    EXPECT_EQ(py::cast<std::string>(py::str(acc.operator py::list())), "[[[True, True, True, True, True, True, True, True, True, True], [22], [222], [2222], [22222]], [11.0], [111.0], [1111.0], [11111.0]]");
+    EXPECT_EQ(py::cast<std::string>(py::str(acc.operator py::list())), "[[[True, True, True, True, True, True, True, True, True, True], 22, 222, 2222, 22222], 11.0, 111.0, 1111.0, 11111.0]");
     // acc[1]=true;
     // acc[0][1] = {{1,2}};
     std::cout << acc << std::endl;

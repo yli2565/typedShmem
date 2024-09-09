@@ -108,52 +108,52 @@
         break;                                                      \
     }
 
-#define SWITCH_PYTHON_OBJECT_TO_PRIMITIVE_BASE_CASE(SWITCH_TARGET, OPERATION_FUNC)                                                 \
-    if (pybind11::isinstance<pybind11::str>(SWITCH_TARGET) || pybind11::isinstance<pybind11::bytes>(SWITCH_TARGET))                \
-    {                                                                                                                              \
-        std::string cpp_string = pybind11::cast<pybind11::str>(SWITCH_TARGET);                                                     \
-        if (cpp_string.length() != 1)                                                                                              \
-        {                                                                                                                          \
-            throw ConversionError("Cannot convert Python string/bytes to " + typeName<T>() + "");                                  \
-        }                                                                                                                          \
-        else                                                                                                                       \
-        {                                                                                                                          \
-            if (pybind11::isinstance<pybind11::str>(SWITCH_TARGET))                                                                \
-            {                                                                                                                      \
-                OPERATION_FUNC(char, cpp_string[0]);                                                                               \
-            }                                                                                                                      \
-            else                                                                                                                   \
-            {                                                                                                                      \
-                OPERATION_FUNC(unsigned char, static_cast<unsigned char>(cpp_string[0]));                                          \
-            }                                                                                                                      \
-        }                                                                                                                          \
-    }                                                                                                                              \
-    else if (pybind11::isinstance<pybind11::int_>(SWITCH_TARGET))                                                                  \
-    {                                                                                                                              \
-        OPERATION_FUNC(int, pybind11::cast<int>(SWITCH_TARGET));                                                                   \
-    }                                                                                                                              \
-    else if (pybind11::isinstance<pybind11::float_>(SWITCH_TARGET))                                                                \
-    {                                                                                                                              \
-        OPERATION_FUNC(float, pybind11::cast<float>(SWITCH_TARGET));                                                               \
-    }                                                                                                                              \
-    else if (pybind11::isinstance<pybind11::bool_>(SWITCH_TARGET))                                                                 \
-    {                                                                                                                              \
-        OPERATION_FUNC(bool, pybind11::cast<bool>(SWITCH_TARGET));                                                                 \
-    }                                                                                                                              \
-    else                                                                                                                           \
-    {                                                                                                                              \
-        throw std::runtime_error("" + pybind11::cast<std::string>(pybind11::str((SWITCH_TARGET).get_type())) + " is not allowed"); \
+#define SWITCH_PYTHON_OBJECT_TO_PRIMITIVE_BASE_CASE(SWITCH_TARGET, OPERATION_FUNC)                                                                                            \
+    if (pybind11::isinstance<pybind11::str>(SWITCH_TARGET) || pybind11::isinstance<pybind11::bytes>(SWITCH_TARGET))                                                           \
+    {                                                                                                                                                                         \
+        std::string cpp_string = pybind11::cast<std::string>(SWITCH_TARGET);                                                                                                  \
+        if (cpp_string.length() != 1)                                                                                                                                         \
+        {                                                                                                                                                                     \
+            throw ConversionError("Cannot convert Python string/bytes: " + cpp_string + " to Primitive base, as it have a length of " + std::to_string(cpp_string.length())); \
+        }                                                                                                                                                                     \
+        else                                                                                                                                                                  \
+        {                                                                                                                                                                     \
+            if (pybind11::isinstance<pybind11::str>(SWITCH_TARGET))                                                                                                           \
+            {                                                                                                                                                                 \
+                OPERATION_FUNC(char, cpp_string[0]);                                                                                                                          \
+            }                                                                                                                                                                 \
+            else                                                                                                                                                              \
+            {                                                                                                                                                                 \
+                OPERATION_FUNC(unsigned char, static_cast<unsigned char>(cpp_string[0]));                                                                                     \
+            }                                                                                                                                                                 \
+        }                                                                                                                                                                     \
+    }                                                                                                                                                                         \
+    else if (pybind11::isinstance<pybind11::bool_>(SWITCH_TARGET))                                                                                                            \
+    {                                                                                                                                                                         \
+        OPERATION_FUNC(bool, pybind11::cast<bool>(SWITCH_TARGET));                                                                                                            \
+    }                                                                                                                                                                         \
+    else if (pybind11::isinstance<pybind11::int_>(SWITCH_TARGET))                                                                                                             \
+    {                                                                                                                                                                         \
+        OPERATION_FUNC(int, pybind11::cast<int>(SWITCH_TARGET));                                                                                                              \
+    }                                                                                                                                                                         \
+    else if (pybind11::isinstance<pybind11::float_>(SWITCH_TARGET))                                                                                                           \
+    {                                                                                                                                                                         \
+        OPERATION_FUNC(float, pybind11::cast<float>(SWITCH_TARGET));                                                                                                          \
+    }                                                                                                                                                                         \
+    else                                                                                                                                                                      \
+    {                                                                                                                                                                         \
+        throw std::runtime_error("" + pybind11::cast<std::string>(pybind11::str((SWITCH_TARGET).get_type())) + " is not allowed");                                            \
     }
 
 #define SWITCH_PYTHON_OBJECT_TO_PRIMITIVE(SWITCH_TARGET, OPERATION_FUNC)                                                           \
     if (pybind11::isinstance<pybind11::str>(SWITCH_TARGET))                                                                        \
     {                                                                                                                              \
-        std::string cpp_string = pybind11::cast<std::string>(SWITCH_TARGET);                                                     \
+        std::string cpp_string = pybind11::cast<std::string>(SWITCH_TARGET);                                                       \
         OPERATION_FUNC(char, cpp_string);                                                                                          \
     }                                                                                                                              \
     else if (pybind11::isinstance<pybind11::bytes>(SWITCH_TARGET))                                                                 \
     {                                                                                                                              \
-        std::string cpp_string = pybind11::cast<std::string>(SWITCH_TARGET);                                                     \
+        std::string cpp_string = pybind11::cast<std::string>(SWITCH_TARGET);                                                       \
         std::vector<unsigned char> vec(cpp_string.begin(), cpp_string.end());                                                      \
         OPERATION_FUNC(unsigned char, vec);                                                                                        \
     }                                                                                                                              \
@@ -164,7 +164,7 @@
         bool allBool = true;                                                                                                       \
         for (const auto &item : pybind11::cast<pybind11::list>(SWITCH_TARGET))                                                     \
         {                                                                                                                          \
-            if (!pybind11::isinstance<pybind11::int_>(item))                                                                       \
+            if (pybind11::isinstance<pybind11::bool_>(item) || !pybind11::isinstance<pybind11::int_>(item))                        \
             {                                                                                                                      \
                 allInt = false;                                                                                                    \
             }                                                                                                                      \
@@ -198,6 +198,10 @@
             throw ConversionError("Cannot convert pybind11 list to primitive array");                                              \
         }                                                                                                                          \
     }                                                                                                                              \
+    else if (pybind11::isinstance<pybind11::bool_>(SWITCH_TARGET))                                                                 \
+    {                                                                                                                              \
+        OPERATION_FUNC(bool, pybind11::cast<bool>(SWITCH_TARGET));                                                                 \
+    }                                                                                                                              \
     else if (pybind11::isinstance<pybind11::int_>(SWITCH_TARGET))                                                                  \
     {                                                                                                                              \
         OPERATION_FUNC(int, pybind11::cast<int>(SWITCH_TARGET));                                                                   \
@@ -205,10 +209,6 @@
     else if (pybind11::isinstance<pybind11::float_>(SWITCH_TARGET))                                                                \
     {                                                                                                                              \
         OPERATION_FUNC(float, pybind11::cast<float>(SWITCH_TARGET));                                                               \
-    }                                                                                                                              \
-    else if (pybind11::isinstance<pybind11::bool_>(SWITCH_TARGET))                                                                 \
-    {                                                                                                                              \
-        OPERATION_FUNC(bool, pybind11::cast<bool>(SWITCH_TARGET));                                                                 \
     }                                                                                                                              \
     else                                                                                                                           \
     {                                                                                                                              \

@@ -40,8 +40,8 @@ class ShmemObjInitializer
 {
 public:
     const int typeId;
-
-    ShmemObjInitializer(int typeId) : typeId(typeId) {};
+    const pybind11::object initialVal;
+    ShmemObjInitializer(int typeId, const pybind11::object &initialVal = pybind11::none()) : typeId(typeId), initialVal(initialVal){};
 };
 
 class ShmemObj

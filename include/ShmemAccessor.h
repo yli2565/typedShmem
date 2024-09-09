@@ -4,9 +4,9 @@
 #include <iostream>
 #include "ShmemObj.h"
 
-ShmemObjInitializer SList();
+ShmemObjInitializer SList(const pybind11::object &iniList = pybind11::none());
 
-ShmemObjInitializer SDict();
+ShmemObjInitializer SDict(const pybind11::object &iniDict = pybind11::none());
 
 class ShmemAccessor
 {
@@ -387,9 +387,17 @@ public:
 
         if (resolvedDepth != path.size())
         {
+            if (obj == nullptr)
+            {
+                throw std::runtime_error("Path resolution stopped at " + pathToString(path.data(), resolvedDepth) + " = nullptr");
+            }
             throw std::runtime_error("Path is not iterable: " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + obj->toString());
         }
 
+        if (obj == nullptr)
+        {
+            throw std::runtime_error("Cannot add a key-value pair to a null object");
+        }
         if (obj->type == Dict)
             static_cast<ShmemDict *>(obj)->set(value, key, this->heapPtr);
         else
@@ -405,13 +413,20 @@ public:
 
         if (resolvedDepth != path.size())
         {
+            if (obj == nullptr)
+            {
+                throw std::runtime_error("Path resolution stopped at " + pathToString(path.data(), resolvedDepth) + " = nullptr");
+            }
             throw std::runtime_error("Path is not iterable: " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + obj->toString());
         }
-
+        if (obj == nullptr)
+        {
+            throw std::runtime_error("Cannot add a value to a null object");
+        }
         if (obj->type == List)
             static_cast<ShmemList *>(obj)->append(value, this->heapPtr);
         else
-            throw std::runtime_error("Cannot add a single value to a non-list object");
+            throw std::runtime_error("Cannot add a single value to a " + typeNames.at(obj->type) + " object");
     }
 
     // Quick add

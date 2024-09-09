@@ -147,7 +147,7 @@ bool isConversableToShmemPrimitive(const pybind11::object &obj)
         bool allBool = true;
         for (const auto &item : pybind11::cast<pybind11::list>(obj))
         {
-            if (!pybind11::isinstance<pybind11::int_>(item))
+            if (pybind11::isinstance<pybind11::bool_>(item) || !pybind11::isinstance<pybind11::int_>(item))
             {
                 allInt = false;
             }
@@ -179,4 +179,3 @@ bool isConversableToShmemPrimitive(const pybind11::object &obj)
         return false;
     }
 }
-

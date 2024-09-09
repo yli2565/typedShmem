@@ -64,18 +64,18 @@ inline size_t ShmemPrimitive_::construct(const T &val, ShmemHeap *heapPtr)
     {
         throw std::runtime_error("Code should not reach here. Primitive object doesn't accept nested type");
     }
-    else if constexpr (std::is_same_v<T, pybind11::object> || std::is_same_v<T, pybind11::str> || std::is_same_v<T, pybind11::bytes> || std::is_same_v<T, pybind11::int_> || std::is_same_v<T, pybind11::float_> || std::is_same_v<T, pybind11::bool_> || std::is_same_v<T, pybind11::list>)
-    {
+    else if constexpr (std::is_same_v<T, pybind11::object> || std::is_same_v<T, pybind11::handle> || std::is_same_v<T, pybind11::str> || std::is_same_v<T, pybind11::bytes> || std::is_same_v<T, pybind11::int_> || std::is_same_v<T, pybind11::float_> || std::is_same_v<T, pybind11::bool_> || std::is_same_v<T, pybind11::list>)
+    { // The reason why I don't use std::is_base_of_v here is to explicitly limit the types that can be converted to primitive
 #define CONSTRUCT_PRIMITIVE_WITH_PYTHON_OBJECT(TYPE, VALUE) \
-    return ShmemPrimitive_::construct(VALUE, heapPtr);
+    return ShmemPrimitive_::construct(VALUE, heapPtr)
 
-        SWITCH_PYTHON_OBJECT_TO_PRIMITIVE(val, CONSTRUCT_PRIMITIVE_WITH_PYTHON_OBJECT);
+        SWITCH_PYTHON_OBJECT_TO_PRIMITIVE(val, CONSTRUCT_PRIMITIVE_WITH_PYTHON_OBJECT)
 
 #undef CONSTRUCT_PRIMITIVE_WITH_PYTHON_OBJECT
     }
     else
     {
-        throw std::runtime_error("Cannot convert non-primitive object to primitive");
+        throw std::runtime_error("Cannot use non-primitive object to construct primitive Shmem object");
     }
 }
 
@@ -235,7 +235,7 @@ inline T ShmemPrimitive_::get(int index) const
 #undef PRIMITIVE_TO_PYTHON_LIST
         }
     }
-    throw ConversionError("Cannot convert");
+    throw ConversionError("Cannot convert " + typeNames.at(this->type) + " to " + typeName<T>());
 }
 
 template <typename T>
@@ -257,7 +257,7 @@ inline void ShmemPrimitive_::set(const T &value, int index)
 
 #undef SHMEM_CONVERT_PRIMITIVE
     }
-    else if constexpr (std::is_base_of_v<pybind11::object,T>)
+    else if constexpr (std::is_base_of_v<pybind11::object, T>)
     {
 #define SET_PYTHON_OBJECT(TYPE, VALUE) \
     this->set(VALUE, index)
@@ -316,7 +316,7 @@ inline bool ShmemPrimitive_::contains(T value) const
 
 #undef SHMEM_PRIMITIVE_COMP
     }
-    else if constexpr (std::is_same_v<T, pybind11::object>)
+    else if constexpr (std::is_base_of_v<pybind11::object, T>)
     {
 #define CONTAINS_PYTHON_OBJECT(TYPE, VALUE) \
     return this->contains(VALUE)
@@ -354,7 +354,7 @@ inline int ShmemPrimitive_::index(T value) const
 
 #undef SHMEM_PRIMITIVE_COMP
     }
-    else if constexpr (std::is_same_v<T, pybind11::object>)
+    else if constexpr (std::is_base_of_v<pybind11::object, T>)
     {
 #define INDEX_PYTHON_OBJECT(TYPE, VALUE) \
     return this->index(VALUE)

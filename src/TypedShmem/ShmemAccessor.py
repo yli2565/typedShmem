@@ -1,28 +1,11 @@
 from typing import Any, Dict, List, Optional, Union
 
 from .ShmemHeap import ShmemHeap
-from .TypedShmem import SDict as SDict_pybind11
+from .ShmemObjInitializer import ShmemObjInitializer
 from .TypedShmem import ShmemAccessor as ShmemAccessor_pybind11
-from .TypedShmem import ShmemObjInitializer
-from .TypedShmem import SList as SList_pybind11
 
 KeyType = Union[int, str]
 ValueType = Union[int, str, float, bool, List, Dict]
-
-
-def SDict(initVal=None) -> Union[Any, ShmemObjInitializer]:
-    if initVal is None:
-        return SDict_pybind11()
-    else:
-        return initVal
-
-
-def SList(initVal=None) -> Union[Any, ShmemObjInitializer]:
-    if initVal is None:
-        return SList_pybind11()
-    else:
-        return initVal
-
 
 class ShmemAccessor(ShmemAccessor_pybind11):
     """
@@ -77,6 +60,15 @@ class ShmemAccessor(ShmemAccessor_pybind11):
         """
         return super().__contains__(key)
 
+    def contains(self, key: KeyType) -> bool:
+        """
+        Check if the shared memory contains a given key.
+
+        :param key: The key to check for existence.
+        :return: True if the key exists, otherwise False.
+        """
+        return super().contains(key)
+    
     def __len__(self) -> int:
         """
         Get the number of items in the shared memory.
@@ -85,6 +77,14 @@ class ShmemAccessor(ShmemAccessor_pybind11):
         """
         return super().__len__()
 
+    def len(self) -> int:
+        """
+        Get the number of items in the shared memory.
+
+        :return: The number of items.
+        """
+        return super().len()
+
     def __str__(self) -> str:
         """
         Get a string representation of the shared memory content.
@@ -92,6 +92,14 @@ class ShmemAccessor(ShmemAccessor_pybind11):
         :return: String representation of the accessor.
         """
         return super().__str__()
+    
+    def toString(self) -> str:
+        """
+        Get a string representation of the shared memory content.
+
+        :return: String representation of the accessor.
+        """
+        return super().toString()
 
     def __repr__(self) -> str:
         """
@@ -115,7 +123,15 @@ class ShmemAccessor(ShmemAccessor_pybind11):
         :return: String representation of the type.
         """
         return super().typeStr()
+    
+    def fetch(self) -> ValueType:
+        """
+        Fetch the object pointed by the current accessor.
 
+        :return: The object pointed by the current accessor.
+        """
+        return super().fetch()
+    
     def get(self, key) -> ValueType:
         """
         Retrieve an object from the shared memory using the given key.

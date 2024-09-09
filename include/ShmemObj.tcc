@@ -47,7 +47,7 @@ size_t ShmemObj::construct(const T &value, ShmemHeap *heapPtr)
         bool allBool = true;
         for (const auto &item : value)
         {
-            if (!pybind11::isinstance<pybind11::int_>(item))
+            if (pybind11::isinstance<pybind11::bool_>(item) || !pybind11::isinstance<pybind11::int_>(item))
             {
                 allInt = false;
             }
@@ -78,18 +78,33 @@ size_t ShmemObj::construct(const T &value, ShmemHeap *heapPtr)
         pybind11::object obj = pybind11::reinterpret_borrow<pybind11::object>(value);
         return ShmemObj::construct(obj, heapPtr);
     }
-    else if constexpr (std::is_same_v<T, pybind11::object>)
+    else if constexpr (std::is_same_v<T, ShmemObj>)
+    {
+        pybind11::object obj(value, true); // Borrow the object
+        return ShmemObj::construct(obj, heapPtr);
+    }
+    else if constexpr (std::is_same_v<pybind11::handle, T>)
+    {
+        return ShmemObj::construct(pybind11::object(value, true), heapPtr);
+    }
+    else if constexpr (std::is_base_of_v<pybind11::object, T>)
     { // Check underlying type
         try
         {
 #define CONSTRUCT_WITH_UNDERLYING_TYPE(TYPE, VALUE) \
-    return construct(VALUE, heapPtr);
+    return construct(VALUE, heapPtr)
             SWITCH_PYTHON_OBJECT_TO_PRIMITIVE(value, CONSTRUCT_WITH_UNDERLYING_TYPE);
+
 #undef CONSTRUCT_WITH_UNDERLYING_TYPE
         }
         catch (std::runtime_error &e)
         { // Cannot construct to Primitive, fall back to list/dict
-            if (pybind11::isinstance<pybind11::list>(value))
+            if (pybind11::isinstance<ShmemObjInitializer>(value))
+            {
+                ShmemObjInitializer initializer = pybind11::cast<ShmemObjInitializer>(value);
+                return ShmemObj::construct(initializer, heapPtr);
+            }
+            else if (pybind11::isinstance<pybind11::list>(value))
             {
                 return ShmemList::construct(value, heapPtr);
             }
@@ -97,14 +112,15 @@ size_t ShmemObj::construct(const T &value, ShmemHeap *heapPtr)
             {
                 return ShmemDict::construct(value, heapPtr);
             }
-            else if (pybind11::isinstance<ShmemObjInitializer>(value))
+            else if (pybind11::isinstance<pybind11::none>(value))
             {
-                ShmemObjInitializer initializer = pybind11::cast<ShmemObjInitializer>(value);
-                return ShmemObj::construct(initializer, heapPtr);
+                return NPtr;
             }
             else
             {
-                throw std::runtime_error("Cannot construct object of type " + typeName<T>());
+                pybind11::object type = pybind11::reinterpret_borrow<pybind11::object>(value.get_type());
+                std::string typeName = type.attr("__name__").cast<std::string>();
+                throw std::runtime_error("Cannot construct python object of type " + typeName);
             }
         }
     }
@@ -112,11 +128,29 @@ size_t ShmemObj::construct(const T &value, ShmemHeap *heapPtr)
     {
         if (value.typeId == List)
         {
-            return ShmemList::construct(std::vector<std::vector<int>>(), heapPtr);
+            if (pybind11::isinstance<pybind11::none>(value.initialVal))
+                return ShmemList::construct(std::vector<std::vector<int>>(), heapPtr);
+            else
+            {
+                if (!pybind11::isinstance<pybind11::list>(value.initialVal))
+                {
+                    throw std::runtime_error("Initializer's value and type mismatch");
+                }
+                return ShmemList::construct(pybind11::cast<pybind11::list>(value.initialVal), heapPtr);
+            }
         }
         else if (value.typeId == Dict)
         {
-            return ShmemDict::construct(heapPtr);
+            if (pybind11::isinstance<pybind11::none>(value.initialVal))
+                return ShmemDict::construct(heapPtr);
+            else
+            {
+                if (!pybind11::isinstance<pybind11::dict>(value.initialVal))
+                {
+                    throw std::runtime_error("Initializer's value and type mismatch");
+                }
+                return ShmemDict::construct(pybind11::cast<pybind11::dict>(value.initialVal), heapPtr);
+            }
         }
 
         throw std::runtime_error("Unrecognized ShmemObjInitializer typeId " + std::to_string(value.typeId));

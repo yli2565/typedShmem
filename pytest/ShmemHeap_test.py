@@ -8,81 +8,14 @@ import pytest
 from TypedShmem import ShmemHeap
 
 
-# @pytest.fixture
-# def setup():
-#     """Fixture to initialize and cleanup ShmemHeap for each test."""
-#     wheelName = "typedshmem-0.0.1-cp39-cp39-linux_x86_64"
-#     projectRoot = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-#     testDir = os.path.join(projectRoot, "build", wheelName)
-#     os.makedirs(testDir, exist_ok=True)
-
-#     # Create a temporary directory within testDir
-#     tempDir = tempfile.mkdtemp(dir=testDir)
-
-#     # Step 2: Install the wheel into the temporary directory
-#     wheelPath = "{}/dist/{}.whl".format(
-#         projectRoot, wheelName
-#     )  # Replace with the actual path to your .whl file
-
-#     # Use pip to install the wheel to the temporary directory
-#     subprocess.run(
-#         [
-#             sys.executable,
-#             "-m",
-#             "pip",
-#             "install",
-#             "--no-clean",
-#             wheelPath,
-#             "--target",
-#             tempDir,
-#         ],
-#         check=True,
-#     )
-
-#     # Step 3: Add the temporary directory to sys.path
-#     sys.path.insert(0, tempDir)
-
-#     # Now you can import the modules from the wheel as if it was installed
-#     try:
-#         import TypedShmem
-
-#         print("TypedShmem imported successfully!")
-#     except ImportError as e:
-#         print(f"Error importing module: {e}")
-
-#     from TypedShmem import ShmemHeap
-
-#     return TypedShmem
-
-    # shmHeap = ShmemHeap("test_shm_heap", 80, 1024)
-    # yield shmHeap
-    # shmHeap.unlink()
-    # shutil.rmtree(tempDir)
-
-
-# shmHeap = ShmemHeap("test_shm_heap", 80, 1024)
-
-# shmHeap.create()
-# ptr1 = shmHeap.shmalloc(0x100)
-# assert shmHeap.briefLayoutStr() == "256A, 3824E"
-
-# ptr2 = shmHeap.shrealloc(ptr1, 0x1FA)
-# assert shmHeap.briefLayoutStr() == "512A, 3568E"
-
-# shmHeap = ShmemHeap("test_shm_heap", 80, 1024)
-
-# shmHeap.setHCap(4097)
-# shmHeap.setSCap(90)
-# shmHeap.create()
-
-# another = ShmemHeap("test_shm_heap", 1, 1000000)
-# another.connect()
-# assert another.staticCapacity() == 96
-# assert another.heapCapacity() == 4096 * 2
-
-def testConstructor():
-
+@pytest.fixture
+def setup():
     shmHeap = ShmemHeap("test_shm_heap", 80, 1024)
+    yield shmHeap
+    shmHeap.unlink()
+
+def testConstructor(setup):
+    shmHeap = setup
 
     assert shmHeap.getName() == "test_shm_heap"
     assert shmHeap.getCapacity() == 4096 + 80
@@ -95,9 +28,8 @@ def testConstructor():
     assert another.getCapacity() == 2 * 4096 + 4 * 8
 
 
-def testCreate():
-
-    shmHeap = ShmemHeap("test_shm_heap", 80, 1024)
+def testCreate(setup):
+    shmHeap = setup
 
     shmHeap.create()
     assert shmHeap.isConnected()
@@ -106,8 +38,8 @@ def testCreate():
     assert shmHeap.heapCapacity() == 4096
 
 
-def testConnect():
-    shmHeap = ShmemHeap("test_shm_heap", 80, 1024)
+def testConnect(setup):
+    shmHeap = setup
 
     shmHeap.setHCap(4097)
     shmHeap.setSCap(90)
@@ -119,9 +51,8 @@ def testConnect():
     assert another.heapCapacity() == 4096 * 2
 
 
-def testResizeCapacityCorrectness():
-
-    shmHeap = ShmemHeap("test_shm_heap", 80, 1024)
+def testResizeCapacityCorrectness(setup):
+    shmHeap = setup
 
     shmHeap.create()
     shmHeap.resize(4097)
@@ -136,9 +67,8 @@ def testResizeCapacityCorrectness():
     assert another.heapCapacity() == 4096 * 3
 
 
-def testResizeContentCorrectness():
-
-    shmHeap = ShmemHeap("test_shm_heap", 80, 1024)
+def testResizeContentCorrectness(setup):
+    shmHeap = setup
 
     shmHeap.create()
     ptr1 = shmHeap.shmalloc(0x100)
@@ -165,9 +95,8 @@ def testResizeContentCorrectness():
     assert another.heapCapacity() == 4096 * 4
 
 
-def testFullMallocAndFree():
-
-    shmHeap = ShmemHeap("test_shm_heap", 80, 1024)
+def testFullMallocAndFree(setup):
+    shmHeap = setup
 
     shmHeap.setHCap(1)
     shmHeap.create()
@@ -213,9 +142,8 @@ def testFullMallocAndFree():
     assert shm1.briefLayoutStr() == "4088E"
 
 
-def testBasicRealloc():
-
-    shmHeap = ShmemHeap("test_shm_heap", 80, 1024)
+def testBasicRealloc(setup):
+    shmHeap = setup
 
     shmHeap.create()
     ptr1 = shmHeap.shmalloc(0x100)

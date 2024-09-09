@@ -172,6 +172,7 @@ T ShmemDict::operator[](int index) const
 template <typename T>
 bool ShmemDict::operator==(const T &val) const
 {
+    // TODO: Review this logic, this is definitely not a good solution, probably I should review all of operator==
     if constexpr (isObjPtr<T>::value)
     {
         if (val->type != this->type)

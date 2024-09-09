@@ -75,7 +75,11 @@ void ShmemList::set(const T &val, int index, ShmemHeap *heapPtr)
         ShmemObj::deconstruct(reinterpret_cast<Byte *>(victim) - heapPtr->heapHead(), heapPtr);
     }
 
-    basePtr[resolvedIndex] = (heapPtr->heapHead() + ShmemObj::construct(val, heapPtr)) - reinterpret_cast<Byte *>(this);
+    size_t newObjOffset = ShmemObj::construct(val, heapPtr);
+    if (newObjOffset == NPtr)
+        basePtr[resolvedIndex] = NPtr;
+    else
+        basePtr[resolvedIndex] = (heapPtr->heapHead() + ShmemObj::construct(val, heapPtr)) - reinterpret_cast<Byte *>(this);
 }
 
 // del() implemented in ShmemList.cpp
@@ -136,7 +140,11 @@ ShmemList *ShmemList::append(const T &val, ShmemHeap *heapPtr)
 
     ptrdiff_t *basePtr = relativeOffsetPtr();
 
-    basePtr[this->listSize] = (heapPtr->heapHead() + ShmemObj::construct(val, heapPtr)) - reinterpret_cast<Byte *>(this);
+    size_t newObjOffset = ShmemObj::construct(val, heapPtr);
+    if (newObjOffset == NPtr)
+        basePtr[this->listSize] = NPtr;
+    else
+        basePtr[this->listSize] = (heapPtr->heapHead() + newObjOffset) - reinterpret_cast<Byte *>(this);
 
     this->listSize++;
     return this;
@@ -174,7 +182,11 @@ ShmemList *ShmemList::insert(int index, const T &val, ShmemHeap *heapPtr)
         basePtr[i] = basePtr[i - 1];
     }
 
-    basePtr[resolvedIndex] = (heapPtr->heapHead() + ShmemObj::construct(val, heapPtr)) - reinterpret_cast<Byte *>(this);
+    size_t newObjOffset = ShmemObj::construct(val, heapPtr);
+    if (newObjOffset == NPtr)
+        basePtr[resolvedIndex] = NPtr;
+    else
+        basePtr[resolvedIndex] = (heapPtr->heapHead() + newObjOffset) - reinterpret_cast<Byte *>(this);
 
     this->listSize++;
     return this;
@@ -233,8 +245,8 @@ ShmemList::operator T() const
         pybind11::list result;
         for (int i = 0; i < this->listSize; i++)
         {
-            ShmemObj *target = const_cast<ShmemObj *>(reinterpret_cast<const ShmemObj *>(reinterpret_cast<const Byte *>(this) + basePtr[i]));
-            result.append(target->operator pybind11::list());
+            const ShmemObj *target = this->getObj(i);
+            result.append(target->operator pybind11::object());
         }
         return result;
     }

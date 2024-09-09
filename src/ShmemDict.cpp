@@ -442,7 +442,11 @@ size_t ShmemDict::construct(pybind11::dict map, ShmemHeap *heapPtr)
 
     for (auto &[key, val] : map)
     {
-        ShmemObj *newObj = reinterpret_cast<ShmemObj *>(heapPtr->heapHead() + ShmemObj::construct(val, heapPtr));
+        size_t newObjOffset = ShmemObj::construct(val, heapPtr);
+        ShmemObj *newObj = nullptr;
+        if (newObjOffset != NPtr)
+            newObj = reinterpret_cast<ShmemObj *>(heapPtr->heapHead() + newObjOffset);
+
         if (pybind11::isinstance<pybind11::str>(key) || pybind11::isinstance<pybind11::bytes>(key))
         {
             dict->insert(key.cast<std::string>(), newObj, heapPtr);
@@ -463,7 +467,7 @@ size_t ShmemDict::construct(pybind11::object pythonObj, ShmemHeap *heapPtr)
 {
     if (pybind11::isinstance<pybind11::dict>(pythonObj))
     {
-        return construct(pythonObj, heapPtr);
+        return ShmemDict::construct(pybind11::cast<pybind11::dict>(pythonObj), heapPtr);
     }
     else
     {
@@ -611,7 +615,7 @@ KeyType ShmemDict::nextIdx(KeyType index) const
 {
     if (index == this->NIL()->keyVal())
         throw StopIteration("Dict index out of bounds");
-        
+
     const ShmemDictNode *node = search(index);
     if (node == nullptr)
         throw IndexError("Cannot get next index of a non-existent key");

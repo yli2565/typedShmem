@@ -70,7 +70,13 @@ size_t ShmemList::construct(pybind11::list pyList, ShmemHeap *heapPtr)
 
     for (int i = 0; i < static_cast<int>(pyList.size()); i++)
     {
-        basePtr[i] = ShmemObj::construct(pyList[i], heapPtr) - listOffset;
+        size_t newObjOffset = ShmemObj::construct(pyList[i], heapPtr);
+        if (newObjOffset == NPtr)
+        {
+            basePtr[i] = NPtr;
+            continue;
+        }
+        basePtr[i] = newObjOffset - listOffset;
         list->listSize++;
     }
     return listOffset;
@@ -181,8 +187,9 @@ ShmemList *ShmemList::clear(ShmemHeap *heapPtr)
     {
         if (basePtr[i] != NPtr)
         {
-            ShmemObj *victim = const_cast<ShmemObj *>(reinterpret_cast<const ShmemObj *>(reinterpret_cast<const Byte *>(this) + basePtr[i]));
-            ShmemObj::deconstruct(reinterpret_cast<Byte *>(victim) - heapPtr->heapHead(), heapPtr);
+            ShmemObj *victim = const_cast<ShmemObj *>(getObj(i));
+            if (victim != nullptr)
+                ShmemObj::deconstruct(reinterpret_cast<Byte *>(victim) - heapPtr->heapHead(), heapPtr);
         }
         basePtr[i] = NPtr;
     }

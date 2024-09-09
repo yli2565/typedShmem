@@ -32,8 +32,6 @@ void ShmemHeap::create()
             this->logger->error("HCap is too small. HCap: {}", this->HCap);
         throw std::runtime_error("Capacity is too small to hold static space or heap space");
     }
-    this->setCapacity(this->SCap + this->HCap);
-    
     ShmemBase::create();
 
     // Init the static information
@@ -231,20 +229,23 @@ size_t ShmemHeap::shmalloc(size_t size)
     size_t bestSize = std::numeric_limits<size_t>::max();
 
     // Best fit logic
-    do
+    if (listHead != nullptr)
     {
-        size_t blockSize = current->size();
-        if (!current->A() && blockSize >= requiredSize && blockSize < bestSize)
+        do
         {
-            best = current;
-            bestSize = blockSize;
+            size_t blockSize = current->size();
+            if (!current->A() && blockSize >= requiredSize && blockSize < bestSize)
+            {
+                best = current;
+                bestSize = blockSize;
 
-            // Break if exact match
-            if (blockSize == requiredSize)
-                break;
-        }
-        current = current->getBckPtr();
-    } while (current != listHead);
+                // Break if exact match
+                if (blockSize == requiredSize)
+                    break;
+            }
+            current = current->getBckPtr();
+        } while (current != listHead);
+    }
 
     if (best != nullptr)
     {
@@ -304,8 +305,11 @@ size_t ShmemHeap::shmalloc(size_t size)
     }
     else
     {
-        this->logger->info("shmalloc(size={}) failed", size);
-        return 0;
+        // TODO: increase the size of the heap
+        this->resize(this->heapCapacity_unsafe(), this->heapCapacity_unsafe() + 1);
+        return this->shmalloc(size);
+        // this->logger->info("shmalloc(size={}) failed", size);
+        // return 0;
     }
 }
 
@@ -710,7 +714,11 @@ inline Byte *ShmemHeap::heapTail_unsafe()
 
 inline ShmemHeap::BlockHeader *ShmemHeap::freeBlockList_unsafe()
 {
-    return reinterpret_cast<BlockHeader *>(this->heapHead_unsafe() + this->freeBlockListOffset_unsafe());
+    size_t offset = this->freeBlockListOffset_unsafe();
+    if (offset == NPtr)
+        return nullptr;
+    else
+        return reinterpret_cast<BlockHeader *>(this->heapHead_unsafe() + offset);
 }
 
 void ShmemHeap::setHCap(size_t size)
@@ -728,6 +736,8 @@ void ShmemHeap::setHCap(size_t size)
     }
 
     this->HCap = newHeapCapacity;
+    this->setCapacity(this->SCap + this->HCap);
+
     this->logger->info("Request heap size: {}, new heap capacity: {}", size, newHeapCapacity);
 }
 
@@ -747,6 +757,8 @@ void ShmemHeap::setSCap(size_t size)
     }
 
     this->SCap = newStaticSpaceCapacity;
+    this->setCapacity(this->SCap + this->HCap);
+
     this->logger->info("Request static space size: {}, new static space capacity: {}", size, newStaticSpaceCapacity);
 }
 

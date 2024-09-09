@@ -1,5 +1,6 @@
-from .TypedShmem import ShmemHeap as ShmemHeap_pybind11
 from typing import List, Optional, Union
+
+from .TypedShmem import ShmemHeap as ShmemHeap_pybind11
 
 DHCap = 0x1000
 DSCap = 0x8
