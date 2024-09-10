@@ -22,7 +22,7 @@
     },
     {
       // CMake task: Generates a Makefile for the project using CMake
-      "label": "CMake",
+      "label": "CMake - Unix Makefiles",
       "type": "shell",
       "command": "cmake -S . -B build -G \"Unix Makefiles\" -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=gcc-12 -DCMAKE_CXX_COMPILER=g++-12",
       "options": {
@@ -31,12 +31,22 @@
       }
     },
     {
+      // CMake task: Generates a Makefile for the project using CMake
+      "label": "CMake - Ninja",
+      "type": "shell",
+      "command": "cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=gcc-12 -DCMAKE_CXX_COMPILER=g++-12",
+      "options": {
+        // Sets the current working directory to the "build" folder
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
       // Make task: Builds the project using the generated Makefile
-      "label": "Make - Main",
+      "label": "Compile Main - Unix Makefiles",
       "type": "shell",
       "command": "make main",
       "dependsOn": [
-        "CMake",
+        "CMake - Unix Makefiles",
       ],
       "options": {
         "cwd": "${workspaceFolder}/build"
@@ -44,11 +54,34 @@
     },
     {
       // Make task: Builds the project using the generated Makefile
-      "label": "Make - Test",
+      "label": "Compile Main - Ninja",
+      "type": "shell",
+      "command": "ninja main",
+      "dependsOn": [
+        "CMake - Ninja",
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/build"
+      }
+    },
+    {
+      // Make task: Builds the project using the generated Makefile
+      "label": "Compile Test - Unix Makefiles",
       "type": "shell",
       "command": "make test",
       "dependsOn": [
-        "CMake",
+        "CMake - Unix Makefiles",
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}/build"
+      }
+    },
+    {
+      "label": "Compile Test - Ninja",
+      "type": "shell",
+      "command": "ninja test",
+      "dependsOn": [
+        "CMake - Ninja",
       ],
       "options": {
         "cwd": "${workspaceFolder}/build"
@@ -60,8 +93,7 @@
       "command": "echo 'Build - Main'",
       "dependsOn": [
         "Make Build Folder",
-        "Make - Main",
-        "Copy Intermediates",
+        "Compile Main - Ninja",
       ],
       "dependsOrder": "sequence",
       "group": {
@@ -74,9 +106,8 @@
       "type": "shell",
       "command": "echo 'Build - Test'",
       "dependsOn": [
-        "Clean log files",
         "Make Build Folder",
-        "Make - Test",
+        "Compile Test - Ninja",
       ],
       "group": {
         "kind": "build",
@@ -85,7 +116,7 @@
     },
     {
       "label": "Build - Pybind11",
-      "type": "shell" ,
+      "type": "shell",
       "command": "\"${workspaceFolder}/tools/build_pybind11.sh\"",
       "dependsOn": [
         "CMake",
