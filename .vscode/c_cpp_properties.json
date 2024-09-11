@@ -8,6 +8,7 @@
                 "${workspaceFolder}/lib/pybind11/include",
                 "${workspaceFolder}/lib/googletest/googletest/include",
                 "/home/Shared/conda_envs/TypedShmemTest/include/python3.9", // Adjust according to your Python version
+                // "/home/chkxwlyh/miniconda3/envs/SimRobotTraining/include/python3.9", // Adjust according to your Python version
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc-12",

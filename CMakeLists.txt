@@ -32,12 +32,12 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Ofast")
 message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 
 # Include the /include directory for header files
-include_directories(include)
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 # Gather all source files from the /src directory
-file(GLOB MAIN_SRC_FILES src/*.cpp src/*.c)
+file(GLOB MAIN_SRC_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c")
 # Gather all test source files from the /test directory
-file(GLOB TEST_SRC_FILES src/*.cpp src/*.c test/*.cpp test/*.c)
+file(GLOB TEST_SRC_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c" "${CMAKE_CURRENT_SOURCE_DIR}/test/*.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/test/*.c")
 
 # Avoid the main conflict between test.cpp and main.cpp
 list(REMOVE_ITEM TEST_SRC_FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/main.c")
@@ -85,8 +85,33 @@ list(APPEND LIBRARIES_TO_LINK "rt" "pthread")
 # Include GTest
 list(APPEND LIBRARIES_TO_LINK "gmock" "gmock_main" "gtest" "gtest_main")
 
+# Set conda environment path
+set(PYTHON_ENV_PATH "/home/chkxwlyh/miniconda3/envs/SimRobotTraining") # Get with `conda env list`
+# Set Python executable
+if(WIN32)
+    set(Python_EXECUTABLE "${PYTHON_ENV_PATH}/python.exe")
+else()
+    set(Python_EXECUTABLE "${PYTHON_ENV_PATH}/bin/python")
+endif()
+message(STATUS "Python executable: ${Python_EXECUTABLE}")
+
+execute_process(
+    COMMAND ${Python_EXECUTABLE} -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')"
+    OUTPUT_VARIABLE Python_VERSION
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+message(STATUS "Detected Python version: ${Python_VERSION}")
+
+# Set Python lib
+if(WIN32)
+    set(Python_LIBRARY "${PYTHON_ENV_PATH}/libs/python${Python_VERSION}.lib")
+else()
+    set(Python_LIBRARY "${PYTHON_ENV_PATH}/lib/libpython${Python_VERSION}.so")
+endif()
+set(Python_INCLUDE_DIR "${PYTHON_ENV_PATH}/include/python${Python_VERSION}")
+
 # Find Python-dev
-find_package(Python COMPONENTS Interpreter Development REQUIRED)
 find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
 include_directories(${Python3_INCLUDE_DIRS})
 list (APPEND LIBRARIES_TO_LINK ${Python3_LIBRARIES})
@@ -96,7 +121,7 @@ list (APPEND LIBRARIES_TO_LINK ${Python3_LIBRARIES})
 set(PYTHON_MODULE_NAME "TypedShmem")  # Name of the Python module
 
 # Create the Python module as a shared library
-Python_add_library(${PYTHON_MODULE_NAME} MODULE ${MAIN_SRC_FILES} WITH_SOABI)
+python3_add_library(${PYTHON_MODULE_NAME} MODULE ${MAIN_SRC_FILES} WITH_SOABI)
 target_link_libraries(${PYTHON_MODULE_NAME} PRIVATE pybind11::headers ${LIBRARIES_TO_LINK})
 target_compile_definitions(${PYTHON_MODULE_NAME} PRIVATE VERSION_INFO=${PROJECT_VERSION})
 install(TARGETS ${PYTHON_MODULE_NAME} DESTINATION ${PYTHON_MODULE_NAME})
