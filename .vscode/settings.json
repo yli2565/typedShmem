@@ -87,7 +87,7 @@
       "cwd": "${workspaceFolder}",
       "runTask": {
         "before": [
-          "Make - Test"
+          "Compile Test - Ninja"
         ]
       },
     }

@@ -243,10 +243,11 @@ ShmemList::operator T() const
     if constexpr (std::is_same_v<T, pybind11::list>)
     {
         pybind11::list result;
+
         for (int i = 0; i < this->listSize; i++)
         {
             const ShmemObj *target = this->getObj(i);
-            result.append(target->operator pybind11::object());
+            result.append(target->operator pybind11::object().ptr());
         }
         return result;
     }

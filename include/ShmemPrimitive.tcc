@@ -162,22 +162,23 @@ inline T ShmemPrimitive_::get(int index) const
         const Byte *ptr = this->getBytePtr();
         size_t i = 0;
         pybind11::list result;
-#define PRIMITIVE_TO_PYTHON_LIST(TYPE, PY_TYPE)                                             \
-    for (; i < this->size; i++)                                                             \
-    {                                                                                       \
-        if constexpr (std::is_same_v<TYPE, std::string>)                                    \
-        {                                                                                   \
-            result.append(pybind11::int_(reinterpret_cast<const char *>(ptr)[i]));          \
-        }                                                                                   \
-        else if constexpr (std::is_same_v<TYPE, unsigned char>)                             \
-        {                                                                                   \
-            result.append(pybind11::int_(reinterpret_cast<const unsigned char *>(ptr)[i])); \
-        }                                                                                   \
-        else                                                                                \
-            result.append(PY_TYPE(reinterpret_cast<const TYPE *>(ptr)[i]));                 \
+#define PRIMITIVE_TO_PYTHON_LIST(TYPE, PY_TYPE)                                                        \
+    for (; i < this->size; i++)                                                                        \
+    {                                                                                                  \
+        if constexpr (std::is_same_v<TYPE, std::string>)                                               \
+        {                                                                                              \
+            result.append(static_cast<int>(reinterpret_cast<const char *>(ptr)[i]));                   \
+        }                                                                                              \
+        else if constexpr (std::is_same_v<TYPE, unsigned char>)                                        \
+        {                                                                                              \
+            result.append(static_cast<unsigned int>(reinterpret_cast<const unsigned char *>(ptr)[i])); \
+        }                                                                                              \
+        else                                                                                           \
+            result.append(reinterpret_cast<const TYPE *>(ptr)[i]);                                     \
     }
 
         SWITCH_PRIMITIVE_TYPES_TO_PY(this->type, PRIMITIVE_TO_PYTHON_LIST);
+
         return result;
 
 #undef PRIMITIVE_TO_PYTHON_LIST

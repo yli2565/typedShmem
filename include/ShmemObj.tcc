@@ -40,8 +40,14 @@ size_t ShmemObj::construct(const T &value, ShmemHeap *heapPtr)
     }
     else if constexpr (std::is_same_v<T, pybind11::list>)
     { // There are two cases: pure int/float/bool, or mixed/nested
-        // Case 1: construct Primitive
-        // Case 2: construct List
+        // Case 1: empty list
+        // Case 2: construct Primitive
+        // Case 3: construct List
+
+        if (value.size() == 0)
+        {
+            return ShmemList::construct(5, heapPtr);
+        }
         bool allInt = true;
         bool allFloat = true;
         bool allBool = true;
