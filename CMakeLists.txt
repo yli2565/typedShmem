@@ -86,7 +86,8 @@ list(APPEND LIBRARIES_TO_LINK "rt" "pthread")
 list(APPEND LIBRARIES_TO_LINK "gmock" "gmock_main" "gtest" "gtest_main")
 
 # Set conda environment path
-set(PYTHON_ENV_PATH "/home/chkxwlyh/miniconda3/envs/SimRobotTraining") # Get with `conda env list`
+set(PYTHON_ENV_PATH "/home/Shared/conda_envs/TypedShmemTest") # Get with `conda env list`
+# set(PYTHON_ENV_PATH "/home/chkxwlyh/miniconda3/envs/SimRobotTraining") # Get with `conda env list`
 # Set Python executable
 if(WIN32)
     set(Python_EXECUTABLE "${PYTHON_ENV_PATH}/python.exe")
