@@ -38,7 +38,7 @@ void ShmemAccessor::resolvePath(ShmemObj *&prevObj, ShmemObj *&obj, int &resolve
     ShmemObj *current = this->entrance();
     ShmemObj *prev = nullptr;
     int resolveDepth = 0;
-    for (resolveDepth = 0; resolveDepth < path.size(); resolveDepth++)
+    for (resolveDepth = 0; static_cast<size_t>(resolveDepth) < path.size(); resolveDepth++)
     {
         KeyType pathElement = path[resolveDepth];
         try
@@ -88,17 +88,17 @@ int ShmemAccessor::typeId() const
     int resolvedDepth;
     resolvePath(prev, obj, resolvedDepth);
 
-    if (resolvedDepth != path.size())
+    if (static_cast<size_t>(resolvedDepth) != path.size())
     {
         if (obj == nullptr)
         {
             throw std::runtime_error("Path resolution failed on nullptr");
         }
-        if (resolvedDepth == path.size() - 1 && isPrimitive(obj->type) && std::holds_alternative<int>(path[resolvedDepth]))
+        if (static_cast<size_t>(resolvedDepth) == path.size() - 1 && isPrimitive(obj->type) && std::holds_alternative<int>(path[resolvedDepth]))
         { // Return the typeId of primitive element
             return obj->type;
         }
-        throw std::runtime_error("Cannot resolve " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + obj->toString());
+        throw std::runtime_error("Cannot resolve " + pathToString(path.data() + resolvedDepth, static_cast<int>(path.size()) - resolvedDepth) + " on object " + obj->toString());
     }
     if (obj == nullptr)
     { // TODO: should I return typedId 0?
@@ -114,7 +114,7 @@ std::string ShmemAccessor::typeStr() const
 
 std::string ShmemAccessor::pathString() const
 {
-    return pathToString(path.data(), path.size());
+    return pathToString(path.data(), static_cast<int>(path.size()));
 }
 
 // __len__ implementation
@@ -124,13 +124,13 @@ size_t ShmemAccessor::len() const
     int resolvedDepth;
     resolvePath(prev, obj, resolvedDepth);
 
-    if (resolvedDepth != path.size())
+    if (static_cast<size_t>(resolvedDepth) != path.size())
     {
         if (obj == nullptr)
         {
             throw std::runtime_error("Path resolution failed on nullptr");
         }
-        if (resolvedDepth == path.size() - 1 && isPrimitive(obj->type) && std::holds_alternative<int>(path[resolvedDepth]))
+        if (static_cast<size_t>(resolvedDepth) == path.size() - 1 && isPrimitive(obj->type) && std::holds_alternative<int>(path[resolvedDepth]))
         {
             throw std::runtime_error("Cannot call len() on primitive element");
         }
@@ -168,17 +168,17 @@ void ShmemAccessor::del(KeyType index)
     int resolvedDepth;
     resolvePath(prev, obj, resolvedDepth);
 
-    if (resolvedDepth != path.size())
+    if (static_cast<size_t>(resolvedDepth) != path.size())
     {
         if (obj == nullptr)
         {
             throw std::runtime_error("Path resolution failed on nullptr");
         }
-        if (resolvedDepth == path.size() - 1 && isPrimitive(obj->type) && std::holds_alternative<int>(path[resolvedDepth]))
+        if (static_cast<size_t>(resolvedDepth) == path.size() - 1 && isPrimitive(obj->type) && std::holds_alternative<int>(path[resolvedDepth]))
         {
             throw std::runtime_error("Cannot call del(index) on primitive element, please call it on the primitive array");
         }
-        throw std::runtime_error("Cannot resolve " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + obj->toString());
+        throw std::runtime_error("Cannot resolve " + pathToString(path.data() + resolvedDepth, static_cast<int>(path.size()) - resolvedDepth) + " on object " + obj->toString());
     }
     if (obj == nullptr)
     {
@@ -218,7 +218,7 @@ std::string ShmemAccessor::toString(int maxElements) const
     int resolvedDepth;
     resolvePath(prev, obj, resolvedDepth);
 
-    bool partiallyResolved = resolvedDepth != path.size();
+    bool partiallyResolved = static_cast<size_t>(resolvedDepth) != path.size();
 
     int primitiveIndex;
     bool usePrimitiveIndex = false;
@@ -229,7 +229,7 @@ std::string ShmemAccessor::toString(int maxElements) const
         {
             throw std::runtime_error("Path resolution failed on nullptr");
         }
-        else if (resolvedDepth == path.size() - 1 && isPrimitive(obj->type) && std::holds_alternative<int>(path[resolvedDepth]))
+        else if (static_cast<size_t>(resolvedDepth) == path.size() - 1 && isPrimitive(obj->type) && std::holds_alternative<int>(path[resolvedDepth]))
         {
             primitiveIndex = std::get<int>(path[resolvedDepth]);
             usePrimitiveIndex = true;
@@ -275,5 +275,5 @@ std::string ShmemAccessor::pathToString(const KeyType *path, int size)
 
 std::string ShmemAccessor::pathToString() const
 {
-    return pathToString(path.data(), path.size());
+    return pathToString(path.data(), static_cast<int>(path.size()));
 }

@@ -11,7 +11,7 @@ inline size_t ShmemPrimitive_::makeSpace(size_t size, ShmemHeap *heapPtr)
     size_t offset = heapPtr->shmalloc(sizeof(ShmemPrimitive_) + size * sizeof(T));
     ShmemObj *ptr = reinterpret_cast<ShmemObj *>(heapPtr->heapHead() + offset);
     ptr->type = TypeEncoding<T>::value;
-    ptr->size = size;
+    ptr->size = static_cast<int>(size);
     return offset;
 }
 
@@ -126,7 +126,7 @@ inline T ShmemPrimitive_::get(int index) const
 
         if constexpr (std::is_same_v<T, std::string> || std::is_same_v<T, const std::string>)
         {
-            size_t endPoint = this->index('\0');
+            int endPoint = this->index('\0');
             if (endPoint == -1)
                 return std::string(reinterpret_cast<const char *>(this->getBytePtr()), this->size);
             else
@@ -163,7 +163,7 @@ inline T ShmemPrimitive_::get(int index) const
         size_t i = 0;
         pybind11::list result;
 #define PRIMITIVE_TO_PYTHON_LIST(TYPE, PY_TYPE)                                                        \
-    for (; i < this->size; i++)                                                                        \
+    for (; i < static_cast<size_t>(this->size); i++)                                                                        \
     {                                                                                                  \
         if constexpr (std::is_same_v<TYPE, std::string>)                                               \
         {                                                                                              \
@@ -217,7 +217,7 @@ inline T ShmemPrimitive_::get(int index) const
 
             pybind11::list result;
 #define PRIMITIVE_TO_PYTHON_LIST(TYPE, PY_TYPE)                                             \
-    for (; i < this->size; i++)                                                             \
+    for (; i < static_cast<size_t>(this->size); i++)                                                             \
     {                                                                                       \
         if constexpr (std::is_same_v<TYPE, std::string>)                                    \
         {                                                                                   \

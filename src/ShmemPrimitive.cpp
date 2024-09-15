@@ -16,6 +16,8 @@ int ShmemPrimitive_::resolveIndex(int index) const
 // __str__
 std::string ShmemPrimitive_::toString(int indent, int maxElements) const
 {
+    (void)indent; // unused
+
     maxElements = maxElements > 0 ? maxElements : this->size;
 
     std::string result;
@@ -105,14 +107,6 @@ int ShmemPrimitive_::nextIdx(int index) const
 // Converters
 
 // C++ convertors implemented in .tcc
-// ShmemPrimitive_::operator pybind11::object() const
-// {
-// #define PRIMITIVE_TO_PYTHON_OBJECT(TYPE, PY_TYPE) \
-//     return PY_TYPE(this->operator TYPE());
-
-//     SWITCH_PRIMITIVE_TYPES_TO_PY(this->type, PRIMITIVE_TO_PYTHON_OBJECT)
-// #undef PRIMITIVE_TO_PYTHON_OBJECT
-// }
 
 pybind11::object ShmemPrimitive_::elementToPyObject(int index) const
 {

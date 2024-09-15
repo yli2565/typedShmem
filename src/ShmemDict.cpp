@@ -2,7 +2,7 @@
 // Utlities
 int hashIntOrString(KeyType key)
 {
-    int hashCode = 0;
+    size_t hashCode = 0;
     if (std::holds_alternative<std::string>(key))
     {
         hashCode = std::hash<std::string>{}(std::get<std::string>(key));
@@ -11,7 +11,7 @@ int hashIntOrString(KeyType key)
     {
         hashCode = std::hash<int>{}(std::get<int>(key));
     }
-    return hashCode;
+    return static_cast<int>(hashCode);
 }
 
 ShmemDictNode *ShmemDict::root() const

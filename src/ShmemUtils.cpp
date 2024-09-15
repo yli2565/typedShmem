@@ -107,7 +107,7 @@ FileDescriptor ShmemUtils::connectShm(Byte *&shmPtr, const std::string &shmName,
         shmFd = shm_open(shmName.c_str(), O_RDWR, 0666);
         if (shmFd != -1)
         {
-            int size = getShmSize(shmFd);
+            size_t size = getShmSize(shmFd);
             shmPtr = static_cast<Byte *>(mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED, shmFd, 0));
             getLogger()->info("Connected to shared memory {} in {} seconds", shmName, timeCnt);
             break;
@@ -241,9 +241,9 @@ void ShmemUtils::setSemValue(sem_t *sem, const size_t &val)
     int curVal = 0;
     sem_getvalue(sem, &curVal);
     int oldVal = curVal;
-    while (curVal != val)
+    while (static_cast<size_t>(curVal) != val)
     {
-        if (curVal > val)
+        if (static_cast<size_t>(curVal) > val)
         {
             sem_wait(sem);
             curVal -= 1;
@@ -255,7 +255,7 @@ void ShmemUtils::setSemValue(sem_t *sem, const size_t &val)
         }
     }
     sem_getvalue(sem, &curVal);
-    if (curVal != val)
+    if (static_cast<size_t>(curVal) != val)
     {
         getLogger()->error("Failed to set {} semaphore value: {}->{}", static_cast<const void *>(sem), oldVal, val);
         throw std::runtime_error("Failed to set semaphore");
@@ -299,7 +299,7 @@ int ShmemUtils::waitSem(sem_t *sem, const milliseconds &waitTime, const millisec
 
         // Update time count for logging purposes
         auto elapsedMillis = std::chrono::duration_cast<milliseconds>(elapsed).count();
-        getLogger()->debug("\rWaiting sem {} ... [ {:.1f} seconds ]", static_cast<const void *>(sem), elapsedMillis / 1000.0f);
+        getLogger()->debug("\rWaiting sem {} ... [ {:.1f} seconds ]", static_cast<const void *>(sem), static_cast<float>(elapsedMillis) / 1000.0f);
     }
 }
 int ShmemUtils::postSem(sem_t *sem)

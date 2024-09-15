@@ -210,7 +210,7 @@ public:
      *
      * @param heapSize New size for the heap, padded to page size. -1 means not changed
      */
-    void resize(int heapSize);
+    void resize(long heapSize);
 
     /**
      * @brief Resize both static and heap space
@@ -218,7 +218,7 @@ public:
      * @param staticSpaceSize required size of static space, padded to unitSize. -1 means not changed
      * @param heapSize required size of heap space, padded to page size. -1 means not changed
      */
-    void resize(int staticSpaceSize, int heapSize);
+    void resize(long staticSpaceSize, long heapSize);
 
     /**
      * @brief Allocate a block in the heap

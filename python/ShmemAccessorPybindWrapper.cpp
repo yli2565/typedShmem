@@ -167,11 +167,11 @@ py::object ShmemAccessorWrapper::fetch() const
     int primitiveIndex;
     bool usePrimitiveIndex = false;
 
-    if (resolvedDepth != path.size())
+    if (static_cast<size_t>(resolvedDepth) != path.size())
     {
         if (obj != nullptr && isPrimitive(obj->type))
         {
-            if (resolvedDepth == path.size() - 1)
+            if (static_cast<size_t>(resolvedDepth) == path.size() - 1)
             {
                 if (std::holds_alternative<int>(path[resolvedDepth]))
                 {
@@ -185,12 +185,12 @@ py::object ShmemAccessorWrapper::fetch() const
             }
             else
             {
-                throw IndexError("Cannot index " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on primitive object");
+                throw IndexError("Cannot index " + pathToString(path.data() + resolvedDepth, static_cast<int>(path.size()) - resolvedDepth) + " on primitive object");
             }
         }
         else
         {
-            throw IndexError("Cannot index " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + obj->toString());
+            throw IndexError("Cannot index " + pathToString(path.data() + resolvedDepth, static_cast<int>(path.size()) - resolvedDepth) + " on object " + obj->toString());
         }
     }
 

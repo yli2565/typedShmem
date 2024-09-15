@@ -149,7 +149,7 @@ TEST_F(ShmemPrimitiveTest, ConvertToPythonObject)
 
     acc = double(12345678.9123456);
     double val = acc.operator py::float_().cast<double>();
-    EXPECT_DOUBLE_EQ(acc.operator py::float_().cast<double>(), 12345678.9123456);
+    EXPECT_DOUBLE_EQ(val, 12345678.9123456);
 
     acc = std::vector<float>(10, 1);
     EXPECT_EQ(py::cast<std::string>(py::str(acc.operator py::object())), "[1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]");

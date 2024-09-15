@@ -91,13 +91,13 @@ public:
         bool usePrimitiveIndex = false;
 
         // Deal with unresolved path
-        if (resolvedDepth != path.size())
+        if (static_cast<size_t>(resolvedDepth) != path.size())
         {
             // There are some path not resolved
             // The only case allowed is that the last element is a primitive, and the last path is an index on the primitive array
             if (obj != nullptr && isPrimitive(obj->type))
             {
-                if (resolvedDepth == path.size() - 1)
+                if (static_cast<size_t>(resolvedDepth) == path.size() - 1)
                 {
                     if (std::holds_alternative<int>(path[resolvedDepth]))
                     {
@@ -111,12 +111,12 @@ public:
                 }
                 else
                 {
-                    throw IndexError("Cannot index " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on primitive object");
+                    throw IndexError("Cannot index " + pathToString(path.data() + resolvedDepth, static_cast<int>(path.size()) - resolvedDepth) + " on primitive object");
                 }
             }
             else
             {
-                throw IndexError("Cannot index " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + obj->toString());
+                throw IndexError("Cannot index " + pathToString(path.data() + resolvedDepth, static_cast<int>(path.size()) - resolvedDepth) + " on object " + obj->toString());
             }
         }
 
@@ -129,7 +129,7 @@ public:
                     return pybind11::none();
                 }
             }
-            throw IndexError("Cannot index " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + prev->toString());
+            throw IndexError("Cannot index " + pathToString(path.data() + resolvedDepth, static_cast<int>(path.size()) - resolvedDepth) + " on object " + prev->toString());
         }
 
         // convert to target type
@@ -162,7 +162,7 @@ public:
         int resolvedDepth;
         resolvePath(prev, obj, resolvedDepth);
 
-        bool partiallyResolved = resolvedDepth != path.size();
+        bool partiallyResolved = static_cast<size_t>(resolvedDepth) != path.size();
 
         int primitiveIndex;
         bool usePrimitiveIndex = false;
@@ -172,7 +172,7 @@ public:
         if (partiallyResolved)
         {
             // Only one path element is unresolved
-            if (resolvedDepth == path.size() - 1)
+            if (static_cast<size_t>(resolvedDepth) == path.size() - 1)
             {
                 // Two cases:
                 // 1. The object is a primitive, and the last path is an index on the primitive array
@@ -183,7 +183,7 @@ public:
                 if (obj == nullptr)
                 {
                     // We want to add something to nullptr, which is impossible
-                    throw std::runtime_error("Cannot resolve " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on null object");
+                    throw std::runtime_error("Cannot resolve " + pathToString(path.data() + resolvedDepth, static_cast<int>(path.size()) - resolvedDepth) + " on null object");
                 }
                 else if (isPrimitive(obj->type))
                 {
@@ -203,12 +203,12 @@ public:
                 }
                 else
                 {
-                    throw std::runtime_error("Cannot resolve " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on List object " + obj->toString());
+                    throw std::runtime_error("Cannot resolve " + pathToString(path.data() + resolvedDepth, static_cast<int>(path.size()) - resolvedDepth) + " on List object " + obj->toString());
                 }
             }
             else
             {
-                throw std::runtime_error("Cannot resolve " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + obj->toString());
+                throw std::runtime_error("Cannot resolve " + pathToString(path.data() + resolvedDepth, static_cast<int>(path.size()) - resolvedDepth) + " on object " + obj->toString());
             }
         }
 
@@ -270,7 +270,7 @@ public:
         int resolvedDepth;
         resolvePath(prev, obj, resolvedDepth);
 
-        if (resolvedDepth != path.size())
+        if (static_cast<size_t>(resolvedDepth) != path.size())
         {
             return false;
         }
@@ -318,7 +318,7 @@ public:
         int resolvedDepth;
         resolvePath(prev, obj, resolvedDepth);
 
-        if (resolvedDepth != path.size())
+        if (static_cast<size_t>(resolvedDepth) != path.size())
         {
             return -1;
         }
@@ -349,7 +349,7 @@ public:
         int resolvedDepth;
         resolvePath(prev, obj, resolvedDepth);
 
-        if (resolvedDepth != path.size())
+        if (static_cast<size_t>(resolvedDepth) != path.size())
         {
             return -1;
         }
@@ -385,13 +385,13 @@ public:
         int resolvedDepth;
         resolvePath(prev, obj, resolvedDepth);
 
-        if (resolvedDepth != path.size())
+        if (static_cast<size_t>(resolvedDepth) != path.size())
         {
             if (obj == nullptr)
             {
                 throw std::runtime_error("Path resolution stopped at " + pathToString(path.data(), resolvedDepth) + " = nullptr");
             }
-            throw std::runtime_error("Path is not iterable: " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + obj->toString());
+            throw std::runtime_error("Path is not iterable: " + pathToString(path.data() + resolvedDepth, static_cast<int>(path.size()) - resolvedDepth) + " on object " + obj->toString());
         }
 
         if (obj == nullptr)
@@ -411,13 +411,13 @@ public:
         int resolvedDepth;
         resolvePath(prev, obj, resolvedDepth);
 
-        if (resolvedDepth != path.size())
+        if (static_cast<size_t>(resolvedDepth) != path.size())
         {
             if (obj == nullptr)
             {
                 throw std::runtime_error("Path resolution stopped at " + pathToString(path.data(), resolvedDepth) + " = nullptr");
             }
-            throw std::runtime_error("Path is not iterable: " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + obj->toString());
+            throw std::runtime_error("Path is not iterable: " + pathToString(path.data() + resolvedDepth, static_cast<int>(path.size()) - resolvedDepth) + " on object " + obj->toString());
         }
         if (obj == nullptr)
         {
@@ -494,9 +494,9 @@ public:
         int resolvedDepth;
         resolvePath(prev, obj, resolvedDepth);
 
-        if (resolvedDepth != path.size())
+        if (static_cast<size_t>(resolvedDepth) != path.size())
         {
-            throw std::runtime_error("Path is not iterable: " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + obj->toString());
+            throw std::runtime_error("Path is not iterable: " + pathToString(path.data() + resolvedDepth, static_cast<int>(path.size()) - resolvedDepth) + " on object " + obj->toString());
         }
 
         return this->operator[](obj->beginIdx());
@@ -508,9 +508,9 @@ public:
         int resolvedDepth;
         resolvePath(prev, obj, resolvedDepth);
 
-        if (resolvedDepth != path.size())
+        if (static_cast<size_t>(resolvedDepth) != path.size())
         {
-            throw std::runtime_error("Path is not iterable: " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + obj->toString());
+            throw std::runtime_error("Path is not iterable: " + pathToString(path.data() + resolvedDepth, static_cast<int>(path.size()) - resolvedDepth) + " on object " + obj->toString());
         }
 
         return this->operator[](obj->endIdx());
@@ -526,9 +526,9 @@ public:
         int resolvedDepth;
         resolvePath(prev, obj, resolvedDepth);
 
-        if (resolvedDepth != path.size())
+        if (static_cast<size_t>(resolvedDepth) != path.size())
         {
-            throw StopIteration("Path is not iterable: " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on object " + obj->toString());
+            throw StopIteration("Path is not iterable: " + pathToString(path.data() + resolvedDepth, static_cast<int>(path.size()) - resolvedDepth) + " on object " + obj->toString());
         }
 
         KeyType newIdx = obj->nextIdx(lastPath);
@@ -549,7 +549,7 @@ public:
         if (path.size() != acc.path.size())
             return false;
 
-        for (int i = 0; i < path.size(); i++)
+        for (size_t i = 0; i < path.size(); i++)
         {
             if (path[i] != acc.path[i])
                 return false;
@@ -654,11 +654,11 @@ public:
         bool usePrimitiveIndex = false;
 
         // Deal with unresolved path
-        if (resolvedDepth != path.size())
+        if (static_cast<size_t>(resolvedDepth) != path.size())
         {
             // There are some path not resolved
             // The only case allowed is that the last element is a primitive, and the last path is an index on the primitive array
-            if (resolvedDepth == path.size() - 1)
+            if (static_cast<size_t>(resolvedDepth) == path.size() - 1)
             {
                 if (isPrimitive(obj->type) && std::holds_alternative<int>(path[resolvedDepth]))
                 {
@@ -672,7 +672,7 @@ public:
             }
             else
             {
-                throw std::runtime_error("Cannot index " + pathToString(path.data() + resolvedDepth, path.size() - resolvedDepth) + " on primitive object");
+                throw std::runtime_error("Cannot index " + pathToString(path.data() + resolvedDepth, static_cast<int>(path.size()) - resolvedDepth) + " on primitive object");
             }
         }
 

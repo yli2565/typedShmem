@@ -30,7 +30,7 @@ size_t ShmemList::makeSpace(size_t listCapacity, ShmemHeap *heapPtr)
     ShmemList *ptr = static_cast<ShmemList *>(resolveOffset(offset, heapPtr));
 
     ptr->type = List;
-    ptr->size = listCapacity; // The size in ShmemObj is the capacity, the dynamic size is recorded in listSize
+    ptr->size = static_cast<int>(listCapacity); // The size in ShmemObj is the capacity, the dynamic size is recorded in listSize
 
     ptr->listSize = 0;
     ptr->listSpaceOffset = listSpaceOffset - offset; // The offset provided by shmalloc is relative to the heap head, we need to convert it to the offset relative to the list object
@@ -86,7 +86,7 @@ void ShmemList::deconstruct(size_t offset, ShmemHeap *heapPtr)
 {
     Byte *heapHead = heapPtr->heapHead();
     ShmemList *ptr = reinterpret_cast<ShmemList *>(heapHead + offset);
-    for (int i = 0; i < ptr->listSize; i++)
+    for (int i = 0; static_cast<size_t>(i) < ptr->listSize; i++)
     {
         ShmemObj *obj = ptr->getObj(i);
         ShmemObj::deconstruct(reinterpret_cast<Byte *>(obj) - heapHead, heapPtr);
@@ -113,7 +113,7 @@ void ShmemList::del(int index, ShmemHeap *heapPtr)
         ShmemObj::deconstruct(reinterpret_cast<Byte *>(victim) - heapPtr->heapHead(), heapPtr);
     }
 
-    for (int i = resolvedIndex; i < this->listSize - 1; i++)
+    for (int i = resolvedIndex; static_cast<size_t>(i) < this->listSize - 1; i++)
     {
         basePtr[i] = basePtr[i + 1];
     }
@@ -136,7 +136,7 @@ std::string ShmemList::toString(int indent, int maxElements) const
         result << indentStr << this->getObj(i)->toString(indent + 1) << "\n";
     }
 
-    if (this->listSize > maxElements)
+    if (this->listSize > static_cast<size_t>(maxElements))
     {
         result << indentStr << "...\n";
     }
@@ -148,7 +148,7 @@ std::string ShmemList::toString(int indent, int maxElements) const
 
 void ShmemList::resize(int newCapacity, ShmemHeap *heapPtr)
 {
-    if (potentialCapacity() < newCapacity)
+    if (potentialCapacity() < static_cast<size_t>(newCapacity))
     {
         uintptr_t oldListSpaceOffset = reinterpret_cast<Byte *>(this) - heapPtr->heapHead() + this->listSpaceOffset;
         size_t newListSpaceOffset = heapPtr->shrealloc(oldListSpaceOffset, newCapacity * sizeof(ptrdiff_t));
@@ -183,7 +183,7 @@ ShmemList *ShmemList::clear(ShmemHeap *heapPtr)
 {
     ptrdiff_t *basePtr = relativeOffsetPtr();
 
-    for (int i = 0; i < this->listSize; i++)
+    for (int i = 0; static_cast<size_t>(i) < this->listSize; i++)
     {
         if (basePtr[i] != NPtr)
         {

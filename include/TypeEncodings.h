@@ -424,7 +424,6 @@ constexpr bool isMapInitializerList()
     using mapPairType = typename unwrapInitializerListType<T>::type;
     if constexpr (isPair<mapPairType>::value)
     {
-        using keyType = typename mapPairType::first_type;
         if constexpr (std::is_same_v<T, int> || std::is_same_v<T, std::variant<int, std::string>> || isString<T>())
         {
             return true;

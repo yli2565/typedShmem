@@ -48,7 +48,8 @@ void ShmemObj::deconstruct(size_t offset, ShmemHeap *heapPtr)
 // __str__
 std::string ShmemObj::toString(int indent, int maxElements) const
 {
-    if (this == nullptr)
+    uintptr_t thisPtrVal = reinterpret_cast<uintptr_t>(this);
+    if (thisPtrVal == 0)
     {
         return "nullptr";
     }

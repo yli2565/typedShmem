@@ -256,11 +256,11 @@ Byte &ShmemBase::operator[](size_t i)
 Byte &ShmemBase::operator[](int i_)
 {
     checkConnection();
-    size_t i = i_;
+    int i = i_;
     if (i < 0)
-        i = usedSize + i; // Convert negative index to positive
-
-    return this->operator[](i);
+        return this->operator[](static_cast<size_t>(usedSize + i)); // Convert negative index to positive
+    else
+        return this->operator[](static_cast<size_t>(i));
 }
 
 void ShmemBase::setBytes(size_t index, const Byte *data, size_t len)
@@ -361,7 +361,6 @@ void ShmemBase::checkConnection()
         }
     }
 }
-
 
 // Naming Helpers
 std::string ShmemBase::counterSemName() const

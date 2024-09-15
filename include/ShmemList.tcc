@@ -89,7 +89,7 @@ bool ShmemList::contains(T value) const
 {
     const ptrdiff_t *basePtr = relativeOffsetPtr();
 
-    for (int i = 0; i < this->listSize; i++)
+    for (int i = 0; static_cast<size_t>(i) < this->listSize; i++)
     {
         ptrdiff_t offset = basePtr[i];
         if (offset != NPtr)
@@ -232,7 +232,7 @@ ShmemList::operator T() const
         T result;
         result.reserve(this->listSize);
 
-        for (int i = 0; i < this->listSize; i++)
+        for (int i = 0; static_cast<size_t>(i) < this->listSize; i++)
         {
             ShmemObj *target = const_cast<ShmemObj *>(reinterpret_cast<const ShmemObj *>(reinterpret_cast<const Byte *>(this) + basePtr[i]));
             result.push_back(target->operator vecDataType());
@@ -244,7 +244,7 @@ ShmemList::operator T() const
     {
         pybind11::list result;
 
-        for (int i = 0; i < this->listSize; i++)
+        for (int i = 0; static_cast<size_t>(i) < this->listSize; i++)
         {
             const ShmemObj *target = this->getObj(i);
             result.append(target->operator pybind11::object().ptr());

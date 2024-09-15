@@ -27,7 +27,10 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 
 # For courses (need to be strict)
 # set(CMAKE_C_EXTENSIONS ON)  # This enables the GNU extensions, equivalent to -std=gnu11
-# set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0 -g -Wall -Wextra -Werror -pedantic -Wno-unused-result -Wconversion") # More warnings
+# set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -pedantic -Wno-unused-result -Wconversion") # More warnings
+# set(CMAKE_CXX_EXTENSIONS ON)  # This enables the GNU extensions, equivalent to -std=gnu11
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic -Wno-unused-result -Wconversion") # More warnings
+
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -129,6 +132,7 @@ file(GLOB TEST_ONLY_SRC_FILES "${CMAKE_CURRENT_SOURCE_DIR}/test/*.cpp" "${CMAKE_
 # Target 1 - CXX lib (no main, static)
 set(CXX_LIB_NAME "${PROJECT_NAME}Lib")
 add_library(${CXX_LIB_NAME} STATIC ${CXX_LIB_SRC_FILES})
+target_compile_options(${CXX_LIB_NAME} PRIVATE -Wall -Wextra -pedantic -Wno-unused-result -Wconversion)
 target_include_directories(${CXX_LIB_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_link_libraries(${CXX_LIB_NAME} PRIVATE ${BASIC_DEPENDENT_LIBS})
 
@@ -140,6 +144,7 @@ target_link_libraries(${TEST_EXCUTABLE} PRIVATE ${CXX_LIB_NAME} ${BASIC_DEPENDEN
 # Target 3 - Pybind11 lib
 set(PYTHON_MODULE_NAME ${PROJECT_NAME}) # Name of the Python module
 python3_add_library(${PYTHON_MODULE_NAME} MODULE ${PYTHON_ONLY_SRC_FILES} WITH_SOABI)
+# target_compile_options(${PYTHON_MODULE_NAME} PRIVATE -Wall -Wextra -pedantic -Wno-unused-result -Wconversion)
 target_include_directories(${PYTHON_MODULE_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/python")
 target_link_libraries(${PYTHON_MODULE_NAME} PRIVATE ${CXX_LIB_NAME} ${BASIC_DEPENDENT_LIBS} ${PYTHON_PACKAGE_DEPENDENT_LIBS})
 target_compile_definitions(${PYTHON_MODULE_NAME} PRIVATE VERSION_INFO=${PROJECT_VERSION})

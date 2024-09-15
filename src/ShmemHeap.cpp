@@ -24,9 +24,9 @@ ShmemHeap::ShmemHeap(const std::string &name, size_t staticSpaceSize, size_t hea
 
 void ShmemHeap::create()
 {
-    if (this->SCap < this->minStaticSize || this->HCap == 0)
+    if (this->SCap < static_cast<size_t>(this->minStaticSize) || this->HCap == 0)
     {
-        if (this->SCap < this->minStaticSize)
+        if (this->SCap < static_cast<size_t>(this->minStaticSize))
             this->logger->error("SCap is too small. SCap: {} < minStaticSize: {}", this->SCap, this->minStaticSize);
         if (this->HCap == 0)
             this->logger->error("HCap is too small. HCap: {}", this->HCap);
@@ -51,13 +51,13 @@ void ShmemHeap::create()
     this->logger->info("Shared memory heap created. Static space capacity: {} heap capacity: {}", this->SCap, this->HCap);
 }
 
-void ShmemHeap::resize(int heapSize)
+void ShmemHeap::resize(long heapSize)
 {
     this->checkConnection();
     this->resize(this->staticCapacity_unsafe(), heapSize);
 }
 
-void ShmemHeap::resize(int staticSpaceSize, int heapSize)
+void ShmemHeap::resize(long staticSpaceSize, long heapSize)
 {
     this->checkConnection();
     if (staticSpaceSize == -1)
@@ -288,7 +288,7 @@ size_t ShmemHeap::shmalloc(size_t size)
 
         // update the best fit block
         // Size: requiredSize; Busy: 0; Previous Allocated: not changed; Allocated: 1
-        best->val() = requiredSize & ~0b100 | (best->size_BPA & 0b010) | 0b001;
+        best->val() = (requiredSize & ~0b100) | (best->size_BPA & 0b010) | 0b001;
 
         // update next block's p bit
         if (reinterpret_cast<Byte *>(best->getNextPtr()) < this->heapTail_unsafe())
@@ -374,7 +374,7 @@ size_t ShmemHeap::shrealloc(size_t offset, size_t size)
 
             // update the header block
             // Size: requiredSize; Busy: 0; Previous Allocated: not changed; Allocated: 1
-            header->val() = requiredSize & ~0b100 | (header->size_BPA & 0b010) | 0b001;
+            header->val() = (requiredSize & ~0b100) | (header->size_BPA & 0b010) | 0b001;
 
             this->logger->debug("shrealloc(offset={}, size={}) shrink current block from: {}A->{}A+{}E", offset, size, oldSize, requiredSize, oldSize - requiredSize);
         }
@@ -504,7 +504,7 @@ std::string ShmemHeap::briefLayoutStr()
 
     // Convert to string
     std::string layoutStr = "";
-    for (int i = 0; i < layout.size(); i++)
+    for (size_t i = 0; i < layout.size(); i++)
     {
         size_t size = layout[i];
         // (<size>A) or (<size>E) the second element is allocated bit
@@ -574,7 +574,7 @@ int ShmemHeap::shfreeHelper(Byte *ptr)
         size_t newSize = prevBlockSize + coalesceTarget->size();
 
         // Size: newSize; Busy: 1; Previous Allocated: not changed; Allocated: 0
-        prevBlockHeader->size_BPA = newSize | 0b100 | (prevBlockHeader->size_BPA & 0b010) & ~0b001;
+        prevBlockHeader->size_BPA = newSize | 0b100 | ((prevBlockHeader->size_BPA & 0b010) & ~0b001);
         newFooter->val() = newSize;
 
         // update free list ptr
@@ -634,7 +634,7 @@ bool ShmemHeap::verifyPayloadPtr(Byte *ptr)
 // Free list pointer manipulators
 void ShmemHeap::removeFreeBlock(BlockHeader *block)
 {
-    if (this->freeBlockListOffset_unsafe() == reinterpret_cast<Byte *>(block) - this->heapHead_unsafe())
+    if (this->freeBlockListOffset_unsafe() == static_cast<size_t>(reinterpret_cast<Byte *>(block) - this->heapHead_unsafe()))
     {
         if (block->getBckPtr() == block)
         {

@@ -3,7 +3,6 @@
 // ShmemDictNode methods
 size_t ShmemDictNode::construct(KeyType key, ShmemHeap *heapPtr)
 {
-    int hashKey = hashIntOrString(key);
     size_t offset = heapPtr->shmalloc(sizeof(ShmemDictNode));
     ShmemDictNode *ptr = static_cast<ShmemDictNode *>(resolveOffset(offset, heapPtr));
     ptr->type = DictNode;
@@ -155,9 +154,9 @@ int ShmemDictNode::hashedKey() const
 {
     int keyType = key()->type;
     if (keyType == Char)
-        return std::hash<std::string>{}(reinterpret_cast<const ShmemPrimitive<char> *>(key())->operator std::string());
+        return static_cast<int>(std::hash<std::string>{}(reinterpret_cast<const ShmemPrimitive<char> *>(key())->operator std::string()));
     else if (keyType == Int)
-        return std::hash<int>{}(reinterpret_cast<const ShmemPrimitive<int> *>(key())->operator int());
+        return static_cast<int>(std::hash<int>{}(reinterpret_cast<const ShmemPrimitive<int> *>(key())->operator int()));
     else
         throw std::runtime_error("Unknown key type");
 }
