@@ -100,7 +100,7 @@ inline T ShmemPrimitive_::get(int index) const
     std::transform(reinterpret_cast<const TYPE *>(this->getBytePtr()), reinterpret_cast<const TYPE *>(this->getBytePtr()) + this->size, result.begin(), \
                    [](TYPE value) { return static_cast<vecDataType>(value); });                                                                         \
     return result;
-            SWITCH_PRIMITIVE_TYPES(this->type, SHMEM_PRIMITIVE_CONVERT_VEC)
+            SWITCH_PRIMITIVE_TYPES(static_cast<int>(this->type), SHMEM_PRIMITIVE_CONVERT_VEC)
 
 #undef SHMEM_PRIMITIVE_CONVERT_VEC
         }
@@ -109,7 +109,7 @@ inline T ShmemPrimitive_::get(int index) const
 #define SHMEM_PRIMITIVE_CONVERT(TYPE) \
     return static_cast<T>(reinterpret_cast<const TYPE *>(this->getBytePtr())[this->resolveIndex(index)]);
 
-            SWITCH_PRIMITIVE_TYPES(this->type, SHMEM_PRIMITIVE_CONVERT)
+            SWITCH_PRIMITIVE_TYPES(static_cast<int>(this->type), SHMEM_PRIMITIVE_CONVERT)
 
 #undef SHMEM_PRIMITIVE_CONVERT
         }
@@ -254,7 +254,7 @@ inline void ShmemPrimitive_::set(const T &value, int index)
 #define SHMEM_CONVERT_PRIMITIVE(TYPE) \
     reinterpret_cast<TYPE *>(this->getBytePtr())[this->resolveIndex(index)] = static_cast<TYPE>(value);
 
-        SWITCH_PRIMITIVE_TYPES(this->type, SHMEM_CONVERT_PRIMITIVE)
+        SWITCH_PRIMITIVE_TYPES(static_cast<int>(this->type), SHMEM_CONVERT_PRIMITIVE)
 
 #undef SHMEM_CONVERT_PRIMITIVE
     }
@@ -285,7 +285,7 @@ inline void ShmemPrimitive_::del(int index)
     }                                                                            \
     reinterpret_cast<TYPE *>(ptr)[this->size - 1] = 0;
 
-    SWITCH_PRIMITIVE_TYPES(this->type, SHMEM_DEL_PRIMITIVE)
+    SWITCH_PRIMITIVE_TYPES(static_cast<int>(this->type), SHMEM_DEL_PRIMITIVE)
 
 #undef SHMEM_DEL_PRIMITIVE
 
@@ -313,7 +313,7 @@ inline bool ShmemPrimitive_::contains(T value) const
         }                                                                              \
     }
 
-        SWITCH_PRIMITIVE_TYPES(this->type, SHMEM_PRIMITIVE_COMP)
+        SWITCH_PRIMITIVE_TYPES(static_cast<int>(this->type), SHMEM_PRIMITIVE_COMP)
 
 #undef SHMEM_PRIMITIVE_COMP
     }
@@ -351,7 +351,7 @@ inline int ShmemPrimitive_::index(T value) const
         }                                                                        \
     }
 
-        SWITCH_PRIMITIVE_TYPES(this->type, SHMEM_PRIMITIVE_COMP)
+        SWITCH_PRIMITIVE_TYPES(static_cast<int>(this->type), SHMEM_PRIMITIVE_COMP)
 
 #undef SHMEM_PRIMITIVE_COMP
     }
@@ -414,13 +414,13 @@ inline bool ShmemPrimitive_::operator==(const T &val) const
         const Byte *valPtr = reinterpret_cast<const ShmemPrimitive_ *>(val)->getBytePtr();
 
 #define SHMEM_CMP_PRIMITIVE(TYPE)                                                                \
-    for (size_t i = 0; i < this->size; i++)                                                      \
+    for (size_t i = 0; i < static_cast<size_t>(this->size); i++)                                                      \
     {                                                                                            \
         if (reinterpret_cast<const TYPE *>(ptr)[i] != reinterpret_cast<const TYPE *>(valPtr)[i]) \
             return false;                                                                        \
     }
 
-        SWITCH_PRIMITIVE_TYPES(this->type, SHMEM_CMP_PRIMITIVE)
+        SWITCH_PRIMITIVE_TYPES(static_cast<int>(this->type), SHMEM_CMP_PRIMITIVE)
 
         return true;
 

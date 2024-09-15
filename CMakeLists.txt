@@ -134,7 +134,7 @@ set(CXX_LIB_NAME "${PROJECT_NAME}Lib")
 add_library(${CXX_LIB_NAME} STATIC ${CXX_LIB_SRC_FILES})
 target_compile_options(${CXX_LIB_NAME} PRIVATE -Wall -Wextra -pedantic -Wno-unused-result -Wconversion)
 target_include_directories(${CXX_LIB_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
-target_link_libraries(${CXX_LIB_NAME} PRIVATE ${BASIC_DEPENDENT_LIBS})
+target_link_libraries(${CXX_LIB_NAME} PUBLIC ${BASIC_DEPENDENT_LIBS})
 
 # Target 2 - CXX test executable
 set(TEST_EXCUTABLE "test")

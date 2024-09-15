@@ -375,10 +375,18 @@ struct unwrapPairType<std::pair<Key, T>>
 };
 
 template <typename T>
-constexpr std::string typeName()
-{
-    return std::string(abi::__cxa_demangle(typeid(T).name(), nullptr, nullptr, nullptr));
+std::string typeName() {
+    int status = 0;
+    // Demangle type name and manage memory with std::unique_ptr
+    std::unique_ptr<char, void(*)(void*)> res(
+        abi::__cxa_demangle(typeid(T).name(), nullptr, nullptr, &status),
+        std::free
+    );
+
+    // Check if demangling succeeded and return the appropriate name
+    return (status == 0) ? std::string(res.get()) : typeid(T).name();
 }
+
 
 template <typename T>
 constexpr bool isPrimitive()

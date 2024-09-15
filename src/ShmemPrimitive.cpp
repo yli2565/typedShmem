@@ -45,7 +45,7 @@ std::string ShmemPrimitive_::toString(int indent, int maxElements) const
             result.append(", ");                                               \
         }                                                                      \
     }
-        SWITCH_PRIMITIVE_TYPES(this->type, PRINT_OBJ)
+        SWITCH_PRIMITIVE_TYPES(static_cast<int>(this->type), PRINT_OBJ)
 
 #undef PRINT_OBJ
 
@@ -64,7 +64,7 @@ std::string ShmemPrimitive_::elementToString(int index) const
 #define ELEMENT_TO_STRING(TYPE) \
     return std::to_string(reinterpret_cast<const TYPE *>(this->getBytePtr())[this->resolveIndex(index)]);
 
-    SWITCH_PRIMITIVE_TYPES(this->type, ELEMENT_TO_STRING)
+    SWITCH_PRIMITIVE_TYPES(static_cast<int>(this->type), ELEMENT_TO_STRING)
 
 #undef ELEMENT_TO_STRING
 }

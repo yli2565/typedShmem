@@ -112,7 +112,7 @@ bool ShmemList::contains(T value) const
 template <typename T>
 int ShmemList::index(T value, int start, int end) const
 {
-    ptrdiff_t *basePtr = relativeOffsetPtr();
+    const ptrdiff_t *basePtr = relativeOffsetPtr();
 
     int trueStart = resolveIndex(start);
     int trueEnd = resolveIndex(end);
@@ -158,7 +158,7 @@ ShmemList *ShmemList::extend(const ShmemList *another, ShmemHeap *heapPtr)
         throw std::runtime_error("Can only extend a list with another list");
     }
 
-    resize(this->potentialCapacity() + another->potentialCapacity(), heapPtr);
+    resize(static_cast<int>(this->potentialCapacity() + another->potentialCapacity()), heapPtr);
 
     ptrdiff_t *basePtrEnd = relativeOffsetPtr() + this->listSize;
 
