@@ -64,8 +64,9 @@ PYBIND11_MODULE(TypedShmem, m)
                                 {
                                      return typeNames.at(self.typeId); // Access string representation
                                 })
-         .def_readonly("initialVal", &ShmemObjInitializer::initialVal); // Read-only access
-
+         .def_property_readonly("initialVal", [](ShmemObjInitializer &self)
+                                { return self.getInitialVal(); }); // Access initial value
+                                
      m.def("SDict", &SDict);
      m.def("SList", &SList);
 

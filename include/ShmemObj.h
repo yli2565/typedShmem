@@ -36,12 +36,15 @@ public:
     explicit StopIteration(const std::string &message) : std::runtime_error(message){};
 };
 
-class ShmemObjInitializer
-{
+class PYBIND11_EXPORT ShmemObjInitializer {
 public:
     const int typeId;
+
+    ShmemObjInitializer(int typeId, const pybind11::object &initialVal = pybind11::none());
+    pybind11::object getInitialVal() const;
+
+private:
     const pybind11::object initialVal;
-    ShmemObjInitializer(int typeId, const pybind11::object &initialVal = pybind11::none()) : typeId(typeId), initialVal(initialVal){};
 };
 
 class ShmemObj

@@ -91,7 +91,7 @@ size_t ShmemObj::construct(const T &value, ShmemHeap *heapPtr)
     }
     else if constexpr (std::is_same_v<pybind11::handle, T>)
     {
-        return ShmemObj::construct(pybind11::object(value, true), heapPtr);
+        return ShmemObj::construct(pybind11::reinterpret_borrow<pybind11::object>(value), heapPtr);
     }
     else if constexpr (std::is_base_of_v<pybind11::object, T>)
     { // Check underlying type
@@ -132,30 +132,31 @@ size_t ShmemObj::construct(const T &value, ShmemHeap *heapPtr)
     }
     else if constexpr (std::is_same_v<T, ShmemObjInitializer>)
     {
+        pybind11::object initialVal = pybind11::reinterpret_borrow<pybind11::object>(value.getInitialVal());
         if (value.typeId == List)
         {
-            if (pybind11::isinstance<pybind11::none>(value.initialVal))
+            if (pybind11::isinstance<pybind11::none>(initialVal))
                 return ShmemList::construct(std::vector<std::vector<int>>(), heapPtr);
             else
             {
-                if (!pybind11::isinstance<pybind11::list>(value.initialVal))
+                if (!pybind11::isinstance<pybind11::list>(initialVal))
                 {
                     throw std::runtime_error("Initializer's value and type mismatch");
                 }
-                return ShmemList::construct(pybind11::cast<pybind11::list>(value.initialVal), heapPtr);
+                return ShmemList::construct(pybind11::cast<pybind11::list>(initialVal), heapPtr);
             }
         }
         else if (value.typeId == Dict)
         {
-            if (pybind11::isinstance<pybind11::none>(value.initialVal))
+            if (pybind11::isinstance<pybind11::none>(initialVal))
                 return ShmemDict::construct(heapPtr);
             else
             {
-                if (!pybind11::isinstance<pybind11::dict>(value.initialVal))
+                if (!pybind11::isinstance<pybind11::dict>(initialVal))
                 {
                     throw std::runtime_error("Initializer's value and type mismatch");
                 }
-                return ShmemDict::construct(pybind11::cast<pybind11::dict>(value.initialVal), heapPtr);
+                return ShmemDict::construct(pybind11::cast<pybind11::dict>(initialVal), heapPtr);
             }
         }
 

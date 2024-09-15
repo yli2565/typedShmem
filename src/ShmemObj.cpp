@@ -1,6 +1,13 @@
 #include "ShmemObj.h"
 #include <cstring>
 #include <iostream>
+// ShmemInitializer functions
+
+ShmemObjInitializer::ShmemObjInitializer(int typeId, const pybind11::object &initialVal) : typeId(typeId), initialVal(initialVal) {}
+pybind11::object ShmemObjInitializer::getInitialVal() const
+{
+    return initialVal;
+}
 
 // ShmemObj methods
 
