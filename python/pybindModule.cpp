@@ -54,8 +54,12 @@ PYBIND11_MODULE(TypedShmem, m)
 
          .def("printShmHeap", &ShmemHeap::printShmHeap)
          .def("briefLayout", &ShmemHeap::briefLayout)
-         .def("briefLayoutStr", &ShmemHeap::briefLayoutStr);
-
+         .def("briefLayoutStr", &ShmemHeap::briefLayoutStr)
+          // Temporary Utils
+          .def("getCounterSemValue", &ShmemHeap::getCounterSemValue)
+          .def("postCounterSem", &ShmemHeap::postCounterSem)
+          .def("waitCounterSem", &ShmemHeap::waitCounterSem);
+          
      // Initializers
      py::class_<ShmemObjInitializer>(m, "ShmemObjInitializer")
          .def(py::init<int, pybind11::object>(), py::arg("typeId"), py::arg("initialVal"))

@@ -340,6 +340,23 @@ std::shared_ptr<spdlog::logger> &ShmemBase::getLogger()
 {
     return this->logger;
 }
+
+// Temporary Util functions
+int ShmemBase::getCounterSemValue() const
+{
+    return ShmemUtils::getSemValue(this->counterSem);
+}
+
+void ShmemBase::postCounterSem()
+{
+    ShmemUtils::postSem(this->counterSem);
+}
+
+void ShmemBase::waitCounterSem()
+{
+    ShmemUtils::waitSem(this->counterSem);
+}
+
 size_t ShmemBase::pad(size_t size, size_t align)
 {
     return (size + align - 1) & ~(align - 1);
@@ -421,6 +438,57 @@ sem_t *ShmemBase::connectWriteLock()
 
     this->logger->info("Connected to write lock semaphore {}: {}", writeLockName(), static_cast<void *>(this->writeLock));
     return this->writeLock;
+}
+
+void ShmemBase::borrow(const ShmemBase &other)
+{
+    if (this != &other)
+    {
+        try
+        {
+            this->close();
+            this->unlink();
+        }
+        catch (const std::exception &e)
+        {
+        }
+
+        this->name = other.name;
+        this->capacity = other.capacity;
+        this->connected = false;
+        this->ownShm = false;
+        this->usedSize = 0;
+        this->version = -1;
+
+        // init shared memory
+        this->shmFd = -1;
+        this->shmPtr = nullptr;
+
+        // init semaphores
+        this->counterSem = nullptr;
+        this->versionSem = nullptr;
+        this->writeLock = nullptr;
+
+        // switch logger
+        this->logger = spdlog::default_logger()->clone("ShmBase:" + this->name);
+        std::string pattern = "[" + std::to_string(getpid()) + "] [%n] %v";
+        this->logger->set_pattern(pattern);
+
+        // Ownership should be transferred
+        if (other.isConnected())
+        {
+            this->connect();
+        }
+    }
+}
+void ShmemBase::steal(ShmemBase &&other)
+{
+    if (this != &other)
+    {
+        borrow(other);
+        this->ownShm = true;
+        other.ownShm = false;
+    }
 }
 
 void ShmemBase::printMemoryView(size_t maxBytesToDisplay)

@@ -46,18 +46,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Ofast")
 # set(CMAKE_BUILD_TYPE Debug)
 message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 
-# < ====================================== Locate libraries ======================================= >
-# Add library subdirectory
-set(LIB_DIR "lib")
-# automaticly add lib subdirectories
-file(GLOB SUBDIRS "${CMAKE_CURRENT_SOURCE_DIR}/${LIB_DIR}/*")
-foreach(SUBDIR ${SUBDIRS})
-    if(IS_DIRECTORY ${SUBDIR})
-        add_subdirectory(${SUBDIR})
-        message(STATUS "Added ${SUBDIR} as subdirectory")
-    endif()
-endforeach()
-
+# < ====================================== Locate global libraries ======================================= >
 # Find python in current environment
 # Set conda environment path
 set(PYTHON_ENV_PATH "/home/Shared/conda_envs/TypedShmemTest") # Get with `conda env list`
@@ -84,10 +73,6 @@ else()
 endif()
 set(Python_INCLUDE_DIR "${PYTHON_ENV_PATH}/include/python${Python_VERSION}")
 
-# spdlog
-# As we are compiling spdlog - a shared library, we need to set the -fPIC
-set_target_properties(spdlog PROPERTIES POSITION_INDEPENDENT_CODE ON)
-
 # Find Python-dev
 find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
 include_directories(${Python3_INCLUDE_DIRS})
@@ -100,6 +85,23 @@ FetchContent_Declare(
   URL https://github.com/google/googletest/archive/03597a01ee50ed33e9dfd640b249b4be3799d395.zip
 )
 
+# < ====================================== Add subdirectory libraries ======================================= >
+# Add library subdirectory
+set(LIB_DIR "lib")
+# automaticly add lib subdirectories
+file(GLOB SUBDIRS "${CMAKE_CURRENT_SOURCE_DIR}/${LIB_DIR}/*")
+foreach(SUBDIR ${SUBDIRS})
+    if(IS_DIRECTORY ${SUBDIR})
+        add_subdirectory(${SUBDIR})
+        message(STATUS "Added ${SUBDIR} as subdirectory")
+    endif()
+endforeach()
+# spdlog
+# As we are compiling spdlog - a shared library, we need to set the -fPIC
+set_target_properties(spdlog PROPERTIES POSITION_INDEPENDENT_CODE ON)
+# set_target_properties(pybind11::pybind11 PROPERTIES POSITION_INDEPENDENT_CODE ON)
+# target_include_directories(pybind11::embed PRIVATE ${Python_INCLUDE_DIR})
+# < ====================================== Config libraries for each target ======================================= >
 set(BASIC_DEPENDENT_LIBS)
 set(PYTHON_PACKAGE_DEPENDENT_LIBS)
 set(CXX_TEST_DEPENDENT_LIBS)
@@ -108,7 +110,7 @@ set(CXX_TEST_DEPENDENT_LIBS)
 list(APPEND BASIC_DEPENDENT_LIBS "rt" "pthread")
 list(APPEND BASIC_DEPENDENT_LIBS spdlog::spdlog $<$<BOOL:${MINGW}>:ws2_32>)
 list(APPEND BASIC_DEPENDENT_LIBS ${Python3_LIBRARIES})
-list(APPEND BASIC_DEPENDENT_LIBS "pybind11::headers")
+list(APPEND BASIC_DEPENDENT_LIBS "pybind11::embed")
 
 # Python dependent libraries
 # list(APPEND PYTHON_PACKAGE_DEPENDENT_LIBS ${BASIC_DEPENDENT_LIBS})
@@ -134,7 +136,7 @@ set(CXX_LIB_NAME "${PROJECT_NAME}Lib")
 add_library(${CXX_LIB_NAME} STATIC ${CXX_LIB_SRC_FILES})
 set_target_properties(${CXX_LIB_NAME} PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_compile_options(${CXX_LIB_NAME} PRIVATE -Wall -Wextra -pedantic -Wno-unused-result -Wconversion)
-target_include_directories(${CXX_LIB_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_include_directories(${CXX_LIB_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${Python_INCLUDE_DIR}")
 target_link_libraries(${CXX_LIB_NAME} PUBLIC ${BASIC_DEPENDENT_LIBS})
 
 # Target 2 - CXX test executable

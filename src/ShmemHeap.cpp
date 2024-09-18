@@ -143,11 +143,11 @@ void ShmemHeap::resize(long staticSpaceSize, long heapSize)
     delete[] tempHeap;
 }
 
-size_t ShmemHeap::getHCap()
+size_t ShmemHeap::getHCap() const
 {
     return this->HCap;
 }
-size_t ShmemHeap::getSCap()
+size_t ShmemHeap::getSCap() const
 {
     return this->SCap;
 }
@@ -515,6 +515,27 @@ std::string ShmemHeap::briefLayoutStr()
     return layoutStr;
 }
 
+// Object transfer
+void ShmemHeap::borrow(const ShmemHeap &other)
+{
+    this->ShmemBase::borrow(other);
+
+    this->HCap = other.HCap;
+    this->SCap = other.SCap;
+    // init logger
+    this->logger = other.getLogger()->clone("ShmHeap:" + this->getName());
+}
+
+void ShmemHeap::steal(ShmemHeap &&other)
+{
+    this->ShmemBase::steal(std::move(other));
+
+    this->HCap = other.HCap;
+    this->SCap = other.SCap;
+    // init logger
+    this->logger = other.getLogger();
+}
+
 // Helper Methods
 int ShmemHeap::shfreeHelper(Byte *ptr)
 {
@@ -763,6 +784,11 @@ void ShmemHeap::setSCap(size_t size)
 }
 
 std::shared_ptr<spdlog::logger> &ShmemHeap::getLogger()
+{
+    return this->logger;
+}
+
+const std::shared_ptr<spdlog::logger> &ShmemHeap::getLogger() const
 {
     return this->logger;
 }

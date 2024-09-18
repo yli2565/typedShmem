@@ -236,3 +236,24 @@ class ShmemHeap(ShmemHeap_pybind11):
         :return: A string describing the layout of the heap.
         """
         return super().briefLayoutStr()
+
+    # Temporary Utils
+    def getCounterSemValue(self) -> int:
+        """
+        Get the value of the counter semaphore.
+
+        :return: Value of the counter semaphore.
+        """
+        return super().getCounterSemValue()
+
+    def postCounterSem (self) -> None:
+        """
+        Increase the counter semaphore by 1. (Post the semaphore)
+        """
+        return super().postCounterSem()
+    
+    def waitCounterSem (self) -> None:
+        """
+        Wait for the counter semaphore to be > 0.
+        """
+        return super().waitCounterSem()

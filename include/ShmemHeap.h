@@ -196,6 +196,8 @@ public:
     };
 
     // Constructor
+    ShmemHeap() : ShmemHeap("", DSCap, DHCap) {}
+    ShmemHeap(const ShmemHeap &other) : ShmemHeap(other.getName(), (const_cast<ShmemHeap &>(other)).staticCapacity(), (const_cast<ShmemHeap &>(other)).heapCapacity()) {}
     ShmemHeap(const std::string &name, size_t staticSpaceSize = DSCap, size_t heapSize = DHCap);
 
     /**
@@ -260,14 +262,14 @@ public:
      *
      * @return size_t purposed heap capacity
      */
-    size_t getHCap();
+    size_t getHCap() const;
 
     /**
      * @brief Check the current purposed static space capacity
      *
      * @return size_t purposed static space capacity
      */
-    size_t getSCap();
+    size_t getSCap() const;
 
     // Safe Getters (check shm connection)
 
@@ -354,6 +356,7 @@ public:
 
     // Utility Functions
     std::shared_ptr<spdlog::logger> &getLogger();
+    const std::shared_ptr<spdlog::logger> &getLogger() const;
 
     // Debug
     /**
@@ -373,6 +376,10 @@ public:
      * @note e.g. "256A, 128E, 64A, 32E, 16A, 8E, 4A, 2E, 1A" E-empty, A-allocated
      */
     std::string briefLayoutStr();
+
+    // TODO: Untested functions
+    void borrow(const ShmemHeap &heap);
+    void steal(ShmemHeap &&heap);
 
 protected:
     // Helpers

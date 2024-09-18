@@ -56,6 +56,10 @@ public:
 
     // Utility Functions
     std::shared_ptr<spdlog::logger> &getLogger();
+    int getCounterSemValue() const;
+    void postCounterSem();
+    void waitCounterSem();
+    
 
     // Setters
     void setCapacity(size_t capacity);
@@ -70,6 +74,12 @@ public:
 
     // Debug
     void printMemoryView(size_t maxBytesToDisplay = 16);
+
+    // TODO: Untested functions
+    // Ownership Management
+    void borrow(const ShmemBase &other);
+    void steal(ShmemBase &&other);
+    ShmemBase &operator=(const ShmemBase &other); // Default to steal
 
 protected:
     // Utility Functions

@@ -57,6 +57,7 @@ public:
     ShmemHeap *heapPtr;
     std::vector<KeyType> path;
 
+    ShmemAccessor(): heapPtr(nullptr) {};
     ShmemAccessor(ShmemHeap *heapPtr);
     ShmemAccessor(ShmemHeap *heapPtr, std::vector<KeyType> path);
 
