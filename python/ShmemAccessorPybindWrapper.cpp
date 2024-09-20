@@ -223,6 +223,6 @@ py::object ShmemAccessorWrapper::fetch() const
     }
     else
     {
-        throw std::runtime_error("Unknown type");
+        throw std::runtime_error("ShmemAccessorWrapper.fetch(): Unknown type: " + std::to_string(obj->type));
     }
 }

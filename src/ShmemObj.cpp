@@ -83,7 +83,7 @@ KeyType ShmemObj::beginIdx() const
     else if (this->type == Dict)
         return static_cast<const ShmemDict *>(this)->beginIdx();
     else
-        throw std::runtime_error("Unknown type");
+        throw std::runtime_error("ShmemObj::beginIdx(): Unknown type:" + std::to_string(this->type));
 }
 
 KeyType ShmemObj::endIdx() const
@@ -95,7 +95,7 @@ KeyType ShmemObj::endIdx() const
     else if (this->type == Dict)
         return static_cast<const ShmemDict *>(this)->endIdx();
     else
-        throw std::runtime_error("Unknown type");
+        throw std::runtime_error("ShmemObj::endIdx(): Unknown type:" + std::to_string(this->type));
 }
 
 KeyType ShmemObj::nextIdx(KeyType index) const
@@ -118,7 +118,7 @@ KeyType ShmemObj::nextIdx(KeyType index) const
     }
     else
     {
-        throw std::runtime_error("Unknown type");
+        throw std::runtime_error("ShmemObj::nextIdx(): Unknown type:" + std::to_string(this->type));
     }
 }
 
@@ -140,7 +140,7 @@ ShmemObj::operator pybind11::object() const
     }
     else
     {
-        throw std::runtime_error("Unknown type");
+        throw std::runtime_error("ShmemObj::operator pybind11::object(): Unknown type:" + std::to_string(this->type));
     }
 }
 

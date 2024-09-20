@@ -151,7 +151,7 @@ public:
         }
         else
         {
-            throw std::runtime_error("Unknown type");
+            throw std::runtime_error("ShmemAccessor.get(): Unknown type: "+std::to_string(obj->type));
         }
     }
 
@@ -338,7 +338,7 @@ public:
         }
         else
         {
-            throw std::runtime_error("Unknown type");
+            throw std::runtime_error("ShmemAccessor.index(): Unknown type: "+std::to_string(obj->type));
         }
     }
 
@@ -370,7 +370,7 @@ public:
         }
         else
         {
-            throw std::runtime_error("Unknown type");
+            throw std::runtime_error("ShmemAccessor.key(): Unknown type: "+std::to_string(obj->type));
         }
     }
 

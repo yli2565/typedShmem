@@ -14,98 +14,98 @@
 #include <pybind11/stl.h>
 
 // Macro for simplicity
-#define SWITCH_PRIMITIVE_TYPES(SWITCH_TARGET, OPERATION_FUNC) \
-    switch (SWITCH_TARGET)                                    \
-    {                                                         \
-    case Bool:                                                \
-        OPERATION_FUNC(bool)                                  \
-        break;                                                \
-    case Char:                                                \
-        OPERATION_FUNC(char)                                  \
-        break;                                                \
-    case UChar:                                               \
-        OPERATION_FUNC(unsigned char)                         \
-        break;                                                \
-    case Short:                                               \
-        OPERATION_FUNC(short)                                 \
-        break;                                                \
-    case UShort:                                              \
-        OPERATION_FUNC(unsigned short)                        \
-        break;                                                \
-    case Int:                                                 \
-        OPERATION_FUNC(int)                                   \
-        break;                                                \
-    case UInt:                                                \
-        OPERATION_FUNC(unsigned int)                          \
-        break;                                                \
-    case Long:                                                \
-        OPERATION_FUNC(long)                                  \
-        break;                                                \
-    case ULong:                                               \
-        OPERATION_FUNC(unsigned long)                         \
-        break;                                                \
-    case LongLong:                                            \
-        OPERATION_FUNC(long long)                             \
-        break;                                                \
-    case ULongLong:                                           \
-        OPERATION_FUNC(unsigned long long)                    \
-        break;                                                \
-    case Float:                                               \
-        OPERATION_FUNC(float)                                 \
-        break;                                                \
-    case Double:                                              \
-        OPERATION_FUNC(double)                                \
-        break;                                                \
-    default:                                                  \
-        throw std::runtime_error("Unknown type");             \
-        break;                                                \
+#define SWITCH_PRIMITIVE_TYPES(SWITCH_TARGET, OPERATION_FUNC)                                                 \
+    switch (SWITCH_TARGET)                                                                                    \
+    {                                                                                                         \
+    case Bool:                                                                                                \
+        OPERATION_FUNC(bool)                                                                                  \
+        break;                                                                                                \
+    case Char:                                                                                                \
+        OPERATION_FUNC(char)                                                                                  \
+        break;                                                                                                \
+    case UChar:                                                                                               \
+        OPERATION_FUNC(unsigned char)                                                                         \
+        break;                                                                                                \
+    case Short:                                                                                               \
+        OPERATION_FUNC(short)                                                                                 \
+        break;                                                                                                \
+    case UShort:                                                                                              \
+        OPERATION_FUNC(unsigned short)                                                                        \
+        break;                                                                                                \
+    case Int:                                                                                                 \
+        OPERATION_FUNC(int)                                                                                   \
+        break;                                                                                                \
+    case UInt:                                                                                                \
+        OPERATION_FUNC(unsigned int)                                                                          \
+        break;                                                                                                \
+    case Long:                                                                                                \
+        OPERATION_FUNC(long)                                                                                  \
+        break;                                                                                                \
+    case ULong:                                                                                               \
+        OPERATION_FUNC(unsigned long)                                                                         \
+        break;                                                                                                \
+    case LongLong:                                                                                            \
+        OPERATION_FUNC(long long)                                                                             \
+        break;                                                                                                \
+    case ULongLong:                                                                                           \
+        OPERATION_FUNC(unsigned long long)                                                                    \
+        break;                                                                                                \
+    case Float:                                                                                               \
+        OPERATION_FUNC(float)                                                                                 \
+        break;                                                                                                \
+    case Double:                                                                                              \
+        OPERATION_FUNC(double)                                                                                \
+        break;                                                                                                \
+    default:                                                                                                  \
+        throw std::runtime_error("SWITCH_PRIMITIVE_TYPES(): Unknown type: " + std::to_string(SWITCH_TARGET)); \
+        break;                                                                                                \
     }
 
-#define SWITCH_PRIMITIVE_TYPES_TO_PY(SWITCH_TARGET, OPERATION_FUNC) \
-    switch (SWITCH_TARGET)                                          \
-    {                                                               \
-    case Bool:                                                      \
-        OPERATION_FUNC(bool, pybind11::bool_)                       \
-        break;                                                      \
-    case Char:                                                      \
-        OPERATION_FUNC(std::string, pybind11::str)                  \
-        break;                                                      \
-    case UChar:                                                     \
-        OPERATION_FUNC(unsigned char, pybind11::int_)               \
-        break;                                                      \
-    case Short:                                                     \
-        OPERATION_FUNC(short, pybind11::int_)                       \
-        break;                                                      \
-    case UShort:                                                    \
-        OPERATION_FUNC(unsigned short, pybind11::int_)              \
-        break;                                                      \
-    case Int:                                                       \
-        OPERATION_FUNC(int, pybind11::int_)                         \
-        break;                                                      \
-    case UInt:                                                      \
-        OPERATION_FUNC(unsigned int, pybind11::int_)                \
-        break;                                                      \
-    case Long:                                                      \
-        OPERATION_FUNC(long, pybind11::int_)                        \
-        break;                                                      \
-    case ULong:                                                     \
-        OPERATION_FUNC(unsigned long, pybind11::int_)               \
-        break;                                                      \
-    case LongLong:                                                  \
-        OPERATION_FUNC(long long, pybind11::int_)                   \
-        break;                                                      \
-    case ULongLong:                                                 \
-        OPERATION_FUNC(unsigned long long, pybind11::int_)          \
-        break;                                                      \
-    case Float:                                                     \
-        OPERATION_FUNC(float, pybind11::float_)                     \
-        break;                                                      \
-    case Double:                                                    \
-        OPERATION_FUNC(double, pybind11::float_)                    \
-        break;                                                      \
-    default:                                                        \
-        throw std::runtime_error("Unknown type");                   \
-        break;                                                      \
+#define SWITCH_PRIMITIVE_TYPES_TO_PY(SWITCH_TARGET, OPERATION_FUNC)                                                 \
+    switch (SWITCH_TARGET)                                                                                          \
+    {                                                                                                               \
+    case Bool:                                                                                                      \
+        OPERATION_FUNC(bool, pybind11::bool_)                                                                       \
+        break;                                                                                                      \
+    case Char:                                                                                                      \
+        OPERATION_FUNC(std::string, pybind11::str)                                                                  \
+        break;                                                                                                      \
+    case UChar:                                                                                                     \
+        OPERATION_FUNC(unsigned char, pybind11::int_)                                                               \
+        break;                                                                                                      \
+    case Short:                                                                                                     \
+        OPERATION_FUNC(short, pybind11::int_)                                                                       \
+        break;                                                                                                      \
+    case UShort:                                                                                                    \
+        OPERATION_FUNC(unsigned short, pybind11::int_)                                                              \
+        break;                                                                                                      \
+    case Int:                                                                                                       \
+        OPERATION_FUNC(int, pybind11::int_)                                                                         \
+        break;                                                                                                      \
+    case UInt:                                                                                                      \
+        OPERATION_FUNC(unsigned int, pybind11::int_)                                                                \
+        break;                                                                                                      \
+    case Long:                                                                                                      \
+        OPERATION_FUNC(long, pybind11::int_)                                                                        \
+        break;                                                                                                      \
+    case ULong:                                                                                                     \
+        OPERATION_FUNC(unsigned long, pybind11::int_)                                                               \
+        break;                                                                                                      \
+    case LongLong:                                                                                                  \
+        OPERATION_FUNC(long long, pybind11::int_)                                                                   \
+        break;                                                                                                      \
+    case ULongLong:                                                                                                 \
+        OPERATION_FUNC(unsigned long long, pybind11::int_)                                                          \
+        break;                                                                                                      \
+    case Float:                                                                                                     \
+        OPERATION_FUNC(float, pybind11::float_)                                                                     \
+        break;                                                                                                      \
+    case Double:                                                                                                    \
+        OPERATION_FUNC(double, pybind11::float_)                                                                    \
+        break;                                                                                                      \
+    default:                                                                                                        \
+        throw std::runtime_error("SWITCH_PRIMITIVE_TYPES_TO_PY(): Unknown type: " + std::to_string(SWITCH_TARGET)); \
+        break;                                                                                                      \
     }
 
 #define SWITCH_PYTHON_OBJECT_TO_PRIMITIVE_BASE_CASE(SWITCH_TARGET, OPERATION_FUNC)                                                                                            \
@@ -375,18 +375,17 @@ struct unwrapPairType<std::pair<Key, T>>
 };
 
 template <typename T>
-std::string typeName() {
+std::string typeName()
+{
     int status = 0;
     // Demangle type name and manage memory with std::unique_ptr
-    std::unique_ptr<char, void(*)(void*)> res(
+    std::unique_ptr<char, void (*)(void *)> res(
         abi::__cxa_demangle(typeid(T).name(), nullptr, nullptr, &status),
-        std::free
-    );
+        std::free);
 
     // Check if demangling succeeded and return the appropriate name
     return (status == 0) ? std::string(res.get()) : typeid(T).name();
 }
-
 
 template <typename T>
 constexpr bool isPrimitive()
